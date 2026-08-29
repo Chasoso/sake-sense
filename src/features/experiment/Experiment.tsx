@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { createGesturePath, type GesturePoint } from "../../domain/gesture";
+import { extractVoiceFeatures, type VoiceFeatures, type VoiceSample } from "../../domain/voice";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -19,7 +20,27 @@ export function Experiment() {
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState<
+    "idle" | "recording" | "captured" | "unavailable" | "denied"
+  >("idle");
+  const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const capturedPointerId = useRef<number | null>(null);
+  const voiceStream = useRef<MediaStream | null>(null);
+  const voiceContext = useRef<AudioContext | null>(null);
+  const voiceAnalyser = useRef<AnalyserNode | null>(null);
+  const voiceSamples = useRef<VoiceSample[]>([]);
+  const voiceFirstFrame = useRef<number | null>(null);
+  const voiceElapsed = useRef(0);
+  const voiceFrame = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+      voiceStream.current?.getTracks().forEach((track) => track.stop());
+      void voiceContext.current?.close();
+    },
+    [],
+  );
 
   const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     if (capturedPointerId.current !== event.pointerId) return;
@@ -63,8 +84,74 @@ export function Experiment() {
     releasePointer(event);
   };
 
+  const sampleVoice = (timestamp: number) => {
+    const analyser = voiceAnalyser.current;
+    if (!analyser) return;
+    if (voiceFirstFrame.current === null) voiceFirstFrame.current = timestamp;
+    voiceElapsed.current = Math.max(timestamp - voiceFirstFrame.current, 0);
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    const level = Math.sqrt(
+      data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
+    );
+    voiceSamples.current.push({ t: voiceElapsed.current, level });
+    voiceFrame.current = requestAnimationFrame(sampleVoice);
+  };
+
+  const stopVoice = () => {
+    if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+    voiceFrame.current = null;
+    voiceStream.current?.getTracks().forEach((track) => track.stop());
+    voiceStream.current = null;
+    const context = voiceContext.current;
+    voiceContext.current = null;
+    void context?.close();
+    const features = extractVoiceFeatures(voiceSamples.current, voiceElapsed.current);
+    voiceAnalyser.current = null;
+    setVoiceFeatures(features);
+    setVoiceStatus("captured");
+  };
+
+  const startVoice = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+      setVoiceStatus("unavailable");
+      return;
+    }
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      context.createMediaStreamSource(stream).connect(analyser);
+      voiceStream.current = stream;
+      voiceContext.current = context;
+      voiceAnalyser.current = analyser;
+      voiceSamples.current = [];
+      voiceFirstFrame.current = null;
+      voiceElapsed.current = 0;
+      setVoiceFeatures(null);
+      setVoiceStatus("recording");
+      voiceFrame.current = requestAnimationFrame(sampleVoice);
+    } catch {
+      stream?.getTracks().forEach((track) => track.stop());
+      setVoiceStatus("denied");
+    }
+  };
+
+  const voiceLabel =
+    voiceStatus === "recording"
+      ? "Listening locally… click stop when finished"
+      : voiceStatus === "captured"
+        ? "Voice captured locally; no recording was saved"
+        : voiceStatus === "denied"
+          ? "Microphone permission was denied. Use the text fallback below."
+          : voiceStatus === "unavailable"
+            ? "Microphone is unavailable in this browser. Use the text fallback below."
+            : "Say a short sensory expression; the recording stays in this browser.";
+
   const analyze = () => {
-    const next = runLocalExperiment(expression, points);
+    const next = runLocalExperiment(expression || (voiceFeatures ? "voice input" : ""), points);
     if ("error" in next) {
       setError(next.error);
       setResult(null);
@@ -92,10 +179,21 @@ export function Experiment() {
       </header>
 
       <section className="experiment__grid" aria-label="感覚入力">
-        <label className="input-card">
-          <span className="input-card__step">01 · everyday expression</span>
-          <strong>感じた音・ことば</strong>
-          <span className="input-card__hint">例: スッ、じわ〜、ふわっ</span>
+        <label className="input-card input-card--voice">
+          <span className="input-card__step">01 · voice-first expression</span>
+          <strong>声で感じたことを話す</strong>
+          <span className="input-card__hint">
+            短い声の表現から始めます。音声は保存・uploadしません。
+          </span>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={voiceStatus === "recording" ? stopVoice : startVoice}
+          >
+            {voiceStatus === "recording" ? "音声入力を止める" : "音声入力を始める"}
+          </button>
+          <span className="input-card__hint">{voiceLabel}</span>
+          <span className="input-card__fallback">音声が使えない場合のテキスト fallback</span>
           <input
             value={expression}
             onChange={(event) => setExpression(event.target.value)}
@@ -106,9 +204,9 @@ export function Experiment() {
         </label>
 
         <div className="input-card">
-          <span className="input-card__step">02 · one pointer gesture</span>
-          <strong>ひと筆で描く</strong>
-          <span className="input-card__hint">速さや終わり方を手がかりにします</span>
+          <span className="input-card__step">02 · free movement</span>
+          <strong>自由な動きで表現する</strong>
+          <span className="input-card__hint">1〜2秒ほど、形・速さ・方向を自由に動かします</span>
           <svg
             className="gesture-pad"
             viewBox="0 0 320 160"
@@ -153,7 +251,7 @@ export function Experiment() {
           {error}
         </p>
       )}
-      {result && <Result result={result} />}
+      {result && <Result result={result} voiceFeatures={voiceFeatures} />}
 
       <footer className="experiment__footer">
         <strong>実験中の表示です。</strong>
@@ -166,7 +264,13 @@ export function Experiment() {
   );
 }
 
-function Result({ result }: { result: ExperimentResult }) {
+function Result({
+  result,
+  voiceFeatures,
+}: {
+  result: ExperimentResult;
+  voiceFeatures: VoiceFeatures | null;
+}) {
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
@@ -208,7 +312,11 @@ function Result({ result }: { result: ExperimentResult }) {
         <summary>開発者向けに計算過程を見る</summary>
         <pre>
           {JSON.stringify(
-            { gesture: result.gesture, representation: result.representation },
+            {
+              voice: voiceFeatures,
+              gesture: result.gesture,
+              representation: result.representation,
+            },
             null,
             2,
           )}

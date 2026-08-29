@@ -21,6 +21,7 @@ export type GestureFeatures = {
   pathLength: number;
   averageSpeed: number;
   spread: number;
+  directionChanges: number;
   endingSpeedRatio: number;
   abruptEnding: boolean;
 };
@@ -48,6 +49,7 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
       pathLength: 0,
       averageSpeed: 0,
       spread: 0,
+      directionChanges: 0,
       endingSpeedRatio: 0,
       abruptEnding: false,
     };
@@ -86,6 +88,17 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
   const representativeSpeed = median(earlierSpeeds);
   const endingSpeed = average(terminalSpeeds);
   const endingSpeedRatio = representativeSpeed > 0 ? endingSpeed / representativeSpeed : 0;
+  const directionChanges = points.slice(2).reduce((changes, point, index) => {
+    const previous = points[index];
+    const current = points[index + 1];
+    const previousDirection = Math.sign(current.x - previous.x);
+    const currentDirection = Math.sign(point.x - current.x);
+    return previousDirection !== 0 &&
+      currentDirection !== 0 &&
+      previousDirection !== currentDirection
+      ? changes + 1
+      : changes;
+  }, 0);
 
   return {
     pointCount: points.length,
@@ -93,6 +106,7 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
     pathLength,
     averageSpeed: durationMs > 0 ? pathLength / durationMs : 0,
     spread,
+    directionChanges,
     endingSpeedRatio,
     abruptEnding: representativeSpeed > 0 && endingSpeedRatio >= 0.75,
   };

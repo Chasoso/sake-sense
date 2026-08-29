@@ -94,6 +94,18 @@ h1 {
   color: #a9a093;
   font-size: 0.9rem;
 }
+.input-card--voice .primary-button {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.input-card__fallback {
+  color: #d4ad67;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+.input-card--voice input {
+  margin-top: 0;
+}
 input {
   width: 100%;
   margin-top: auto;
