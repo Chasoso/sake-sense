@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
-import type { GesturePoint } from "../../domain/gesture";
+import { createGesturePath, type GesturePoint } from "../../domain/gesture";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
+  const scaleX = rect.width > 0 ? 320 / rect.width : 1;
+  const scaleY = rect.height > 0 ? 160 / rect.height : 1;
   return {
-    x: Math.round(event.clientX - rect.left),
-    y: Math.round(event.clientY - rect.top),
-    t: Math.round(event.timeStamp),
+    x: Math.min(Math.max(Math.round((event.clientX - rect.left) * scaleX), 0), 320),
+    y: Math.min(Math.max(Math.round((event.clientY - rect.top) * scaleY), 0), 160),
+    t: Number.isFinite(event.timeStamp) ? Math.max(Math.round(event.timeStamp), 0) : 0,
   };
 }
 
@@ -17,9 +19,23 @@ export function Experiment() {
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
+  const capturedPointerId = useRef<number | null>(null);
+
+  const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (capturedPointerId.current !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    capturedPointerId.current = null;
+  };
 
   const startStroke = (event: React.PointerEvent<SVGSVGElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A lost pointer target should not prevent the local experiment from rendering.
+    }
+    capturedPointerId.current = event.pointerId;
     setDrawing(true);
     setPoints([pointFromEvent(event)]);
     setResult(null);
@@ -27,13 +43,22 @@ export function Experiment() {
   };
 
   const continueStroke = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (drawing) setPoints((current) => [...current, pointFromEvent(event)]);
+    if (drawing && capturedPointerId.current === event.pointerId) {
+      setPoints((current) => [...current, pointFromEvent(event)]);
+    }
   };
 
   const finishStroke = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (!drawing) return;
+    if (!drawing || capturedPointerId.current !== event.pointerId) return;
     setDrawing(false);
     setPoints((current) => [...current, pointFromEvent(event)]);
+    releasePointer(event);
+  };
+
+  const cancelStroke = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!drawing || capturedPointerId.current !== event.pointerId) return;
+    setDrawing(false);
+    releasePointer(event);
   };
 
   const analyze = () => {
@@ -54,9 +79,7 @@ export function Experiment() {
     setError("");
   };
 
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
+  const path = createGesturePath(points);
 
   return (
     <main className="experiment" aria-labelledby="experiment-title">
@@ -92,11 +115,11 @@ export function Experiment() {
             onPointerDown={startStroke}
             onPointerMove={continueStroke}
             onPointerUp={finishStroke}
-            onPointerCancel={finishStroke}
+            onPointerCancel={cancelStroke}
           >
             <rect width="320" height="160" rx="14" />
             {path ? (
-              <path d={path} className="gesture-pad__line" />
+              <path d={path} className="gesture-pad__line" fill="none" />
             ) : (
               <text x="160" y="88" textAnchor="middle">
                 ここに一筆

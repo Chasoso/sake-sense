@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractGestureFeatures, gestureToRepresentation, type GesturePoint } from "./gesture";
+import {
+  createGesturePath,
+  extractGestureFeatures,
+  gestureToRepresentation,
+  type GesturePoint,
+} from "./gesture";
 
 const shortSharpStroke: GesturePoint[] = [
   { x: 10, y: 40, t: 0 },
@@ -19,6 +24,16 @@ const longGradualStroke: GesturePoint[] = [
 ];
 
 describe("gesture feature extraction", () => {
+  it("creates a finite path constrained to the gesture pad", () => {
+    expect(
+      createGesturePath([
+        { x: 12, y: 20, t: 0 },
+        { x: Number.NaN, y: 40, t: 20 },
+        { x: 400, y: -10, t: 40 },
+      ]),
+    ).toBe("M 12 20 L 320 0");
+  });
+
   it("extracts deterministic duration, path, speed, spread, and ending features", () => {
     const features = extractGestureFeatures(shortSharpStroke);
 

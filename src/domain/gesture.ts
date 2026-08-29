@@ -4,6 +4,17 @@ export type GesturePoint = {
   t: number;
 };
 
+export function createGesturePath(points: GesturePoint[], width = 320, height = 160): string {
+  return points
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .map((point, index) => {
+      const x = Math.min(Math.max(point.x, 0), width);
+      const y = Math.min(Math.max(point.y, 0), height);
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
 export type GestureFeatures = {
   pointCount: number;
   durationMs: number;
