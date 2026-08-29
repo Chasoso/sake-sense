@@ -19,4 +19,6 @@ npm run dev
 
 Open the local URL printed by Vite. Run `npm run build` for a production build and `npm run typecheck` for strict TypeScript validation.
 
+Run `npm run validate` before opening a PR. It runs formatting, lint, typecheck, unit tests with coverage, build, and secret scanning. See [the validation policy](docs/development/validation-policy.md) for local hooks, CI, and deferred gates.
+
 The current structure and intentionally deferred decisions are documented in [the architecture notes](docs/architecture/README.md). Local startup has no AWS, backend, authentication, database, or external service dependency.
