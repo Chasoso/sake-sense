@@ -9,6 +9,8 @@
 
 This research spike defines an eight-entry, machine-readable v0.1 dictionary. It separates source-grounded sake terminology, beginner-facing language candidates, and experimental nonverbal candidates. The data is in [`sensory-dictionary.v0.1.json`](../../src/domain/data/sensory-dictionary.v0.1.json), with its structure in [`sensory-dictionary.schema.json`](../../schemas/sensory-dictionary.schema.json).
 
+The first local prototype now exercises one short flow: an everyday sensory expression plus one pointer stroke are converted into explainable features, the shared dimensions `shape` / `duration`, and one or more dictionary candidates. There is no network or LLM call. This prototype is an experiment and does not validate H001-H003.
+
 The proposed intermediate dimensions are deliberately small:
 
 - `weight`: light ↔ heavy
@@ -48,6 +50,15 @@ The candidate list in Issue #5 was not copied wholesale. Terms without a suffici
 ## Human experience observations
 
 Pending. A human should assess whether the retained terms are useful to beginners, whether the definitions are understandable without overclaiming, and whether the three dimensions feel like a plausible experiment rather than arbitrary scoring.
+
+For the local prototype, the review checklist is:
+
+- Can a first-time user understand the task without a long explanation?
+- Is entering an everyday expression and drawing one stroke comfortable?
+- Does the gesture-to-feature explanation feel understandable rather than magical?
+- Do multiple candidates and mixed signals communicate uncertainty clearly?
+- Does the short interaction feel interesting enough to repeat?
+- Does it motivate a next experiment without presenting a recommendation or diagnosis?
 
 ## Decision and learning
 

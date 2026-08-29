@@ -1,6 +1,5 @@
-import { getShellStatus } from "../domain/shell";
-import { Shell } from "../features/shell/Shell";
+import { Experiment } from "../features/experiment/Experiment";
 
 export function App() {
-  return <Shell status={getShellStatus()} />;
+  return <Experiment />;
 }
