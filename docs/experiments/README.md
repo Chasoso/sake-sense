@@ -34,3 +34,7 @@ Link the next Issue(s), if any.
 ```
 
 Do not silently delete failed experiments. Keep concise records even when a hypothesis is rejected so future work does not repeat the same assumption.
+
+## Records
+
+- [EXP-001 — Sensory dictionary v0.1 research spike](EXP-001-sensory-dictionary-v0.1.md)

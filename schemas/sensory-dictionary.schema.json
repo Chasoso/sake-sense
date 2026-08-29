@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "status", "dimensions", "entries"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1.0" },
+    "status": { "type": "string", "const": "experimental" },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "polarities", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "label": { "type": "string", "minLength": 1 },
+          "polarities": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "status": { "type": "string", "enum": ["experimental"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "displayTerm",
+          "definitionSummary",
+          "mappingStatus",
+          "dimensions",
+          "everydayLanguageCandidates",
+          "nonverbalCandidates",
+          "provenance",
+          "confidenceStatus",
+          "notes"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "displayTerm": { "type": "string", "minLength": 1 },
+          "definitionSummary": { "type": "string", "minLength": 1 },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["dimensionId", "polarity"],
+              "properties": {
+                "dimensionId": { "type": "string" },
+                "polarity": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "mappingStatus": { "type": "string", "enum": ["mapped", "unmapped"] },
+          "everydayLanguageCandidates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["text", "status"],
+              "properties": {
+                "text": { "type": "string", "minLength": 1 },
+                "status": {
+                  "type": "string",
+                  "enum": ["source-supported", "inferred-from-examples", "experimental"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "nonverbalCandidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "feature", "status"],
+              "properties": {
+                "kind": { "type": "string", "enum": ["onomatopoeia", "gesture", "sound-rhythm"] },
+                "feature": { "type": "string", "minLength": 1 },
+                "status": { "type": "string", "const": "experimental" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "provenance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["sourceId", "sourceType", "url", "accessedOn", "transformationNote"],
+              "properties": {
+                "sourceId": { "type": "string", "minLength": 1 },
+                "sourceType": { "type": "string", "minLength": 1 },
+                "url": { "type": "string", "format": "uri" },
+                "accessedOn": { "type": "string", "format": "date" },
+                "transformationNote": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "confidenceStatus": {
+            "type": "string",
+            "enum": ["source-supported", "inferred-from-examples", "experimental"]
+          },
+          "notes": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false,
+        "if": {
+          "properties": { "mappingStatus": { "const": "mapped" } }
+        },
+        "then": {
+          "properties": { "dimensions": { "type": "array", "minItems": 1 } }
+        },
+        "else": {
+          "properties": { "dimensions": { "type": "array", "maxItems": 0 } }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
