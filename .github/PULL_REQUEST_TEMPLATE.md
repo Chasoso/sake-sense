@@ -36,4 +36,4 @@
 - [ ] I reviewed the complete diff for scope creep, accidental files, debug code, TODOs, and secrets.
 - [ ] I did not weaken tests or rules to make validation pass.
 - [ ] No production credentials or secrets are included.
-- [ ] This PR does not change product vision, materially change the UX concept, add an unauthorized external service, change AWS/auth architecture, or perform an irreversible action.
+- [ ] This PR does not make unauthorized changes to product vision, UX concept, external services, AWS/auth architecture, or irreversible behavior.
