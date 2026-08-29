@@ -12,8 +12,8 @@ export function Shell({ status }: ShellProps) {
         <h1 id="shell-title">{status.name}</h1>
         <p className="shell__message">{status.message}</p>
         <p className="shell__note">
-          Product experiments will take shape here. This placeholder intentionally
-          keeps the final experience open.
+          Product experiments will take shape here. This placeholder intentionally keeps the final
+          experience open.
         </p>
       </div>
     </main>
