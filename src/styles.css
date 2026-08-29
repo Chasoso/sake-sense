@@ -103,6 +103,26 @@ h1 {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
 }
+.voice-visualizer {
+  align-items: center;
+  background: #201c18;
+  border: 1px solid #6f5b3e;
+  border-radius: 999px;
+  display: flex;
+  height: 2rem;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  padding: 0.25rem 0.5rem;
+}
+.voice-visualizer__level {
+  background: #d4ad67;
+  border-radius: 999px;
+  height: 100%;
+  min-width: 0.25rem;
+  transform-origin: center;
+  transition: transform 80ms linear;
+  width: 100%;
+}
 .input-card--voice input {
   margin-top: 0;
 }

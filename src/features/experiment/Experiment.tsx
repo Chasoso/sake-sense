@@ -2,14 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { createGesturePath, type GesturePoint } from "../../domain/gesture";
 import { extractVoiceFeatures, type VoiceFeatures, type VoiceSample } from "../../domain/voice";
+import { clientToViewBoxPoint } from "./coordinate";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
   const scaleX = rect.width > 0 ? 320 / rect.width : 1;
   const scaleY = rect.height > 0 ? 160 / rect.height : 1;
+  const fallback = {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
+  };
+  const ctm = event.currentTarget.getScreenCTM();
+  const point = clientToViewBoxPoint(
+    event.clientX,
+    event.clientY,
+    ctm ? { a: ctm.a, b: ctm.b, c: ctm.c, d: ctm.d, e: ctm.e, f: ctm.f } : null,
+    fallback,
+  );
   return {
-    x: Math.min(Math.max(Math.round((event.clientX - rect.left) * scaleX), 0), 320),
-    y: Math.min(Math.max(Math.round((event.clientY - rect.top) * scaleY), 0), 160),
+    x: Math.round(point.x),
+    y: Math.round(point.y),
     t: Number.isFinite(event.timeStamp) ? Math.max(Math.round(event.timeStamp), 0) : 0,
   };
 }
@@ -24,6 +36,7 @@ export function Experiment() {
     "idle" | "recording" | "captured" | "unavailable" | "denied"
   >("idle");
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
+  const [voiceLevel, setVoiceLevel] = useState(0);
   const capturedPointerId = useRef<number | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
@@ -94,6 +107,7 @@ export function Experiment() {
     const level = Math.sqrt(
       data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
     );
+    setVoiceLevel(level);
     voiceSamples.current.push({ t: voiceElapsed.current, level });
     voiceFrame.current = requestAnimationFrame(sampleVoice);
   };
@@ -108,6 +122,7 @@ export function Experiment() {
     void context?.close();
     const features = extractVoiceFeatures(voiceSamples.current, voiceElapsed.current);
     voiceAnalyser.current = null;
+    setVoiceLevel(0);
     setVoiceFeatures(features);
     setVoiceStatus("captured");
   };
@@ -130,11 +145,13 @@ export function Experiment() {
       voiceSamples.current = [];
       voiceFirstFrame.current = null;
       voiceElapsed.current = 0;
+      setVoiceLevel(0);
       setVoiceFeatures(null);
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
+      setVoiceLevel(0);
       setVoiceStatus("denied");
     }
   };
@@ -162,10 +179,23 @@ export function Experiment() {
   };
 
   const reset = () => {
+    if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+    voiceFrame.current = null;
+    voiceStream.current?.getTracks().forEach((track) => track.stop());
+    voiceStream.current = null;
+    void voiceContext.current?.close();
+    voiceContext.current = null;
+    voiceAnalyser.current = null;
+    voiceSamples.current = [];
+    voiceFirstFrame.current = null;
+    voiceElapsed.current = 0;
     setExpression("");
     setPoints([]);
     setResult(null);
     setError("");
+    setVoiceLevel(0);
+    setVoiceFeatures(null);
+    setVoiceStatus("idle");
   };
 
   const path = createGesturePath(points);
@@ -173,7 +203,7 @@ export function Experiment() {
   return (
     <main className="experiment" aria-labelledby="experiment-title">
       <header className="experiment__header">
-        <p className="experiment__eyebrow">EXP-001 · local experiment</p>
+        <p className="experiment__eyebrow">EXP-002 · local experiment</p>
         <h1 id="experiment-title">感覚を、ことばの入口へ。</h1>
         <p>専門用語ではなく、あなたの感じた音や動きから始める 30〜60 秒の小さな実験です。</p>
       </header>
@@ -193,6 +223,14 @@ export function Experiment() {
             {voiceStatus === "recording" ? "音声入力を止める" : "音声入力を始める"}
           </button>
           <span className="input-card__hint">{voiceLabel}</span>
+          {voiceStatus === "recording" && (
+            <div className="voice-visualizer" role="status" aria-label="音声レベルを表示中">
+              <span
+                className="voice-visualizer__level"
+                style={{ transform: `scaleY(${Math.min(Math.max(voiceLevel * 8, 0.12), 1)})` }}
+              />
+            </div>
+          )}
           <span className="input-card__fallback">音声が使えない場合のテキスト fallback</span>
           <input
             value={expression}
