@@ -5,7 +5,7 @@ import type { GesturePoint } from "./gesture";
 const shortSharpStroke: GesturePoint[] = [
   { x: 10, y: 40, t: 0 },
   { x: 80, y: 40, t: 100 },
-  { x: 90, y: 40, t: 120 },
+  { x: 160, y: 40, t: 120 },
 ];
 
 describe("EXP-001 deterministic pipeline", () => {
