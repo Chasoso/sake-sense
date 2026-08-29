@@ -10,6 +10,42 @@ import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
+function candidateExplanation(
+  matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals",
+  dimensionText: string,
+  hasVoiceSignal: boolean,
+  hasGestureSignal: boolean,
+): string {
+  if (matchedBy === "expression") return "入力された日常語からの実験的な候補です。";
+  if (matchedBy === "voice") {
+    return `声の長さから ${dimensionText} という実験的な手がかりで候補になりました。`;
+  }
+  if (matchedBy === "gesture") {
+    return `動きから ${dimensionText} という手がかりで候補になりました。`;
+  }
+  if (matchedBy === "multiple-signals") {
+    return `声と動きの両方が ${dimensionText} という手がかりで重なりました。`;
+  }
+  const sources = [hasVoiceSignal ? "声" : "", hasGestureSignal ? "動き" : ""]
+    .filter(Boolean)
+    .join("と");
+  return `入力された表現と${sources}が ${dimensionText} という手がかりで重なりました。`;
+}
+
+function hasDurationConflict(
+  gestureRepresentation: GestureRepresentation,
+  voiceRepresentation: GestureRepresentation | null,
+): boolean {
+  if (!voiceRepresentation) return false;
+  return voiceRepresentation.dimensions.some((voiceDimension) =>
+    gestureRepresentation.dimensions.some(
+      (gestureDimension) =>
+        gestureDimension.dimensionId === voiceDimension.dimensionId &&
+        gestureDimension.polarity !== voiceDimension.polarity,
+    ),
+  );
+}
+
 export type ExperimentResult = {
   expression: string;
   inputSource: "text" | "voice";
@@ -21,7 +57,13 @@ export type ExperimentResult = {
     matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals";
     explanation: string;
   }>;
-  interpretation: "aligned" | "mixed-signals" | "gesture-only" | "no-match";
+  interpretation:
+    | "aligned"
+    | "mixed-signals"
+    | "gesture-only"
+    | "voice-only"
+    | "voice-and-gesture"
+    | "no-match";
   message: string;
 };
 
@@ -113,7 +155,10 @@ export function runLocalExperiment(
               ? "入力された日常語からの実験的な候補です。"
               : `ジェスチャーから ${dimensionText} という手がかりで候補になりました。`,
       },
-    ];
+    ].map((candidate) => ({
+      ...candidate,
+      explanation: candidateExplanation(matchedBy, dimensionText, hasVoiceSignal, hasGestureSignal),
+    }));
   });
 
   const hasExpression = expressionIds.length > 0;
@@ -121,18 +166,24 @@ export function runLocalExperiment(
   const hasVoice = voiceIds.length > 0;
   const hasSignal = hasGesture || hasVoice;
   const overlap = expressionIds.some((id) => signalIds.includes(id));
-  const signalsConflict = hasGesture && hasVoice && gestureIds.some((id) => !voiceIds.includes(id));
+  const signalsConflict = hasDurationConflict(gestureRepresentation, voiceRepresentation);
   const interpretation = !candidates.length
     ? "no-match"
-    : !hasExpression
+    : hasVoice && hasGesture
       ? signalsConflict
         ? "mixed-signals"
-        : "gesture-only"
-      : overlap
-        ? "aligned"
-        : hasSignal
-          ? "mixed-signals"
-          : "aligned";
+        : hasExpression && overlap
+          ? "aligned"
+          : "voice-and-gesture"
+      : !hasExpression
+        ? hasVoice
+          ? "voice-only"
+          : "gesture-only"
+        : overlap
+          ? "aligned"
+          : hasSignal
+            ? "mixed-signals"
+            : "aligned";
   const message =
     interpretation === "mixed-signals"
       ? "二つの入力は異なる手がかりを示しています。ひとつの正解に決めず、候補を並べて見てください。"

@@ -36,6 +36,8 @@ describe("EXP-001 deterministic pipeline", () => {
     if ("error" in result) return;
     expect(result.candidates[0].entry.id).toBe("kire");
     expect(result.candidates[0].matchedBy).toBe("both");
+    expect(result.candidates[0].explanation).toContain("動き");
+    expect(result.candidates[0].explanation).not.toContain("ジェスチャーから");
     expect(result.interpretation).toBe("aligned");
   });
 
@@ -65,6 +67,7 @@ describe("EXP-001 deterministic pipeline", () => {
     if ("error" in result) return;
     expect(result.interpretation).toBe("gesture-only");
     expect(result.message).not.toContain("%");
+    expect(result.candidates[0].explanation).toContain("動きから");
   });
 
   it("connects voice duration to the existing duration representation", () => {
@@ -92,6 +95,21 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.candidates.find((candidate) => candidate.entry.id === "kire")?.matchedBy).toBe(
       "multiple-signals",
     );
+    expect(result.interpretation).toBe("voice-and-gesture");
+    expect(
+      result.candidates.find((candidate) => candidate.entry.id === "kire")?.explanation,
+    ).toContain("声と動きの両方");
+  });
+
+  it("attributes a candidate supported only by voice to voice", () => {
+    const result = runLocalExperiment("", longGradualStroke, shortVoice);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    const voiceCandidate = result.candidates.find((candidate) => candidate.entry.id === "kire");
+    expect(voiceCandidate?.matchedBy).toBe("voice");
+    expect(voiceCandidate?.explanation).toContain("声の長さ");
+    expect(voiceCandidate?.explanation).not.toContain("動きから");
   });
 
   it("keeps conflicting voice and gesture duration hints visible", () => {
