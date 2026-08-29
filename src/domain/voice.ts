@@ -1,3 +1,5 @@
+import type { GestureRepresentation } from "./gesture";
+
 export type VoiceSample = {
   t: number;
   level: number;
@@ -38,6 +40,22 @@ export function extractVoiceFeatures(samples: VoiceSample[], durationMs: number)
     averageIntensity,
     pauseCount,
     endingBehavior,
+  };
+}
+
+export function voiceToRepresentation(features: VoiceFeatures): GestureRepresentation {
+  if (features.durationMs <= 0) return { dimensions: [], tags: [] };
+
+  const isShort = features.durationMs <= 700;
+  return {
+    dimensions: [
+      {
+        dimensionId: "duration",
+        polarity: isShort ? "short" : "lingering",
+        reason: `voice duration ${features.durationMs}ms (experimental hint)`,
+      },
+    ],
+    tags: [isShort ? "voice-short" : "voice-lingering"],
   };
 }
 

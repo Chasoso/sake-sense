@@ -44,6 +44,7 @@ describe("gesture feature extraction", () => {
       abruptEnding: true,
     });
     expect(features.averageSpeed).toBeCloseTo(150 / 120);
+    expect(features.horizontalDirectionChanges).toBe(0);
     expect(gestureToRepresentation(features).dimensions).toEqual([
       expect.objectContaining({ dimensionId: "duration", polarity: "short" }),
       expect.objectContaining({ dimensionId: "shape", polarity: "sharp" }),
@@ -112,5 +113,16 @@ describe("gesture feature extraction", () => {
     expect(sparseGradual.abruptEnding).toBe(denseGradual.abruptEnding);
     expect(sparseAbrupt.abruptEnding).toBe(true);
     expect(sparseGradual.abruptEnding).toBe(false);
+  });
+
+  it("counts horizontal direction changes without claiming 2D analysis", () => {
+    const features = extractGestureFeatures([
+      { x: 0, y: 0, t: 0 },
+      { x: 20, y: 40, t: 100 },
+      { x: 10, y: 80, t: 200 },
+      { x: 30, y: 120, t: 300 },
+    ]);
+
+    expect(features.horizontalDirectionChanges).toBe(2);
   });
 });

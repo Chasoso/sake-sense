@@ -6,16 +6,19 @@ import {
   type GestureRepresentation,
 } from "./gesture";
 import type { GestureFeatures } from "./gesture";
+import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
 export type ExperimentResult = {
   expression: string;
+  inputSource: "text" | "voice";
+  voiceFeatures: VoiceFeatures | null;
   gesture: GestureFeatures;
   representation: GestureRepresentation;
   candidates: Array<{
     entry: DictionaryEntry;
-    matchedBy: "expression" | "gesture" | "both";
+    matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals";
     explanation: string;
   }>;
   interpretation: "aligned" | "mixed-signals" | "gesture-only" | "no-match";
@@ -59,27 +62,43 @@ function gestureCandidateIds(representation: GestureRepresentation): string[] {
 export function runLocalExperiment(
   expression: string,
   points: GesturePoint[],
+  voiceFeatures: VoiceFeatures | null = null,
 ): ExperimentResult | { error: string } {
+  const suppliedExpression = expression;
+  if (voiceFeatures && !expression.trim()) expression = "\u200b";
   if (!expression.trim()) return { error: "まず、音や感覚を表す短い言葉を入力してください。" };
   if (points.length < 2) return { error: "ポインターを一筆描いてから試してください。" };
 
   const gesture = extractGestureFeatures(points);
-  const representation = gestureToRepresentation(gesture);
+  const gestureRepresentation = gestureToRepresentation(gesture);
+  const voiceRepresentation = voiceFeatures ? voiceToRepresentation(voiceFeatures) : null;
+  const representation: GestureRepresentation = {
+    dimensions: [...gestureRepresentation.dimensions, ...(voiceRepresentation?.dimensions ?? [])],
+    tags: [...new Set([...gestureRepresentation.tags, ...(voiceRepresentation?.tags ?? [])])],
+  };
   const expressionIds = expressionCandidateIds(expression);
-  const gestureIds = gestureCandidateIds(representation);
-  const allIds = [...new Set([...expressionIds, ...gestureIds])];
+  const gestureIds = gestureCandidateIds(gestureRepresentation);
+  const voiceIds = voiceRepresentation ? gestureCandidateIds(voiceRepresentation) : [];
+  const signalIds = [...new Set([...gestureIds, ...voiceIds])];
+  const allIds = [...new Set([...expressionIds, ...signalIds])];
   const entryById = new Map(dictionaryData.entries.map((entry) => [entry.id, entry]));
   const expressionSet = new Set(expressionIds);
   const gestureSet = new Set(gestureIds);
   const candidates = allIds.flatMap((id) => {
     const entry = entryById.get(id);
     if (!entry || entry.mappingStatus !== "mapped") return [];
-    const matchedBy: "expression" | "gesture" | "both" =
-      expressionSet.has(id) && gestureSet.has(id)
+    const hasGestureSignal = gestureSet.has(id);
+    const hasVoiceSignal = voiceIds.includes(id);
+    const matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals" =
+      expressionSet.has(id) && (hasGestureSignal || hasVoiceSignal)
         ? "both"
         : expressionSet.has(id)
           ? "expression"
-          : "gesture";
+          : hasGestureSignal && hasVoiceSignal
+            ? "multiple-signals"
+            : hasVoiceSignal
+              ? "voice"
+              : "gesture";
     const dimensionText = entry.dimensions
       .map((dimension) => `${dimension.dimensionId}:${dimension.polarity}`)
       .join(", ");
@@ -99,14 +118,19 @@ export function runLocalExperiment(
 
   const hasExpression = expressionIds.length > 0;
   const hasGesture = gestureIds.length > 0;
-  const overlap = expressionIds.some((id) => gestureSet.has(id));
+  const hasVoice = voiceIds.length > 0;
+  const hasSignal = hasGesture || hasVoice;
+  const overlap = expressionIds.some((id) => signalIds.includes(id));
+  const signalsConflict = hasGesture && hasVoice && gestureIds.some((id) => !voiceIds.includes(id));
   const interpretation = !candidates.length
     ? "no-match"
     : !hasExpression
-      ? "gesture-only"
+      ? signalsConflict
+        ? "mixed-signals"
+        : "gesture-only"
       : overlap
         ? "aligned"
-        : hasGesture
+        : hasSignal
           ? "mixed-signals"
           : "aligned";
   const message =
@@ -116,5 +140,14 @@ export function runLocalExperiment(
         ? "今回の小さな辞書では直接の候補が見つかりませんでした。これは失敗ではなく、辞書の範囲を示す結果です。"
         : "これは候補 translation です。入力した感覚やあなた自身を断定するものではありません。";
 
-  return { expression, gesture, representation, candidates, interpretation, message };
+  return {
+    expression: suppliedExpression,
+    inputSource: suppliedExpression.trim() ? "text" : "voice",
+    voiceFeatures,
+    gesture,
+    representation,
+    candidates,
+    interpretation,
+    message,
+  };
 }

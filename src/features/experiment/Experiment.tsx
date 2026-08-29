@@ -151,7 +151,7 @@ export function Experiment() {
             : "Say a short sensory expression; the recording stays in this browser.";
 
   const analyze = () => {
-    const next = runLocalExperiment(expression || (voiceFeatures ? "voice input" : ""), points);
+    const next = runLocalExperiment(expression, points, voiceFeatures);
     if ("error" in next) {
       setError(next.error);
       setResult(null);
@@ -251,7 +251,7 @@ export function Experiment() {
           {error}
         </p>
       )}
-      {result && <Result result={result} voiceFeatures={voiceFeatures} />}
+      {result && <Result result={result} />}
 
       <footer className="experiment__footer">
         <strong>実験中の表示です。</strong>
@@ -264,13 +264,7 @@ export function Experiment() {
   );
 }
 
-function Result({
-  result,
-  voiceFeatures,
-}: {
-  result: ExperimentResult;
-  voiceFeatures: VoiceFeatures | null;
-}) {
+function Result({ result }: { result: ExperimentResult }) {
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
@@ -280,7 +274,7 @@ function Result({
       </div>
       <div className="result__representation">
         <span>your expression</span>
-        <strong>{result.expression}</strong>
+        <strong>{result.expression || "voice (no transcription)"}</strong>
         <span>shared sensory hints</span>
         <div className="tag-list">
           {result.representation.tags.map((tag) => (
@@ -313,7 +307,9 @@ function Result({
         <pre>
           {JSON.stringify(
             {
-              voice: voiceFeatures,
+              inputSource: result.inputSource,
+              transcription: result.expression || null,
+              voice: result.voiceFeatures,
               gesture: result.gesture,
               representation: result.representation,
             },
