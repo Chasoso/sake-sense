@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
-npm run format:check
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(css|html|js|json|mjs|md|ts|tsx|yaml|yml)$' || true)
+if [ -n "$staged_files" ]; then
+  npx prettier --check $staged_files
+fi
 npm run lint
 npm run typecheck
