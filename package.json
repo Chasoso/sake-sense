@@ -16,8 +16,9 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
     "secret-scan": "node scripts/quality/secret-scan.mjs",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run secret-scan",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run test:coverage && npm run build && npm run secret-scan",
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.2",
     "@eslint/js": "^9.35.0",
+    "ajv": "^8.17.1",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.35.0",
     "eslint-plugin-react-hooks": "^5.2.0",

@@ -1,0 +1,207 @@
+{
+  "version": "0.1.0",
+  "status": "experimental",
+  "dimensions": [
+    { "id": "weight", "label": "軽さ ↔ 重さ", "status": "experimental" },
+    { "id": "shape", "label": "鋭さ ↔ 丸さ", "status": "experimental" },
+    { "id": "duration", "label": "短さ ↔ 余韻", "status": "experimental" }
+  ],
+  "entries": [
+    {
+      "id": "tanrei",
+      "displayTerm": "淡麗",
+      "definitionSummary": "すっきりして、味の調和がよいという評価語。",
+      "dimensions": [{ "dimensionId": "weight", "polarity": "light" }],
+      "everydayLanguageCandidates": [
+        { "text": "すっきり", "status": "source-supported" },
+        { "text": "軽やか", "status": "inferred-from-examples" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "gesture", "feature": "小さく短い動き", "status": "experimental" },
+        { "kind": "sound-rhythm", "feature": "軽く速いリズム", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceType": "National Tax Agency tasting terminology",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "軽さだけを意味する単純な点数ではなく、味の調和を含む評価語として扱う。"
+    },
+    {
+      "id": "nojun",
+      "displayTerm": "濃醇",
+      "definitionSummary": "味が濃く、よく調和しているという評価語。",
+      "dimensions": [{ "dimensionId": "weight", "polarity": "heavy" }],
+      "everydayLanguageCandidates": [
+        { "text": "味がしっかり", "status": "source-supported" },
+        { "text": "厚みがある", "status": "inferred-from-examples" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "gesture", "feature": "ゆっくり広がる動き", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceType": "National Tax Agency tasting terminology",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+        },
+        {
+          "sourceId": "nrib-sensory-terms",
+          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "英語用語表の対応語を参照し、意味を日本語で要約した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "濃さと品質の優劣を同一視しない。"
+    },
+    {
+      "id": "nameraka",
+      "displayTerm": "なめらか",
+      "definitionSummary": "口当たりがなめらかで、角がないという評価語。",
+      "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
+      "everydayLanguageCandidates": [
+        { "text": "角がない", "status": "source-supported" },
+        { "text": "すべるよう", "status": "experimental" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "gesture", "feature": "途切れない曲線", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceType": "National Tax Agency tasting terminology",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "飲みやすさや好ましさを自動的に意味する語ではない。"
+    },
+    {
+      "id": "marui",
+      "displayTerm": "まるい",
+      "definitionSummary": "丸みのある口当たりを表す評価語。",
+      "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
+      "everydayLanguageCandidates": [
+        { "text": "丸みがある", "status": "source-supported" },
+        { "text": "やわらかい", "status": "inferred-from-examples" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "onomatopoeia", "feature": "ころんとした音の印象", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nrib-sensory-terms",
+          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "round / mellow に対応する用語を短く日本語化した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "温度や組み合わせによる感じ方の差をこの語だけで決めない。"
+    },
+    {
+      "id": "kire",
+      "displayTerm": "切れが良い",
+      "definitionSummary": "あと味の切れがよいという評価語。",
+      "dimensions": [{ "dimensionId": "duration", "polarity": "short" }],
+      "everydayLanguageCandidates": [
+        { "text": "後味がすっと消える", "status": "source-supported" },
+        { "text": "あとを引かない", "status": "inferred-from-examples" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "sound-rhythm", "feature": "短く止まるリズム", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceType": "National Tax Agency tasting terminology",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公的資料の短い日本語要約。日常語候補は意味を補助するために分離した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "アルコール感や辛さと同じ意味とは限らない。"
+    },
+    {
+      "id": "sanmi",
+      "displayTerm": "酸味",
+      "definitionSummary": "酸による味わいを表す基本的な味覚語。",
+      "dimensions": [{ "dimensionId": "shape", "polarity": "sharp" }],
+      "everydayLanguageCandidates": [
+        { "text": "すっぱい", "status": "source-supported" },
+        { "text": "きゅっとする", "status": "inferred-from-examples" }
+      ],
+      "nonverbalCandidates": [],
+      "provenance": [
+        {
+          "sourceId": "nrib-sensory-terms",
+          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "acid / sourness に対応する用語を短く日本語化した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "酸味の強さと酒全体の良し悪しを同一視しない。"
+    },
+    {
+      "id": "umami",
+      "displayTerm": "うま味",
+      "definitionSummary": "うま味を表す味覚語。",
+      "dimensions": [{ "dimensionId": "weight", "polarity": "spreading" }],
+      "everydayLanguageCandidates": [
+        { "text": "だしのよう", "status": "inferred-from-examples" },
+        { "text": "味わいがある", "status": "experimental" }
+      ],
+      "nonverbalCandidates": [],
+      "provenance": [
+        {
+          "sourceId": "nrib-sensory-terms",
+          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "savory taste / umami に対応する用語を短く日本語化した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "日常語候補は公式定義ではなく、今後の橋渡し実験用の候補である。"
+    },
+    {
+      "id": "atoaji",
+      "displayTerm": "あと味",
+      "definitionSummary": "飲み込んだ後に残る味わいを表す語。",
+      "dimensions": [{ "dimensionId": "duration", "polarity": "lingering" }],
+      "everydayLanguageCandidates": [
+        { "text": "後に残る感じ", "status": "inferred-from-examples" },
+        { "text": "余韻", "status": "experimental" }
+      ],
+      "nonverbalCandidates": [
+        { "kind": "gesture", "feature": "尾を引く動き", "status": "experimental" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nrib-sensory-terms",
+          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "aftertaste に対応する用語を短く日本語化した。余韻は別の実験候補として分離した。"
+        }
+      ],
+      "confidenceStatus": "source-supported",
+      "notes": "残ること自体を良い・悪いとは評価しない。"
+    }
+  ]
+}

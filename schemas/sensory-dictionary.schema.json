@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "status", "dimensions", "entries"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1.0" },
+    "status": { "type": "string", "const": "experimental" },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "label": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["experimental"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "displayTerm",
+          "definitionSummary",
+          "dimensions",
+          "everydayLanguageCandidates",
+          "nonverbalCandidates",
+          "provenance",
+          "confidenceStatus",
+          "notes"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "displayTerm": { "type": "string", "minLength": 1 },
+          "definitionSummary": { "type": "string", "minLength": 1 },
+          "dimensions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["dimensionId", "polarity"],
+              "properties": {
+                "dimensionId": { "type": "string" },
+                "polarity": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "everydayLanguageCandidates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["text", "status"],
+              "properties": {
+                "text": { "type": "string", "minLength": 1 },
+                "status": {
+                  "type": "string",
+                  "enum": ["source-supported", "inferred-from-examples", "experimental"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "nonverbalCandidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "feature", "status"],
+              "properties": {
+                "kind": { "type": "string", "enum": ["onomatopoeia", "gesture", "sound-rhythm"] },
+                "feature": { "type": "string", "minLength": 1 },
+                "status": { "type": "string", "const": "experimental" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "provenance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["sourceId", "sourceType", "url", "accessedOn", "transformationNote"],
+              "properties": {
+                "sourceId": { "type": "string", "minLength": 1 },
+                "sourceType": { "type": "string", "minLength": 1 },
+                "url": { "type": "string", "format": "uri" },
+                "accessedOn": { "type": "string", "format": "date" },
+                "transformationNote": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "confidenceStatus": {
+            "type": "string",
+            "enum": ["source-supported", "inferred-from-examples", "experimental"]
+          },
+          "notes": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
