@@ -44,14 +44,16 @@ export function Experiment() {
 
   const continueStroke = (event: React.PointerEvent<SVGSVGElement>) => {
     if (drawing && capturedPointerId.current === event.pointerId) {
-      setPoints((current) => [...current, pointFromEvent(event)]);
+      const point = pointFromEvent(event);
+      setPoints((current) => [...current, point]);
     }
   };
 
   const finishStroke = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!drawing || capturedPointerId.current !== event.pointerId) return;
+    const point = pointFromEvent(event);
     setDrawing(false);
-    setPoints((current) => [...current, pointFromEvent(event)]);
+    setPoints((current) => [...current, point]);
     releasePointer(event);
   };
 
