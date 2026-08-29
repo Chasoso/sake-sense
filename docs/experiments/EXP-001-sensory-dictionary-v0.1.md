@@ -20,7 +20,7 @@ These dimensions are working representations derived from the retained terms, no
 ## Sources reviewed
 
 1. [National Tax Agency, tasting terminology reference (2023)](https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf) — used for concise paraphrases of 淡麗, 濃醇, なめらか, and 切れが良い.
-2. [National Research Institute of Brewing, Sensory Evaluation Terms](https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/) — used for the corresponding terminology for 濃醇, 淡麗, まるい, なめらか, 酸味, うま味, and あと味.
+2. [National Research Institute of Brewing, Sensory Evaluation Terms](https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/) — used for the corresponding terminology for 濃醇, まるい, なめらか, 酸味, うま味, and あと味. It was consulted as a cross-check for terminology, not used as the definition provenance for 淡麗.
 
 Only concise paraphrases and provenance metadata are stored. Source prose is not copied into the repository. Public visibility was not treated as an open-data license.
 
@@ -33,6 +33,7 @@ The candidate list in Issue #5 was not copied wholesale. Terms without a suffici
 ## Known ambiguities and limitations
 
 - Terms such as 淡麗 and 濃醇 are holistic evaluation words; the data does not reduce them to a single numeric axis.
+- うま味 is intentionally `unmapped` in v0.1 because the three current dimensions do not provide a justified polarity for it. This is a model limitation, not a claim that うま味 means either light, heavy, sharp, round, short, or lingering.
 - Everyday-language candidates are bridges for testing, not official definitions. `inferred-from-examples` and `experimental` are intentionally visible statuses.
 - Nonverbal candidates are illustrative experiment seeds only. They do not claim that a gesture, sound, or onomatopoeia objectively means a sake term.
 - The set is not a complete sake vocabulary and does not assume comprehensive Ishikawa product data.

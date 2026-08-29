@@ -2,15 +2,31 @@
   "version": "0.1.0",
   "status": "experimental",
   "dimensions": [
-    { "id": "weight", "label": "軽さ ↔ 重さ", "status": "experimental" },
-    { "id": "shape", "label": "鋭さ ↔ 丸さ", "status": "experimental" },
-    { "id": "duration", "label": "短さ ↔ 余韻", "status": "experimental" }
+    {
+      "id": "weight",
+      "label": "軽さ ↔ 重さ",
+      "polarities": ["light", "heavy"],
+      "status": "experimental"
+    },
+    {
+      "id": "shape",
+      "label": "鋭さ ↔ 丸さ",
+      "polarities": ["sharp", "round"],
+      "status": "experimental"
+    },
+    {
+      "id": "duration",
+      "label": "短さ ↔ 余韻",
+      "polarities": ["short", "lingering"],
+      "status": "experimental"
+    }
   ],
   "entries": [
     {
       "id": "tanrei",
       "displayTerm": "淡麗",
       "definitionSummary": "すっきりして、味の調和がよいという評価語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "weight", "polarity": "light" }],
       "everydayLanguageCandidates": [
         { "text": "すっきり", "status": "source-supported" },
@@ -36,6 +52,7 @@
       "id": "nojun",
       "displayTerm": "濃醇",
       "definitionSummary": "味が濃く、よく調和しているという評価語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "weight", "polarity": "heavy" }],
       "everydayLanguageCandidates": [
         { "text": "味がしっかり", "status": "source-supported" },
@@ -67,6 +84,7 @@
       "id": "nameraka",
       "displayTerm": "なめらか",
       "definitionSummary": "口当たりがなめらかで、角がないという評価語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
       "everydayLanguageCandidates": [
         { "text": "角がない", "status": "source-supported" },
@@ -91,6 +109,7 @@
       "id": "marui",
       "displayTerm": "まるい",
       "definitionSummary": "丸みのある口当たりを表す評価語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
       "everydayLanguageCandidates": [
         { "text": "丸みがある", "status": "source-supported" },
@@ -115,6 +134,7 @@
       "id": "kire",
       "displayTerm": "切れが良い",
       "definitionSummary": "あと味の切れがよいという評価語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "duration", "polarity": "short" }],
       "everydayLanguageCandidates": [
         { "text": "後味がすっと消える", "status": "source-supported" },
@@ -139,6 +159,7 @@
       "id": "sanmi",
       "displayTerm": "酸味",
       "definitionSummary": "酸による味わいを表す基本的な味覚語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "shape", "polarity": "sharp" }],
       "everydayLanguageCandidates": [
         { "text": "すっぱい", "status": "source-supported" },
@@ -161,7 +182,8 @@
       "id": "umami",
       "displayTerm": "うま味",
       "definitionSummary": "うま味を表す味覚語。",
-      "dimensions": [{ "dimensionId": "weight", "polarity": "spreading" }],
+      "mappingStatus": "unmapped",
+      "dimensions": [],
       "everydayLanguageCandidates": [
         { "text": "だしのよう", "status": "inferred-from-examples" },
         { "text": "味わいがある", "status": "experimental" }
@@ -183,6 +205,7 @@
       "id": "atoaji",
       "displayTerm": "あと味",
       "definitionSummary": "飲み込んだ後に残る味わいを表す語。",
+      "mappingStatus": "mapped",
       "dimensions": [{ "dimensionId": "duration", "polarity": "lingering" }],
       "everydayLanguageCandidates": [
         { "text": "後に残る感じ", "status": "inferred-from-examples" },
