@@ -49,7 +49,20 @@ The candidate list in Issue #5 was not copied wholesale. Terms without a suffici
 
 ## Human experience observations
 
-Pending. A human should assess whether the retained terms are useful to beginners, whether the definitions are understandable without overclaiming, and whether the three dimensions feel like a plausible experiment rather than arbitrary scoring.
+The first local review found that the core idea was realizable, but the experience was very simple and felt somewhat lacking. These are human observations, not automatic hypothesis decisions:
+
+- The core idea itself can be realized to some extent.
+- The experience is quite simple and felt somewhat thin.
+- Text input plus a single-line input provides a weak expression experience.
+- Keyboard input feels cumbersome for sensory expression.
+- Voice input would be preferable to typing.
+- A single line feels too plain as an expressive input.
+- A richer form of expression should be tried.
+- After a sake term appears, it is difficult to understand what the next connection is.
+- Introducing real sake is a promising next connection.
+- The basic framing should be “a candidate sake to use to check this word in a real sake,” not “a recommendation for you.”
+
+The human should still assess whether the retained terms are useful to beginners, whether the definitions are understandable without overclaiming, and whether the three dimensions feel like a plausible experiment rather than arbitrary scoring.
 
 For the local prototype, the review checklist is:
 
@@ -60,9 +73,13 @@ For the local prototype, the review checklist is:
 - Does the short interaction feel interesting enough to repeat?
 - Does it motivate a next experiment without presenting a recommendation or diagnosis?
 
+## Hypothesis review status
+
+H001, H002, and H003 remain `unvalidated`. The prototype's technical success and the observations above do not by themselves establish that any of these hypotheses should be kept, revised, or rejected.
+
 ## Decision and learning
 
-The human must decide `keep`, `revise`, or `reject` after reviewing evidence. No H002 or H003 status is changed by this research spike alone.
+The human must decide `keep`, `revise`, or `reject` after reviewing evidence. No H001, H002, or H003 status is changed by this research spike alone.
 
 ## Follow-up Issues
 

@@ -4,12 +4,14 @@ These documents describe current, unvalidated beliefs. They are not product fact
 
 ## Index
 
-| ID                                                  | Hypothesis                                                                  | Current status |
-| --------------------------------------------------- | --------------------------------------------------------------------------- | -------------- |
-| [H001](H001-nonverbal-entry-point.md)               | Nonverbal expression can be an entry point toward language.                 | unvalidated    |
-| [H002](H002-intermediate-sensory-representation.md) | Multiple input modalities can share an intermediate sensory representation. | unvalidated    |
-| [H003](H003-grounded-sensory-dictionary.md)         | A grounded, curated dictionary is important for responsible translation.    | unvalidated    |
-| [H004](H004-human-feedback.md)                      | Lightweight human feedback may improve a future dictionary.                 | unvalidated    |
+| ID                                                    | Hypothesis                                                                  | Current status |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- | -------------- |
+| [H001](H001-nonverbal-entry-point.md)                 | Nonverbal expression can be an entry point toward language.                 | unvalidated    |
+| [H002](H002-intermediate-sensory-representation.md)   | Multiple input modalities can share an intermediate sensory representation. | unvalidated    |
+| [H003](H003-grounded-sensory-dictionary.md)           | A grounded, curated dictionary is important for responsible translation.    | unvalidated    |
+| [H004](H004-human-feedback.md)                        | Lightweight human feedback may improve a future dictionary.                 | unvalidated    |
+| [H005](H005-richer-expression-improves-engagement.md) | Richer expression may improve engagement.                                   | unvalidated    |
+| [H006](H006-real-sake-connection-gives-purpose.md)    | Connecting terms to real sake may give the translation a purpose.           | unvalidated    |
 
 ## Status vocabulary
 
