@@ -1,0 +1,146 @@
+{
+  "version": "0.1.0",
+  "status": "experimental",
+  "products": [
+    {
+      "id": "kikuhime-tokusen-junmai",
+      "name": "特撰純米",
+      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
+      "sourceUrl": "https://www.kikuhime.co.jp/products/page/2/",
+      "descriptionSummary": "米の甘味・旨味が豊かで、蔵内熟成によるまろやかさと深みがある純米酒。",
+      "termReferences": [
+        {
+          "termId": "nojun",
+          "mappingStatus": "source-supported",
+          "rationale": "公式商品案内がこの商品を濃醇旨口タイプとして説明している。"
+        }
+      ],
+      "provenance": [
+        {
+          "sourceId": "kikuhime-product-page-2",
+          "sourceType": "Official Kikuhime product information",
+          "url": "https://www.kikuhime.co.jp/products/page/2/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公式商品説明の要点を短く日本語で要約し、濃醇の用語参照だけを保持した。"
+        }
+      ],
+      "accessedOn": "2026-08-29",
+      "transformationNote": "商品説明本文を転載せず、商品名・蔵元・要点・term参照のみを構造化した。",
+      "notes": "白山市の蔵元によるサンプル。おすすめや味の独自評価ではない。"
+    },
+    {
+      "id": "kikuhime-yamahai-junmai",
+      "name": "山廃純米",
+      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
+      "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/",
+      "descriptionSummary": "山廃仕込みで、濃醇で飲み応えのある個性を持つ純米酒。",
+      "termReferences": [
+        {
+          "termId": "nojun",
+          "mappingStatus": "source-supported",
+          "rationale": "公式酒質説明に濃醇と明記されている。"
+        }
+      ],
+      "provenance": [
+        {
+          "sourceId": "kikuhime-yamahai-junmai",
+          "sourceType": "Official Kikuhime product page",
+          "url": "https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公式の商品説明から濃醇という明示語と商品概要を短く要約した。"
+        }
+      ],
+      "accessedOn": "2026-08-29",
+      "transformationNote": "公式説明の短いparaphraseのみを保存した。",
+      "notes": "白山市のGI白山地域に所在する蔵元の商品。製法名を味覚termとは扱わない。"
+    },
+    {
+      "id": "kikuhime-kashu-kikuzake",
+      "name": "加州菊酒",
+      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
+      "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
+      "descriptionSummary": "酸味が程よく効いた、シャープで個性的な純米酒。キレのよい飲み口。",
+      "termReferences": [
+        {
+          "termId": "sanmi",
+          "mappingStatus": "source-supported",
+          "rationale": "公式酒質説明に酸味と明記されている。"
+        },
+        {
+          "termId": "kire",
+          "mappingStatus": "source-supported",
+          "rationale": "公式酒質説明にキレが良いと明記されている。"
+        }
+      ],
+      "provenance": [
+        {
+          "sourceId": "kikuhime-kashu-kikuzake",
+          "sourceType": "Official Kikuhime product page",
+          "url": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公式の商品説明にある酸味・シャープ・キレの表現を簡潔に要約した。"
+        }
+      ],
+      "accessedOn": "2026-08-29",
+      "transformationNote": "公式説明の語を既存dictionary termへ直接参照し、独自の味評価は加えていない。",
+      "notes": "白山市のGI白山認証酒。GIの説明を味の優劣とは扱わない。"
+    },
+    {
+      "id": "kikuhime-ginjo",
+      "name": "菊姫吟醸",
+      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
+      "sourceUrl": "https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/",
+      "descriptionSummary": "公式説明ではフレッシュで軽やかな味わいを持つ北陸地区限定の吟醸酒。",
+      "termReferences": [
+        {
+          "termId": "tanrei",
+          "mappingStatus": "inferred-from-wording",
+          "rationale": "公式の軽やかという表現を、淡麗の定義全体ではなくweight/lightの実験的参照として限定的に扱う。"
+        }
+      ],
+      "provenance": [
+        {
+          "sourceId": "kikuhime-ginjo",
+          "sourceType": "Official Kikuhime product page",
+          "url": "https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公式説明の軽やかという語を引用せず要約し、淡麗への参照はinferredと明示した。"
+        }
+      ],
+      "accessedOn": "2026-08-29",
+      "transformationNote": "商品説明の軽やかという語からの保守的な推論であり、公式が淡麗と呼んだとは記録していない。",
+      "notes": "白山市の蔵元の商品。term参照はsource-supportedではなくexperimental dataset上のinferred mapping。"
+    },
+    {
+      "id": "tengumai-yamahai-junmai",
+      "name": "山廃仕込純米酒",
+      "producer": { "name": "株式会社車多酒造（天狗舞）", "prefecture": "Ishikawa" },
+      "sourceUrl": "https://www.tengumai.co.jp/products/junmai/19.html",
+      "descriptionSummary": "山廃仕込み特有の濃厚な香味と酸味の調和を持つ純米酒。",
+      "termReferences": [
+        {
+          "termId": "nojun",
+          "mappingStatus": "inferred-from-wording",
+          "rationale": "公式の濃厚な香味を、dictionaryの濃醇と同一視せず、近接する実験的参照としてinferredにした。"
+        },
+        {
+          "termId": "sanmi",
+          "mappingStatus": "source-supported",
+          "rationale": "公式商品説明に酸味と明記されている。"
+        }
+      ],
+      "provenance": [
+        {
+          "sourceId": "tengumai-yamahai-junmai",
+          "sourceType": "Official Tengumai product page",
+          "url": "https://www.tengumai.co.jp/products/junmai/19.html",
+          "accessedOn": "2026-08-29",
+          "transformationNote": "公式説明の濃厚な香味・酸味を短く要約し、濃醇との関係はinferredと明示した。"
+        }
+      ],
+      "accessedOn": "2026-08-29",
+      "transformationNote": "商品説明を転載せず、termごとの根拠強度を分離して保存した。",
+      "notes": "白山市の車多酒造による商品。Sake Senseが味を独自評価したものではない。"
+    }
+  ]
+}

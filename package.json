@@ -17,8 +17,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
+    "validate:sake-sample": "node scripts/quality/validate-sake-sample.mjs",
     "secret-scan": "node scripts/quality/secret-scan.mjs",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run test:coverage && npm run build && npm run secret-scan",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run validate:sake-sample && npm run test:coverage && npm run build && npm run secret-scan",
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
