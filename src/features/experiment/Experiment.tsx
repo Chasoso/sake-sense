@@ -14,6 +14,7 @@ import {
   type VoiceSample,
 } from "../../domain/voice";
 import { clientToViewBoxPoint } from "./coordinate";
+import { presentEvidenceStatus } from "../../domain/sake-product-matching";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -414,19 +415,24 @@ function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: 
                 <p className="sake-product__producer">{match.product.producer.name}</p>
                 <p>{match.product.descriptionSummary}</p>
                 <p className="sake-product__why">
-                  この商品は「
-                  {match.matchedTermIds
-                    .map(
-                      (termId) =>
-                        result.candidates.find((candidate) => candidate.entry.id === termId)?.entry
-                          .displayTerm ?? termId,
-                    )
-                    .join("、")}
-                  」のterm参照があるため表示しています。
+                  この商品は、候補語とterm参照が重なるため表示しています。
                 </p>
-                <p className="sake-product__rationale">
-                  {match.matchedReferences.map((reference) => reference.rationale).join(" ")}
-                </p>
+                <ul className="sake-product__evidence">
+                  {match.matchedReferences.map((reference) => {
+                    const term = result.candidates.find(
+                      (candidate) => candidate.entry.id === reference.termId,
+                    )?.entry.displayTerm;
+                    const evidence = presentEvidenceStatus(reference.mappingStatus);
+                    return (
+                      <li key={reference.termId}>
+                        <strong>{term ?? reference.termId}</strong>
+                        <span>{evidence.label}</span>
+                        <p>{evidence.explanation}</p>
+                        <p>{reference.rationale}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
                 <p className="sake-product__source">
                   <a href={match.product.sourceUrl} target="_blank" rel="noreferrer">
                     商品情報（公式）

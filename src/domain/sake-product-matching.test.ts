@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSakeProductMatches } from "./sake-product-matching";
+import { findSakeProductMatches, presentEvidenceStatus } from "./sake-product-matching";
 
 describe("Ishikawa sake product matching", () => {
   it("matches only products that reference a candidate term", () => {
@@ -22,5 +22,16 @@ describe("Ishikawa sake product matching", () => {
 
   it("returns no match when the sample has no supporting term", () => {
     expect(findSakeProductMatches(["unknown-term"])).toEqual([]);
+  });
+
+  it("explains evidence strength without exposing internal status names", () => {
+    expect(presentEvidenceStatus("source-supported")).toEqual({
+      label: "公式表現に基づく参照",
+      explanation: expect.stringContaining("公式の商品説明・分類"),
+    });
+    expect(presentEvidenceStatus("inferred-from-wording")).toEqual({
+      label: "実験的な表現の橋渡し",
+      explanation: expect.stringContaining("公式がこの用語そのものを使っているとは限りません"),
+    });
   });
 });

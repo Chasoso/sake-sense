@@ -314,7 +314,6 @@ input:focus {
   line-height: 1.55;
 }
 .sake-product__producer,
-.sake-product__rationale,
 .sake-product__why,
 .sake-product__source {
   font-size: 0.9rem;
@@ -324,6 +323,33 @@ input:focus {
 }
 .sake-product__source a {
   color: #f1cb84;
+}
+.sake-product__evidence {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+.sake-product__evidence li {
+  padding-top: 0.75rem;
+  border-top: 1px solid #40372d;
+}
+.sake-product__evidence strong,
+.sake-product__evidence span {
+  display: block;
+}
+.sake-product__evidence strong {
+  color: #f1cb84;
+}
+.sake-product__evidence span {
+  margin-top: 0.25rem;
+  color: #e2b96c;
+  font-size: 0.82rem;
+}
+.sake-product__evidence p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
 }
 .result > .text-button {
   margin-top: 1.5rem;
