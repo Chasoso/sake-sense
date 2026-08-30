@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
 import {
-  createWaveformPoints,
+  createPitchContourPath,
+  appendPitchHistory,
+  estimatePitch,
   extractVoiceFeatures,
   type VoiceFeatures,
   type VoiceSample,
@@ -41,7 +43,7 @@ export function Experiment() {
     "idle" | "recording" | "captured" | "unavailable" | "denied"
   >("idle");
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
-  const [waveformPoints, setWaveformPoints] = useState("");
+  const [pitchHistory, setPitchHistory] = useState<Array<number | null>>([]);
   const capturedPointerId = useRef<number | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
@@ -123,7 +125,8 @@ export function Experiment() {
     const level = Math.sqrt(
       data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
     );
-    setWaveformPoints(createWaveformPoints(data));
+    const pitch = estimatePitch(data, voiceContext.current?.sampleRate ?? 0);
+    setPitchHistory((current) => appendPitchHistory(current, pitch));
     voiceSamples.current.push({ t: voiceElapsed.current, level });
     voiceFrame.current = requestAnimationFrame(sampleVoice);
   };
@@ -138,13 +141,13 @@ export function Experiment() {
     void context?.close();
     const features = extractVoiceFeatures(voiceSamples.current, voiceElapsed.current);
     voiceAnalyser.current = null;
-    setWaveformPoints("");
     setVoiceFeatures(features);
     setVoiceStatus("captured");
   };
 
   const startVoice = async () => {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+      setPitchHistory([]);
       setVoiceStatus("unavailable");
       return;
     }
@@ -153,7 +156,7 @@ export function Experiment() {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const context = new AudioContext();
       const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
+      analyser.fftSize = 2048;
       context.createMediaStreamSource(stream).connect(analyser);
       voiceStream.current = stream;
       voiceContext.current = context;
@@ -161,13 +164,13 @@ export function Experiment() {
       voiceSamples.current = [];
       voiceFirstFrame.current = null;
       voiceElapsed.current = 0;
-      setWaveformPoints("");
+      setPitchHistory([]);
       setVoiceFeatures(null);
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
-      setWaveformPoints("");
+      setPitchHistory([]);
       setVoiceStatus("denied");
     }
   };
@@ -209,7 +212,7 @@ export function Experiment() {
     setStrokes([]);
     setResult(null);
     setError("");
-    setWaveformPoints("");
+    setPitchHistory([]);
     setVoiceFeatures(null);
     setVoiceStatus("idle");
   };
@@ -238,10 +241,10 @@ export function Experiment() {
           </button>
           <span className="input-card__hint">{voiceLabel}</span>
           {voiceStatus === "recording" && (
-            <div className="voice-visualizer" role="status" aria-label="音声レベルを表示中">
+            <div className="voice-visualizer" role="status" aria-label="声の高さの変化を表示中">
               <svg viewBox="0 0 320 64" aria-hidden="true">
                 <line x1="0" y1="32" x2="320" y2="32" />
-                <polyline points={waveformPoints} />
+                <path d={createPitchContourPath(pitchHistory)} />
               </svg>
             </div>
           )}

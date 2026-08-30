@@ -12,20 +12,72 @@ export type VoiceFeatures = {
   endingBehavior: "maintained" | "fading" | "unknown";
 };
 
-export function createWaveformPoints(samples: ArrayLike<number>, width = 320, height = 64): string {
-  if (samples.length === 0) return "";
-  const center = height / 2;
-  const amplitude = Math.max(height / 2 - 2, 0);
-  const lastIndex = Math.max(samples.length - 1, 1);
-  return Array.from({ length: samples.length }, (_, index) => {
-    const sample = samples[index];
-    const normalized = Number.isFinite(sample)
-      ? (Math.min(Math.max(sample, 0), 255) - 128) / 128
-      : 0;
+export function estimatePitch(samples: ArrayLike<number>, sampleRate: number): number | null {
+  if (samples.length < 32 || !Number.isFinite(sampleRate) || sampleRate <= 0) return null;
+
+  const centered = Array.from(samples, (sample) => (Number.isFinite(sample) ? sample - 128 : 0));
+  const rms = Math.sqrt(
+    centered.reduce((total, sample) => total + sample * sample, 0) / centered.length,
+  );
+  if (rms < 3) return null;
+
+  const minLag = Math.max(2, Math.floor(sampleRate / 350));
+  const maxLag = Math.min(Math.floor(sampleRate / 80), centered.length - 1);
+  let bestLag = 0;
+  let bestCorrelation = 0;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let correlation = 0;
+    let baseEnergy = 0;
+    let lagEnergy = 0;
+    for (let index = 0; index < centered.length - lag; index += 1) {
+      correlation += centered[index] * centered[index + lag];
+      baseEnergy += centered[index] * centered[index];
+      lagEnergy += centered[index + lag] * centered[index + lag];
+    }
+    const normalized =
+      baseEnergy && lagEnergy ? correlation / Math.sqrt(baseEnergy * lagEnergy) : 0;
+    if (normalized > bestCorrelation) {
+      bestCorrelation = normalized;
+      bestLag = lag;
+    }
+  }
+
+  return bestLag && bestCorrelation >= 0.35 ? sampleRate / bestLag : null;
+}
+
+export function createPitchContourPath(
+  history: ReadonlyArray<number | null>,
+  width = 320,
+  height = 64,
+  minPitch = 80,
+  maxPitch = 360,
+): string {
+  const lastIndex = Math.max(history.length - 1, 1);
+  let path = "";
+  let previousVoiced = false;
+  history.forEach((pitch, index) => {
+    if (pitch === null || !Number.isFinite(pitch)) {
+      previousVoiced = false;
+      return;
+    }
+    const normalized = Math.min(
+      Math.max(Math.log(pitch / minPitch) / Math.log(maxPitch / minPitch), 0),
+      1,
+    );
     const x = (index / lastIndex) * width;
-    const y = center + normalized * amplitude;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(" ");
+    const y = height - normalized * height;
+    path += `${previousVoiced ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)} `;
+    previousVoiced = true;
+  });
+  return path.trim();
+}
+
+export function appendPitchHistory(
+  history: ReadonlyArray<number | null>,
+  pitch: number | null,
+  maxLength = 120,
+): Array<number | null> {
+  return [...history, pitch].slice(-Math.max(maxLength, 1));
 }
 
 export function extractVoiceFeatures(samples: VoiceSample[], durationMs: number): VoiceFeatures {
