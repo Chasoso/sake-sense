@@ -70,6 +70,40 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.candidates[0].explanation).toContain("動きから");
   });
 
+  it("accepts one valid stroke instead of counting strokes as points", () => {
+    const result = runLocalExperiment("譛ｪ遏･", [
+      { x: 10, y: 10, t: 0 },
+      { x: 20, y: 10, t: 100 },
+      { x: 30, y: 10, t: 200 },
+    ]);
+
+    expect(result).not.toHaveProperty("error");
+  });
+
+  it("rejects empty, tap-only, and zero-length gesture input", () => {
+    const tap = { x: 10, y: 10, t: 0 };
+    const cases = [[[]], [tap], [[tap], [{ ...tap, x: 20 }]]];
+
+    for (const points of cases) {
+      expect(runLocalExperiment("譛ｪ遏･", points)).toEqual({
+        error:
+          "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+      });
+    }
+  });
+
+  it("accepts multiple strokes when at least one stroke contains movement", () => {
+    const result = runLocalExperiment("譛ｪ遏･", [
+      [{ x: 10, y: 10, t: 0 }],
+      [
+        { x: 20, y: 20, t: 100 },
+        { x: 40, y: 20, t: 200 },
+      ],
+    ]);
+
+    expect(result).not.toHaveProperty("error");
+  });
+
   it("connects voice duration to the existing duration representation", () => {
     const short = runLocalExperiment("", longGradualStroke, shortVoice);
     const long = runLocalExperiment("", longGradualStroke, longVoice);
