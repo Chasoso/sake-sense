@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
 import {
-  createPitchContourPath,
-  appendPitchHistory,
+  appendWaveHistory,
+  advanceWavePhase,
+  createSyntheticWavePath,
   estimatePitch,
   extractVoiceFeatures,
+  mapPitchToWaveFrequency,
+  smoothWaveValue,
+  type SyntheticWavePoint,
   type VoiceFeatures,
   type VoiceSample,
 } from "../../domain/voice";
@@ -43,7 +47,7 @@ export function Experiment() {
     "idle" | "recording" | "captured" | "unavailable" | "denied"
   >("idle");
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
-  const [pitchHistory, setPitchHistory] = useState<Array<number | null>>([]);
+  const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const capturedPointerId = useRef<number | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
@@ -52,6 +56,10 @@ export function Experiment() {
   const voiceFirstFrame = useRef<number | null>(null);
   const voiceElapsed = useRef(0);
   const voiceFrame = useRef<number | null>(null);
+  const wavePhase = useRef(0);
+  const waveAmplitude = useRef(0);
+  const waveFrequency = useRef(mapPitchToWaveFrequency(null));
+  const waveLastTimestamp = useRef<number | null>(null);
 
   useEffect(
     () => () => {
@@ -126,7 +134,25 @@ export function Experiment() {
       data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
     );
     const pitch = estimatePitch(data, voiceContext.current?.sampleRate ?? 0);
-    setPitchHistory((current) => appendPitchHistory(current, pitch));
+    const targetAmplitude = Math.min(level * 2.4, 1);
+    const targetFrequency = mapPitchToWaveFrequency(pitch);
+    const elapsedSinceLastFrame =
+      waveLastTimestamp.current === null ? 0 : timestamp - waveLastTimestamp.current;
+    waveLastTimestamp.current = timestamp;
+    waveAmplitude.current = smoothWaveValue(waveAmplitude.current, targetAmplitude);
+    waveFrequency.current = smoothWaveValue(waveFrequency.current, targetFrequency);
+    wavePhase.current = advanceWavePhase(
+      wavePhase.current,
+      waveFrequency.current,
+      elapsedSinceLastFrame,
+    );
+    setWaveHistory((current) =>
+      appendWaveHistory(current, {
+        amplitude: waveAmplitude.current,
+        frequency: waveFrequency.current,
+        phase: wavePhase.current,
+      }),
+    );
     voiceSamples.current.push({ t: voiceElapsed.current, level });
     voiceFrame.current = requestAnimationFrame(sampleVoice);
   };
@@ -147,7 +173,7 @@ export function Experiment() {
 
   const startVoice = async () => {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
-      setPitchHistory([]);
+      setWaveHistory([]);
       setVoiceStatus("unavailable");
       return;
     }
@@ -164,13 +190,17 @@ export function Experiment() {
       voiceSamples.current = [];
       voiceFirstFrame.current = null;
       voiceElapsed.current = 0;
-      setPitchHistory([]);
+      wavePhase.current = 0;
+      waveAmplitude.current = 0;
+      waveFrequency.current = mapPitchToWaveFrequency(null);
+      waveLastTimestamp.current = null;
+      setWaveHistory([]);
       setVoiceFeatures(null);
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
-      setPitchHistory([]);
+      setWaveHistory([]);
       setVoiceStatus("denied");
     }
   };
@@ -212,7 +242,11 @@ export function Experiment() {
     setStrokes([]);
     setResult(null);
     setError("");
-    setPitchHistory([]);
+    wavePhase.current = 0;
+    waveAmplitude.current = 0;
+    waveFrequency.current = mapPitchToWaveFrequency(null);
+    waveLastTimestamp.current = null;
+    setWaveHistory([]);
     setVoiceFeatures(null);
     setVoiceStatus("idle");
   };
@@ -244,7 +278,7 @@ export function Experiment() {
             <div className="voice-visualizer" role="status" aria-label="声の高さの変化を表示中">
               <svg viewBox="0 0 320 64" aria-hidden="true">
                 <line x1="0" y1="32" x2="320" y2="32" />
-                <path d={createPitchContourPath(pitchHistory)} />
+                <path d={createSyntheticWavePath(waveHistory)} />
               </svg>
             </div>
           )}

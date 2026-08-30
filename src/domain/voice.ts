@@ -45,39 +45,61 @@ export function estimatePitch(samples: ArrayLike<number>, sampleRate: number): n
   return bestLag && bestCorrelation >= 0.35 ? sampleRate / bestLag : null;
 }
 
-export function createPitchContourPath(
-  history: ReadonlyArray<number | null>,
-  width = 320,
-  height = 64,
-  minPitch = 80,
-  maxPitch = 360,
-): string {
-  const lastIndex = Math.max(history.length - 1, 1);
-  let path = "";
-  let previousVoiced = false;
-  history.forEach((pitch, index) => {
-    if (pitch === null || !Number.isFinite(pitch)) {
-      previousVoiced = false;
-      return;
-    }
-    const normalized = Math.min(
-      Math.max(Math.log(pitch / minPitch) / Math.log(maxPitch / minPitch), 0),
-      1,
-    );
-    const x = (index / lastIndex) * width;
-    const y = height - normalized * height;
-    path += `${previousVoiced ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)} `;
-    previousVoiced = true;
-  });
-  return path.trim();
+export type SyntheticWavePoint = {
+  amplitude: number;
+  frequency: number;
+  phase: number;
+};
+
+export function smoothWaveValue(previous: number, current: number, factor = 0.3): number {
+  const safeFactor = Math.min(Math.max(factor, 0), 1);
+  return previous + (current - previous) * safeFactor;
 }
 
-export function appendPitchHistory(
-  history: ReadonlyArray<number | null>,
+export function mapPitchToWaveFrequency(
   pitch: number | null,
-  maxLength = 120,
-): Array<number | null> {
-  return [...history, pitch].slice(-Math.max(maxLength, 1));
+  minPitch = 80,
+  maxPitch = 360,
+  minFrequency = 1.5,
+  maxFrequency = 8,
+): number {
+  const safePitch = Number.isFinite(pitch)
+    ? Math.min(Math.max(pitch ?? minPitch, minPitch), maxPitch)
+    : 160;
+  const normalized = Math.log(safePitch / minPitch) / Math.log(maxPitch / minPitch);
+  return minFrequency + normalized * (maxFrequency - minFrequency);
+}
+
+export function advanceWavePhase(phase: number, frequency: number, elapsedMs: number): number {
+  const safeElapsed = Number.isFinite(elapsedMs) ? Math.max(elapsedMs, 0) : 0;
+  return phase + (2 * Math.PI * frequency * safeElapsed) / 1000;
+}
+
+export function createSyntheticWavePath(
+  history: ReadonlyArray<SyntheticWavePoint>,
+  width = 320,
+  height = 64,
+): string {
+  if (!history.length) return "";
+  const lastIndex = Math.max(history.length - 1, 1);
+  const center = height / 2;
+  const maximumAmplitude = Math.max(height / 2 - 2, 0);
+  return history
+    .map((point, index) => {
+      const amplitude = Math.min(Math.max(point.amplitude, 0), 1) * maximumAmplitude;
+      const x = history.length === 1 ? width : (index / lastIndex) * width;
+      const y = center + Math.sin(point.phase) * amplitude;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+export function appendWaveHistory(
+  history: ReadonlyArray<SyntheticWavePoint>,
+  point: SyntheticWavePoint,
+  maxLength = 180,
+): Array<SyntheticWavePoint> {
+  return [...history, point].slice(-Math.max(maxLength, 1));
 }
 
 export function extractVoiceFeatures(samples: VoiceSample[], durationMs: number): VoiceFeatures {
