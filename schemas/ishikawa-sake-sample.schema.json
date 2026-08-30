@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "status", "products"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1.0" },
+    "status": { "type": "string", "const": "experimental" },
+    "products": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "producer",
+          "sourceUrl",
+          "descriptionSummary",
+          "termReferences",
+          "provenance",
+          "accessedOn",
+          "transformationNote",
+          "notes"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "producer": {
+            "type": "object",
+            "required": ["name", "prefecture"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "prefecture": { "const": "Ishikawa" }
+            },
+            "additionalProperties": false
+          },
+          "sourceUrl": { "type": "string", "format": "uri" },
+          "descriptionSummary": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "termReferences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["termId", "mappingStatus", "rationale"],
+              "properties": {
+                "termId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                "mappingStatus": {
+                  "enum": ["source-supported", "inferred-from-wording", "experimental"]
+                },
+                "rationale": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "provenance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["sourceId", "sourceType", "url", "accessedOn", "transformationNote"],
+              "properties": {
+                "sourceId": { "type": "string", "minLength": 1 },
+                "sourceType": { "type": "string", "minLength": 1 },
+                "url": { "type": "string", "format": "uri" },
+                "accessedOn": { "type": "string", "format": "date" },
+                "transformationNote": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "accessedOn": { "type": "string", "format": "date" },
+          "transformationNote": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
