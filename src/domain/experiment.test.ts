@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runLocalExperiment } from "./experiment";
 import type { GesturePoint } from "./gesture";
 import type { VoiceFeatures } from "./voice";
+import type { BodyMovementFeatures } from "./body";
 
 const shortSharpStroke: GesturePoint[] = [
   { x: 10, y: 40, t: 0 },
@@ -27,6 +28,17 @@ const shortVoice: VoiceFeatures = {
   endingBehavior: "maintained",
 };
 const longVoice: VoiceFeatures = { ...shortVoice, durationMs: 1200 };
+const bodyFeatures: BodyMovementFeatures = {
+  frameCount: 12,
+  durationMs: 1200,
+  totalMovement: 3,
+  averageSpeed: 0.0025,
+  peakSpeed: 0.004,
+  spread: 3,
+  activeJointCount: 4,
+  endingSpeedRatio: 0.9,
+  endingBehavior: "abrupt",
+};
 
 describe("EXP-001 deterministic pipeline", () => {
   it("maps a known everyday expression and gesture to candidates", () => {
@@ -227,5 +239,30 @@ describe("EXP-001 deterministic pipeline", () => {
     const kire = result.candidates.find((candidate) => candidate.entry.id === "kire");
     expect(kire?.explanation).toContain("短く終わる感じ");
     expect(kire?.explanation).not.toContain("duration:short");
+  });
+
+  it("connects body movement through the existing candidate and product path", () => {
+    const result = runLocalExperiment("", [], null, bodyFeatures);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.inputSource).toBe("body");
+    expect(result.representation.dimensions).toContainEqual(
+      expect.objectContaining({ dimensionId: "weight", polarity: "heavy" }),
+    );
+    expect(result.candidates.length).toBeGreaterThan(0);
+    expect(result.sakeProducts.length).toBeGreaterThan(0);
+  });
+
+  it("rejects an unusable body capture", () => {
+    const result = runLocalExperiment("", [], null, {
+      ...bodyFeatures,
+      frameCount: 1,
+      durationMs: 0,
+      totalMovement: 0,
+      endingBehavior: "unknown",
+    });
+
+    expect(result).toEqual({ error: "動きで表現してから試してください。" });
   });
 });
