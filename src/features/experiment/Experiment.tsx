@@ -347,7 +347,7 @@ export function Experiment() {
           {error}
         </p>
       )}
-      {result && <Result result={result} />}
+      {result && <Result result={result} onTryAgain={() => setResult(null)} />}
 
       <footer className="experiment__footer">
         <strong>実験中の表示です。</strong>
@@ -360,7 +360,7 @@ export function Experiment() {
   );
 }
 
-function Result({ result }: { result: ExperimentResult }) {
+function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: () => void }) {
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
@@ -398,6 +398,60 @@ function Result({ result }: { result: ExperimentResult }) {
       ) : (
         <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
       )}
+      <section className="sake-connection" aria-labelledby="sake-connection-title">
+        <div className="sake-connection__heading">
+          <span className="experiment__eyebrow">04 · real sake to explore</span>
+          <h3 id="sake-connection-title">この言葉を実際の石川の日本酒で確かめる候補</h3>
+          <p>
+            候補語と出典付きサンプルのterm参照が重なった商品を表示しています。おすすめや順位付けではありません。
+          </p>
+        </div>
+        {result.sakeProducts.length > 0 ? (
+          <div className="sake-product-list">
+            {result.sakeProducts.map((match) => (
+              <article className="sake-product" key={match.product.id}>
+                <h4>{match.product.name}</h4>
+                <p className="sake-product__producer">{match.product.producer.name}</p>
+                <p>{match.product.descriptionSummary}</p>
+                <p className="sake-product__why">
+                  この商品は「
+                  {match.matchedTermIds
+                    .map(
+                      (termId) =>
+                        result.candidates.find((candidate) => candidate.entry.id === termId)?.entry
+                          .displayTerm ?? termId,
+                    )
+                    .join("、")}
+                  」のterm参照があるため表示しています。
+                </p>
+                <p className="sake-product__rationale">
+                  {match.matchedReferences.map((reference) => reference.rationale).join(" ")}
+                </p>
+                <p className="sake-product__source">
+                  <a href={match.product.sourceUrl} target="_blank" rel="noreferrer">
+                    商品情報（公式）
+                  </a>
+                  {match.product.provenance.slice(1).map((source) => (
+                    <span key={source.sourceId}>
+                      {" · "}
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.sourceType}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-result">
+            今回の小さなサンプルには、この候補語を直接支える商品がありません。別の表現で試すか、辞書と出典を確認してください。
+          </p>
+        )}
+      </section>
+      <button className="text-button" type="button" onClick={onTryAgain}>
+        別の感じで試してみる
+      </button>
       <details className="debug-view">
         <summary>開発者向けに計算過程を見る</summary>
         <pre>
@@ -408,6 +462,7 @@ function Result({ result }: { result: ExperimentResult }) {
               voice: result.voiceFeatures,
               gesture: result.gesture,
               representation: result.representation,
+              sakeProducts: result.sakeProducts,
             },
             null,
             2,

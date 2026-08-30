@@ -7,6 +7,7 @@ import {
 } from "./gesture";
 import type { GestureFeatures, GestureInput } from "./gesture";
 import { voiceToRepresentation, type VoiceFeatures } from "./voice";
+import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
@@ -57,6 +58,7 @@ export type ExperimentResult = {
     matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals";
     explanation: string;
   }>;
+  sakeProducts: SakeProductMatch[];
   interpretation:
     | "aligned"
     | "mixed-signals"
@@ -110,13 +112,17 @@ export function runLocalExperiment(
   if (voiceFeatures && !expression.trim()) expression = "\u200b";
   if (!expression.trim()) return { error: "まず、音や感覚を表す短い言葉を入力してください。" };
   const gesture = extractGestureFeatures(input);
-  if (gesture.pointCount < 2 || gesture.pathLength <= 0) {
+  const hasGestureMovement = gesture.pointCount >= 2 && gesture.pathLength > 0;
+  const hasVoiceInput = voiceFeatures !== null && voiceFeatures.durationMs > 0;
+  if (!hasGestureMovement && !hasVoiceInput) {
     return {
       error:
         "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
     };
   }
-  const gestureRepresentation = gestureToRepresentation(gesture);
+  const gestureRepresentation = hasGestureMovement
+    ? gestureToRepresentation(gesture)
+    : { dimensions: [], tags: [] };
   const voiceRepresentation = voiceFeatures ? voiceToRepresentation(voiceFeatures) : null;
   const representation: GestureRepresentation = {
     dimensions: [...gestureRepresentation.dimensions, ...(voiceRepresentation?.dimensions ?? [])],
@@ -164,6 +170,7 @@ export function runLocalExperiment(
       explanation: candidateExplanation(matchedBy, dimensionText, hasVoiceSignal, hasGestureSignal),
     }));
   });
+  const sakeProducts = findSakeProductMatches(candidates.map((candidate) => candidate.entry.id));
 
   const hasExpression = expressionIds.length > 0;
   const hasGesture = gestureIds.length > 0;
@@ -202,6 +209,7 @@ export function runLocalExperiment(
     gesture,
     representation,
     candidates,
+    sakeProducts,
     interpretation,
     message,
   };

@@ -281,6 +281,53 @@ input:focus {
 .empty-result {
   color: #c8bfb1;
 }
+.sake-connection {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid #4c4033;
+}
+.sake-connection__heading h3 {
+  max-width: 28ch;
+  font-size: 1.5rem;
+}
+.sake-connection__heading p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.sake-product-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+.sake-product {
+  padding: 1rem;
+  border: 1px solid #574939;
+  border-radius: 0.7rem;
+  background: #1c1b19;
+}
+.sake-product h4 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.sake-product p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.sake-product__producer,
+.sake-product__rationale,
+.sake-product__why,
+.sake-product__source {
+  font-size: 0.9rem;
+}
+.sake-product__why {
+  color: #e2b96c !important;
+}
+.sake-product__source a {
+  color: #f1cb84;
+}
+.result > .text-button {
+  margin-top: 1.5rem;
+}
 .debug-view {
   margin-top: 2rem;
   color: #bcb2a4;

@@ -22,6 +22,20 @@ The first review found that the core idea could be realized, while keyboard text
 - Whether a richer short movement feels more expressive and repeatable than one plain stroke.
 - Whether connecting a translated term to a real, source-grounded Ishikawa sake gives the translation a clearer purpose.
 
+## What was built for Issue #16
+
+The local prototype now connects the existing voice and free-form movement inputs to the existing sensory hints and dictionary candidates, then looks up only the provenance-backed Ishikawa sample products that reference those candidate terms. Product cards show the producer, concise sourced summary, the term reference used for the connection, and an official source link. This is an exploratory “check this word in real sake” path, not a recommendation or ranking.
+
+If a candidate has no supporting product in the intentionally small sample, the interface explains that limitation instead of inventing a match. A retry action lets the user try another expression without adding history or personalization.
+
+## Automated verification
+
+The integrated domain flow is covered by deterministic tests for grounded product matching, multiple term references, no-product-match behavior, voice-only fallback, and the existing text/movement and mixed-signal paths. The standard repository validation suite is required before the human review.
+
+## Human Experience Gate for EXP-002
+
+Result remains `pending`. Human review should compare this flow with EXP-001 and check voice-first comfort, richer movement, the clarity of sensory hints and candidate reasoning, the usefulness of the Ishikawa product connection, the accuracy of source presentation, retry behavior, and whether any result feels like a recommendation or diagnosis. The human owns the H005/H006 `keep`, `revise`, or `reject` decision.
+
 ## What EXP-002 must not claim
 
 - Voice or movement features are not scientific measurements of taste.
