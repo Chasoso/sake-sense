@@ -104,24 +104,30 @@ h1 {
   letter-spacing: 0.04em;
 }
 .voice-visualizer {
-  align-items: center;
   background: #201c18;
   border: 1px solid #6f5b3e;
   border-radius: 999px;
   display: flex;
-  height: 2rem;
+  height: 3rem;
   margin-top: 0.75rem;
   overflow: hidden;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem;
 }
-.voice-visualizer__level {
-  background: #d4ad67;
-  border-radius: 999px;
+.voice-visualizer svg {
+  display: block;
   height: 100%;
-  min-width: 0.25rem;
-  transform-origin: center;
-  transition: transform 80ms linear;
   width: 100%;
+}
+.voice-visualizer line {
+  stroke: #6f5b3e;
+  stroke-width: 1;
+}
+.voice-visualizer polyline {
+  fill: none;
+  stroke: #d4ad67;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 .input-card--voice input {
   margin-top: 0;

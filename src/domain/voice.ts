@@ -12,6 +12,22 @@ export type VoiceFeatures = {
   endingBehavior: "maintained" | "fading" | "unknown";
 };
 
+export function createWaveformPoints(samples: ArrayLike<number>, width = 320, height = 64): string {
+  if (samples.length === 0) return "";
+  const center = height / 2;
+  const amplitude = Math.max(height / 2 - 2, 0);
+  const lastIndex = Math.max(samples.length - 1, 1);
+  return Array.from({ length: samples.length }, (_, index) => {
+    const sample = samples[index];
+    const normalized = Number.isFinite(sample)
+      ? (Math.min(Math.max(sample, 0), 255) - 128) / 128
+      : 0;
+    const x = (index / lastIndex) * width;
+    const y = center + normalized * amplitude;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+}
+
 export function extractVoiceFeatures(samples: VoiceSample[], durationMs: number): VoiceFeatures {
   const validSamples = samples.filter(
     (sample) => Number.isFinite(sample.t) && Number.isFinite(sample.level),

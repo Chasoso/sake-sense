@@ -125,4 +125,39 @@ describe("gesture feature extraction", () => {
 
     expect(features.horizontalDirectionChanges).toBe(2);
   });
+
+  it("aggregates multiple strokes without connecting their endpoints", () => {
+    const features = extractGestureFeatures([
+      [
+        { x: 0, y: 0, t: 0 },
+        { x: 10, y: 0, t: 100 },
+      ],
+      [
+        { x: 100, y: 100, t: 1000 },
+        { x: 110, y: 100, t: 1100 },
+      ],
+    ]);
+
+    expect(features.pathLength).toBe(20);
+    expect(features.durationMs).toBe(200);
+    expect(features.averageSpeed).toBeCloseTo(0.1);
+    expect(features.horizontalDirectionChanges).toBe(0);
+  });
+
+  it("uses the final stroke for ending behavior", () => {
+    const features = extractGestureFeatures([
+      [
+        { x: 0, y: 0, t: 0 },
+        { x: 100, y: 0, t: 100 },
+        { x: 200, y: 0, t: 120 },
+      ],
+      [
+        { x: 20, y: 80, t: 500 },
+        { x: 120, y: 80, t: 700 },
+        { x: 130, y: 80, t: 800 },
+      ],
+    ]);
+
+    expect(features.abruptEnding).toBe(false);
+  });
 });

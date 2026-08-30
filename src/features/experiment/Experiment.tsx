@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
-import { createGesturePath, type GesturePoint } from "../../domain/gesture";
-import { extractVoiceFeatures, type VoiceFeatures, type VoiceSample } from "../../domain/voice";
+import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
+import {
+  createWaveformPoints,
+  extractVoiceFeatures,
+  type VoiceFeatures,
+  type VoiceSample,
+} from "../../domain/voice";
 import { clientToViewBoxPoint } from "./coordinate";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
@@ -28,7 +33,7 @@ function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint 
 
 export function Experiment() {
   const [expression, setExpression] = useState("");
-  const [points, setPoints] = useState<GesturePoint[]>([]);
+  const [strokes, setStrokes] = useState<GestureStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
@@ -36,7 +41,7 @@ export function Experiment() {
     "idle" | "recording" | "captured" | "unavailable" | "denied"
   >("idle");
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
-  const [voiceLevel, setVoiceLevel] = useState(0);
+  const [waveformPoints, setWaveformPoints] = useState("");
   const capturedPointerId = useRef<number | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
@@ -71,7 +76,7 @@ export function Experiment() {
     }
     capturedPointerId.current = event.pointerId;
     setDrawing(true);
-    setPoints([pointFromEvent(event)]);
+    setStrokes((current) => [...current, [pointFromEvent(event)]]);
     setResult(null);
     setError("");
   };
@@ -79,7 +84,12 @@ export function Experiment() {
   const continueStroke = (event: React.PointerEvent<SVGSVGElement>) => {
     if (drawing && capturedPointerId.current === event.pointerId) {
       const point = pointFromEvent(event);
-      setPoints((current) => [...current, point]);
+      setStrokes((current) => {
+        if (current.length === 0) return current;
+        const next = [...current];
+        next[next.length - 1] = [...next[next.length - 1], point];
+        return next;
+      });
     }
   };
 
@@ -87,7 +97,12 @@ export function Experiment() {
     if (!drawing || capturedPointerId.current !== event.pointerId) return;
     const point = pointFromEvent(event);
     setDrawing(false);
-    setPoints((current) => [...current, point]);
+    setStrokes((current) => {
+      if (current.length === 0) return current;
+      const next = [...current];
+      next[next.length - 1] = [...next[next.length - 1], point];
+      return next;
+    });
     releasePointer(event);
   };
 
@@ -107,7 +122,7 @@ export function Experiment() {
     const level = Math.sqrt(
       data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
     );
-    setVoiceLevel(level);
+    setWaveformPoints(createWaveformPoints(data));
     voiceSamples.current.push({ t: voiceElapsed.current, level });
     voiceFrame.current = requestAnimationFrame(sampleVoice);
   };
@@ -122,7 +137,7 @@ export function Experiment() {
     void context?.close();
     const features = extractVoiceFeatures(voiceSamples.current, voiceElapsed.current);
     voiceAnalyser.current = null;
-    setVoiceLevel(0);
+    setWaveformPoints("");
     setVoiceFeatures(features);
     setVoiceStatus("captured");
   };
@@ -145,13 +160,13 @@ export function Experiment() {
       voiceSamples.current = [];
       voiceFirstFrame.current = null;
       voiceElapsed.current = 0;
-      setVoiceLevel(0);
+      setWaveformPoints("");
       setVoiceFeatures(null);
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
-      setVoiceLevel(0);
+      setWaveformPoints("");
       setVoiceStatus("denied");
     }
   };
@@ -168,7 +183,7 @@ export function Experiment() {
             : "Say a short sensory expression; the recording stays in this browser.";
 
   const analyze = () => {
-    const next = runLocalExperiment(expression, points, voiceFeatures);
+    const next = runLocalExperiment(expression, strokes, voiceFeatures);
     if ("error" in next) {
       setError(next.error);
       setResult(null);
@@ -190,15 +205,13 @@ export function Experiment() {
     voiceFirstFrame.current = null;
     voiceElapsed.current = 0;
     setExpression("");
-    setPoints([]);
+    setStrokes([]);
     setResult(null);
     setError("");
-    setVoiceLevel(0);
+    setWaveformPoints("");
     setVoiceFeatures(null);
     setVoiceStatus("idle");
   };
-
-  const path = createGesturePath(points);
 
   return (
     <main className="experiment" aria-labelledby="experiment-title">
@@ -225,10 +238,10 @@ export function Experiment() {
           <span className="input-card__hint">{voiceLabel}</span>
           {voiceStatus === "recording" && (
             <div className="voice-visualizer" role="status" aria-label="音声レベルを表示中">
-              <span
-                className="voice-visualizer__level"
-                style={{ transform: `scaleY(${Math.min(Math.max(voiceLevel * 8, 0.12), 1)})` }}
-              />
+              <svg viewBox="0 0 320 64" aria-hidden="true">
+                <line x1="0" y1="32" x2="320" y2="32" />
+                <polyline points={waveformPoints} />
+              </svg>
             </div>
           )}
           <span className="input-card__fallback">音声が使えない場合のテキスト fallback</span>
@@ -249,26 +262,33 @@ export function Experiment() {
             className="gesture-pad"
             viewBox="0 0 320 160"
             role="img"
-            aria-label="ポインターで一筆描くエリア"
+            aria-label="ポインターで自由に描くエリア"
             onPointerDown={startStroke}
             onPointerMove={continueStroke}
             onPointerUp={finishStroke}
             onPointerCancel={cancelStroke}
           >
             <rect width="320" height="160" rx="14" />
-            {path ? (
-              <path d={path} className="gesture-pad__line" fill="none" />
+            {strokes.length ? (
+              strokes.map((stroke, index) => (
+                <path
+                  key={index}
+                  d={createGesturePath(stroke)}
+                  className="gesture-pad__line"
+                  fill="none"
+                />
+              ))
             ) : (
               <text x="160" y="88" textAnchor="middle">
-                ここに一筆
+                ここに自由に描く
               </text>
             )}
           </svg>
           <button
             className="text-button"
             type="button"
-            onClick={() => setPoints([])}
-            disabled={!points.length}
+            onClick={() => setStrokes([])}
+            disabled={!strokes.length}
           >
             描き直す
           </button>
