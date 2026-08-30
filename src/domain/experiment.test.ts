@@ -130,4 +130,28 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.inputSource).toBe("text");
     expect(result.voiceFeatures).toBeNull();
   });
+
+  it("combines voice hints with a multi-stroke movement", () => {
+    const result = runLocalExperiment(
+      "",
+      [
+        [
+          { x: 10, y: 40, t: 0 },
+          { x: 80, y: 40, t: 100 },
+        ],
+        [
+          { x: 200, y: 100, t: 500 },
+          { x: 260, y: 100, t: 600 },
+        ],
+      ],
+      shortVoice,
+    );
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.gesture.pointCount).toBe(4);
+    expect(result.candidates.some((candidate) => candidate.matchedBy === "multiple-signals")).toBe(
+      true,
+    );
+  });
 });

@@ -5,7 +5,7 @@ import {
   type GesturePoint,
   type GestureRepresentation,
 } from "./gesture";
-import type { GestureFeatures } from "./gesture";
+import type { GestureFeatures, GestureInput } from "./gesture";
 import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
@@ -103,7 +103,7 @@ function gestureCandidateIds(representation: GestureRepresentation): string[] {
 
 export function runLocalExperiment(
   expression: string,
-  points: GesturePoint[],
+  points: GesturePoint[] | GestureInput,
   voiceFeatures: VoiceFeatures | null = null,
 ): ExperimentResult | { error: string } {
   const suppliedExpression = expression;
