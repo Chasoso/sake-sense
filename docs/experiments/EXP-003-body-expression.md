@@ -29,9 +29,9 @@ If the browser cannot load the pose runtime/model, or camera permission is denie
 - Total movement and average/peak speed: summed normalized joint displacement over time.
 - Movement spread: the largest normalized displacement of a joint from its starting pose, rather than the static extent of the body in frame.
 - Active joint count: joints crossing a small movement threshold.
-- Ending speed ratio and ending behavior: final-quarter speed compared with earlier median speed.
+- Ending speed ratio and ending behavior: the final quarter of the last contiguous active movement sequence is compared with its earlier median speed. Inactive stillness after movement is not included; if multiple bursts occur, only the final meaningful active sequence is used.
 
-The current experimental heuristic constants are `BODY_MOVEMENT_ACTIVITY_THRESHOLD = 0.01`, `BODY_SHORT_DURATION_THRESHOLD_MS = 1800`, `BODY_BROAD_MOVEMENT_THRESHOLD = 1.5`, and `BODY_ABRUPT_ENDING_RATIO = 0.75`. These are inspectable UI heuristics, not scientific thresholds. Unknown or insufficient evidence is left unmapped.
+The current experimental heuristic constants are `BODY_MOVEMENT_ACTIVITY_THRESHOLD = 0.01`, `BODY_SHORT_DURATION_THRESHOLD_MS = 1800`, `BODY_BROAD_MOVEMENT_THRESHOLD = 1.5`, and `BODY_ABRUPT_ENDING_RATIO = 0.75`. These are inspectable UI heuristics, not scientific thresholds. Fewer than three final active segments, or other insufficient evidence, produces `unknown` ending behavior and leaves shape unmapped.
 
 Landmarks are normalized around the shoulder midpoint and shoulder width. Features are calculated across consecutive pose frames only.
 

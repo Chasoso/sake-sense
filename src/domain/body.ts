@@ -137,9 +137,22 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     (movement, segment) => movement + (segment >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? segment : 0),
     0,
   );
-  const endingStart = Math.floor(segmentSpeeds.length * 0.75);
-  const representative = median(segmentSpeeds.slice(0, Math.max(endingStart, 1)));
-  const ending = segmentSpeeds.slice(endingStart);
+  const activeIndexes = segmentMovements
+    .map((movement, index) => (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? index : -1))
+    .filter((index) => index >= 0);
+  const lastActiveIndex = activeIndexes.at(-1);
+  const finalSequence: number[] = [];
+  for (
+    let index = lastActiveIndex;
+    index !== undefined && segmentMovements[index] >= BODY_MOVEMENT_ACTIVITY_THRESHOLD;
+    index -= 1
+  ) {
+    finalSequence.unshift(index);
+  }
+  const activeSpeeds = finalSequence.map((index) => segmentSpeeds[index]);
+  const endingStart = Math.floor(activeSpeeds.length * 0.75);
+  const representative = median(activeSpeeds.slice(0, Math.max(endingStart, 1)));
+  const ending = activeSpeeds.slice(endingStart);
   const endingSpeed = ending.length
     ? ending.reduce((sum, speed) => sum + speed, 0) / ending.length
     : 0;
@@ -153,7 +166,7 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     activeJointCount: jointMovement.filter((movement) => movement >= 0.08).length,
     endingSpeedRatio,
     endingBehavior:
-      segmentSpeeds.length < 3
+      activeSpeeds.length < 3
         ? "unknown"
         : representative === 0
           ? "unknown"

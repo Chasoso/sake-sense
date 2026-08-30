@@ -52,6 +52,56 @@ describe("body movement features", () => {
     );
   });
 
+  it("evaluates an abrupt ending before a long inactive tail", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(200, 0),
+      frame(400, 0.5),
+      frame(600, 1),
+      frame(700, 1.5),
+      frame(3000, 1.5),
+    ]);
+
+    expect(features.captureDurationMs).toBe(3000);
+    expect(features.activeDurationMs).toBe(500);
+    expect(features.endingBehavior).toBe("abrupt");
+    expect(bodyToRepresentation(features).dimensions).toContainEqual(
+      expect.objectContaining({ dimensionId: "shape", polarity: "sharp" }),
+    );
+  });
+
+  it("preserves a gradual active ending before a long inactive tail", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(200, 0.4),
+      frame(400, 0.8),
+      frame(700, 1),
+      frame(1100, 1.1),
+      frame(3000, 1.1),
+    ]);
+
+    expect(features.endingBehavior).toBe("gradual");
+    expect(bodyToRepresentation(features).dimensions).toContainEqual(
+      expect.objectContaining({ dimensionId: "shape", polarity: "round" }),
+    );
+  });
+
+  it("uses the final active burst and ignores an earlier burst", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 0.5),
+      frame(200, 0.5),
+      frame(300, 0.5),
+      frame(400, 1),
+      frame(500, 1.5),
+      frame(600, 2),
+      frame(700, 2.5),
+      frame(800, 2.5),
+    ]);
+
+    expect(features.endingBehavior).toBe("abrupt");
+  });
+
   it("distinguishes abrupt and gradual endings from segment speed", () => {
     const abrupt = extractBodyMovementFeatures([
       frame(0, 0),
