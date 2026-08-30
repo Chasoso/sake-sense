@@ -25,11 +25,13 @@ If the browser cannot load the pose runtime/model, or camera permission is denie
 
 ## Observable feature set
 
-- Duration: elapsed capture time.
+- Capture duration and active movement duration are kept separate. Active duration is the sum of segments whose normalized joint movement reaches `BODY_MOVEMENT_ACTIVITY_THRESHOLD`; it is the duration used for the duration hint.
 - Total movement and average/peak speed: summed normalized joint displacement over time.
-- Spread: normalized spatial extent of observed landmarks.
+- Movement spread: the largest normalized displacement of a joint from its starting pose, rather than the static extent of the body in frame.
 - Active joint count: joints crossing a small movement threshold.
 - Ending speed ratio and ending behavior: final-quarter speed compared with earlier median speed.
+
+The current experimental heuristic constants are `BODY_MOVEMENT_ACTIVITY_THRESHOLD = 0.01`, `BODY_SHORT_DURATION_THRESHOLD_MS = 1800`, `BODY_BROAD_MOVEMENT_THRESHOLD = 1.5`, and `BODY_ABRUPT_ENDING_RATIO = 0.75`. These are inspectable UI heuristics, not scientific thresholds. Unknown or insufficient evidence is left unmapped.
 
 Landmarks are normalized around the shoulder midpoint and shoulder width. Features are calculated across consecutive pose frames only.
 
@@ -37,14 +39,14 @@ Landmarks are normalized around the shoulder midpoint and shoulder width. Featur
 
 | Observed movement           | Existing sensory hint | Status       |
 | --------------------------- | --------------------- | ------------ |
-| Short capture               | `duration:short`      | experimental |
-| Sustained capture           | `duration:lingering`  | experimental |
+| Short active movement       | `duration:short`      | experimental |
+| Sustained active movement   | `duration:lingering`  | experimental |
 | Abrupt ending               | `shape:sharp`         | experimental |
 | Gradual ending              | `shape:round`         | experimental |
 | Broad normalized spread     | `weight:heavy`        | experimental |
 | Contained normalized spread | `weight:light`        | experimental |
 
-These mappings reuse existing dictionary dimensions and are shown as experimental hints. They do not claim that the body detected taste. Dominant direction and other omitted signals are intentionally not assigned a sake meaning.
+These mappings reuse existing dictionary dimensions and are shown as experimental hints. They do not claim that the body detected taste. Static or insufficient captures produce no forced duration, shape, or weight dimensions. Dominant direction and other omitted signals are intentionally not assigned a sake meaning.
 
 ## Human-readable flow
 
@@ -56,6 +58,6 @@ Deterministic tests cover normalized body feature extraction, short/sustained mo
 
 ## Human Experience Gate
 
-Human review is required. Try camera allow, deny, unavailable fallback, small hand movement, broad upper-body movement, short abrupt movement, long gradual movement, unusual/unmapped movement, retry/reset, and comparison with EXP-002. Check whether the movement feedback, feature-to-term reasoning, provenance-backed product connection, privacy wording, and non-recommendation framing are understandable.
+Human review is required. Try camera allow, deny, unavailable fallback, short movement followed by remaining stillness, static capture, small localized movement, broad upper-body movement, short abrupt movement, long gradual movement, insufficient/unknown movement, unusual/unmapped movement, retry/reset, and comparison with EXP-002. Check whether the movement feedback, feature-to-term reasoning, provenance-backed product connection, privacy wording, and non-recommendation framing are understandable.
 
 H007 and H008 remain `unvalidated`; the human owns the eventual `keep`, `revise`, or `reject` decision.

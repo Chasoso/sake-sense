@@ -123,8 +123,8 @@ export function runLocalExperiment(
   const hasBodyInput =
     bodyFeatures !== null &&
     bodyFeatures.frameCount >= 2 &&
-    bodyFeatures.durationMs > 0 &&
-    bodyFeatures.totalMovement > 0;
+    bodyFeatures.hasMeaningfulMovement &&
+    bodyFeatures.activeDurationMs > 0;
   if (!hasGestureMovement && !hasVoiceInput && !hasBodyInput) {
     return {
       error:

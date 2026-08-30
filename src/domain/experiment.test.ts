@@ -30,11 +30,13 @@ const shortVoice: VoiceFeatures = {
 const longVoice: VoiceFeatures = { ...shortVoice, durationMs: 1200 };
 const bodyFeatures: BodyMovementFeatures = {
   frameCount: 12,
-  durationMs: 1200,
+  captureDurationMs: 3000,
+  activeDurationMs: 1200,
   totalMovement: 3,
   averageSpeed: 0.0025,
   peakSpeed: 0.004,
   spread: 3,
+  hasMeaningfulMovement: true,
   activeJointCount: 4,
   endingSpeedRatio: 0.9,
   endingBehavior: "abrupt",
@@ -258,8 +260,10 @@ describe("EXP-001 deterministic pipeline", () => {
     const result = runLocalExperiment("", [], null, {
       ...bodyFeatures,
       frameCount: 1,
-      durationMs: 0,
+      captureDurationMs: 0,
+      activeDurationMs: 0,
       totalMovement: 0,
+      hasMeaningfulMovement: false,
       endingBehavior: "unknown",
     });
 

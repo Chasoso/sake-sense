@@ -19,7 +19,8 @@ describe("body movement features", () => {
   it("extracts a short movement and maps it to short duration", () => {
     const features = extractBodyMovementFeatures([frame(0, 0), frame(500, 0.4)]);
 
-    expect(features.durationMs).toBe(500);
+    expect(features.captureDurationMs).toBe(500);
+    expect(features.activeDurationMs).toBe(500);
     expect(features.totalMovement).toBeGreaterThan(0);
     expect(bodyToRepresentation(features).dimensions).toContainEqual(
       expect.objectContaining({ dimensionId: "duration", polarity: "short" }),
@@ -29,9 +30,25 @@ describe("body movement features", () => {
   it("extracts a sustained movement and maps it to lingering duration", () => {
     const features = extractBodyMovementFeatures([frame(0, 0), frame(1500, 0.4), frame(3000, 0.8)]);
 
-    expect(features.durationMs).toBe(3000);
+    expect(features.captureDurationMs).toBe(3000);
+    expect(features.activeDurationMs).toBe(3000);
     expect(bodyToRepresentation(features).dimensions).toContainEqual(
       expect.objectContaining({ dimensionId: "duration", polarity: "lingering" }),
+    );
+  });
+
+  it("uses active movement duration instead of the full capture window", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(200, 0),
+      frame(700, 1),
+      frame(3000, 1),
+    ]);
+
+    expect(features.captureDurationMs).toBe(3000);
+    expect(features.activeDurationMs).toBe(500);
+    expect(bodyToRepresentation(features).dimensions).toContainEqual(
+      expect.objectContaining({ dimensionId: "duration", polarity: "short" }),
     );
   });
 
@@ -61,22 +78,60 @@ describe("body movement features", () => {
     expect(features.peakSpeed).toBeGreaterThan(0);
   });
 
+  it("measures movement extent rather than static body extent", () => {
+    const staticFeatures = extractBodyMovementFeatures([frame(0, 0), frame(3000, 0)]);
+    const smallFeatures = extractBodyMovementFeatures([frame(0, 0), frame(1000, 0.4)]);
+    const broadFeatures = extractBodyMovementFeatures([frame(0, 0), frame(1000, 2)]);
+
+    expect(staticFeatures.spread).toBe(0);
+    expect(staticFeatures.hasMeaningfulMovement).toBe(false);
+    expect(bodyToRepresentation(staticFeatures).dimensions).toEqual([]);
+    expect(smallFeatures.spread).toBeLessThan(1.5);
+    expect(broadFeatures.spread).toBeGreaterThanOrEqual(1.5);
+    expect(bodyToRepresentation(broadFeatures).dimensions).toContainEqual(
+      expect.objectContaining({ dimensionId: "weight", polarity: "heavy" }),
+    );
+  });
+
+  it("keeps unknown and insufficient dimensions unmapped", () => {
+    const partial = bodyToRepresentation({
+      frameCount: 2,
+      captureDurationMs: 1000,
+      activeDurationMs: 1000,
+      totalMovement: 0.2,
+      averageSpeed: 0.0002,
+      peakSpeed: 0.0002,
+      spread: 0,
+      hasMeaningfulMovement: true,
+      activeJointCount: 1,
+      endingSpeedRatio: 0,
+      endingBehavior: "unknown",
+    });
+
+    expect(partial.dimensions).toEqual([
+      expect.objectContaining({ dimensionId: "duration", polarity: "short" }),
+    ]);
+  });
+
   it("does not force semantics for an empty or unusable sequence", () => {
     const features = extractBodyMovementFeatures([frame(0, 0)]);
 
     expect(features.endingBehavior).toBe("unknown");
     expect(features.totalMovement).toBe(0);
-    expect(features.durationMs).toBe(0);
+    expect(features.captureDurationMs).toBe(0);
+    expect(features.activeDurationMs).toBe(0);
   });
 
   it("describes observed body features without exposing raw internals", () => {
     const descriptions = humanizeBodyFeatures({
       frameCount: 10,
-      durationMs: 1000,
+      captureDurationMs: 1000,
+      activeDurationMs: 1000,
       totalMovement: 2,
       averageSpeed: 0.002,
       peakSpeed: 0.02,
       spread: 3,
+      hasMeaningfulMovement: true,
       activeJointCount: 2,
       endingSpeedRatio: 0.4,
       endingBehavior: "gradual",
