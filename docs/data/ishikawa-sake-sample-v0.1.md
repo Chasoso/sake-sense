@@ -6,7 +6,8 @@ This is a small, experimental sample for the EXP-002 product-connection experime
 
 The retained sources are official product pages from [菊姫](https://www.kikuhime.co.jp/) and [天狗舞 / 車多酒造](https://www.tengumai.co.jp/), checked on 2026-08-29:
 
-- [菊姫 特撰純米 and product information](https://www.kikuhime.co.jp/products/page/2/): `濃醇旨口` is used as a source-supported reference to `nojun`.
+- [菊姫 特撰純米 and product information](https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/): the product page supports the concise product summary.
+- [菊姫 味わいから選ぶ](https://www.kikuhime.co.jp/product/taste/): the official taste-category page places 特撰純米 in `濃醇タイプ`, which is the source-supported basis for the `nojun` reference.
 - [菊姫 山廃純米](https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/): `濃醇` is explicitly used; it references `nojun`.
 - [菊姫 加州菊酒](https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/): `酸味` and `キレが良い` are explicit; it references `sanmi` and `kire`.
 - [菊姫吟醸](https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/): `軽やか` is explicit; its `tanrei` reference is deliberately `inferred-from-wording`, not an official claim that the product is 淡麗.

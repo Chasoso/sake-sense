@@ -6,22 +6,29 @@
       "id": "kikuhime-tokusen-junmai",
       "name": "特撰純米",
       "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
-      "sourceUrl": "https://www.kikuhime.co.jp/products/page/2/",
+      "sourceUrl": "https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/",
       "descriptionSummary": "米の甘味・旨味が豊かで、蔵内熟成によるまろやかさと深みがある純米酒。",
       "termReferences": [
         {
           "termId": "nojun",
           "mappingStatus": "source-supported",
-          "rationale": "公式商品案内がこの商品を濃醇旨口タイプとして説明している。"
+          "rationale": "菊姫公式の「味わいから選ぶ」で特撰純米が濃醇タイプに分類されているため、nojunをsource-supportedとして参照する。"
         }
       ],
       "provenance": [
         {
-          "sourceId": "kikuhime-product-page-2",
+          "sourceId": "kikuhime-tokusen-junmai-product",
           "sourceType": "Official Kikuhime product information",
-          "url": "https://www.kikuhime.co.jp/products/page/2/",
+          "url": "https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/",
           "accessedOn": "2026-08-29",
-          "transformationNote": "公式商品説明の要点を短く日本語で要約し、濃醇の用語参照だけを保持した。"
+          "transformationNote": "公式の商品詳細から商品概要の要点だけを短く要約した。濃醇分類の根拠は別の公式ページに分離して記録した。"
+        },
+        {
+          "sourceId": "kikuhime-taste-category",
+          "sourceType": "Official Kikuhime taste category page",
+          "url": "https://www.kikuhime.co.jp/product/taste/",
+          "accessedOn": "2026-08-30",
+          "transformationNote": "味わいから選ぶページで特撰純米が濃醇タイプに分類されていることを、nojun参照の根拠として短く記録した。"
         }
       ],
       "accessedOn": "2026-08-29",
