@@ -224,6 +224,67 @@ input:focus {
   padding-bottom: 1.5rem;
   border-bottom: 1px solid #4c4033;
 }
+.translation-trail {
+  display: grid;
+  gap: 0.75rem;
+  margin: 2rem 0;
+}
+.translation-step {
+  padding: 1rem;
+  border: 1px solid #574939;
+  border-radius: 0.7rem;
+  background: #1c1b19;
+}
+.translation-step__label {
+  display: block;
+  margin-bottom: 0.7rem;
+  color: #e2b96c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.translation-step > strong {
+  color: #f1cb84;
+  font-size: 1.25rem;
+}
+.translation-step > p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.translation-connector {
+  color: #d4ad67;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-align: center;
+}
+.translation-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.translation-hints li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #463b2e;
+}
+.translation-hints strong {
+  color: #f6f0e6;
+}
+.translation-hints span {
+  color: #a9a093;
+  font-size: 0.75rem;
+}
+.translation-step .candidate-list {
+  margin-top: 0.25rem;
+}
+.translation-step--products {
+  border-style: dashed;
+}
 .result__representation span {
   color: #a9a093;
   font-size: 0.72rem;

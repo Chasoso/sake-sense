@@ -15,6 +15,7 @@ import {
 } from "../../domain/voice";
 import { clientToViewBoxPoint } from "./coordinate";
 import { presentEvidenceStatus } from "../../domain/sake-product-matching";
+import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -362,6 +363,7 @@ export function Experiment() {
 }
 
 function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: () => void }) {
+  const sensoryHints = humanizeRepresentation(result.representation);
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
@@ -369,36 +371,61 @@ function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: 
         <h2 id="result-title">あなたの表現から見えた手がかり</h2>
         <p>{result.message}</p>
       </div>
-      <div className="result__representation">
-        <span>your expression</span>
-        <strong>{result.expression || "voice (no transcription)"}</strong>
-        <span>shared sensory hints</span>
-        <div className="tag-list">
-          {result.representation.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
+      <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
+        <section className="translation-step">
+          <span className="translation-step__label">01 · あなたの表現</span>
+          <strong>{result.expression || "声（内容の文字起こしはしていません）"}</strong>
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
         </div>
+        <section className="translation-step">
+          <span className="translation-step__label">02 · 表現から見えた特徴</span>
+          {sensoryHints.length > 0 ? (
+            <ul className="translation-hints">
+              {sensoryHints.map((hint) => (
+                <li key={hint.internal}>
+                  <strong>{hint.label}</strong>
+                  <span>{hint.internal}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>今回の入力から、既存の感覚特徴は抽出されませんでした。</p>
+          )}
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
+        </div>
+        <section className="translation-step">
+          <span className="translation-step__label">03 · この特徴につながった日本酒の言葉</span>
+          <div className="candidate-list">
+            {result.candidates.length > 0 ? (
+              result.candidates.map((candidate) => (
+                <article className="candidate" key={candidate.entry.id}>
+                  <div>
+                    <span className="candidate__match">
+                      {humanizeSignalSource(candidate.matchedBy)}
+                    </span>
+                    <h3>{candidate.entry.displayTerm}</h3>
+                  </div>
+                  <p>{candidate.entry.definitionSummary}</p>
+                  <p className="candidate__why">{candidate.explanation}</p>
+                </article>
+              ))
+            ) : (
+              <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
+            )}
+          </div>
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
+        </div>
+        <section className="translation-step translation-step--products">
+          <span className="translation-step__label">04 · 実際の石川の日本酒で確かめる候補</span>
+          <p>上の候補語をterm参照で確認できる、出典付きのサンプルです。</p>
+        </section>
       </div>
-      {result.candidates.length > 0 ? (
-        <div className="candidate-list">
-          {result.candidates.map((candidate) => (
-            <article className="candidate" key={candidate.entry.id}>
-              <div>
-                <span className="candidate__match">
-                  {candidate.matchedBy === "both"
-                    ? "two signals meet"
-                    : `${candidate.matchedBy} signal`}
-                </span>
-                <h3>{candidate.entry.displayTerm}</h3>
-              </div>
-              <p>{candidate.entry.definitionSummary}</p>
-              <p className="candidate__why">{candidate.explanation}</p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
-      )}
       <section className="sake-connection" aria-labelledby="sake-connection-title">
         <div className="sake-connection__heading">
           <span className="experiment__eyebrow">04 · real sake to explore</span>

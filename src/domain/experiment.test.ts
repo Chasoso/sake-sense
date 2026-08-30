@@ -218,4 +218,14 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.candidates.length).toBeGreaterThan(0);
     expect(result.sakeProducts).toEqual([]);
   });
+
+  it("explains a candidate with a human-readable sensory hint", () => {
+    const result = runLocalExperiment("スッ", shortSharpStroke);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    const kire = result.candidates.find((candidate) => candidate.entry.id === "kire");
+    expect(kire?.explanation).toContain("短く終わる感じ");
+    expect(kire?.explanation).not.toContain("duration:short");
+  });
 });

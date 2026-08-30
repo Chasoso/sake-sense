@@ -8,6 +8,7 @@ import {
 import type { GestureFeatures, GestureInput } from "./gesture";
 import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
+import { humanizeSensoryDimension } from "./translation-trail";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
@@ -152,7 +153,7 @@ export function runLocalExperiment(
               ? "voice"
               : "gesture";
     const dimensionText = entry.dimensions
-      .map((dimension) => `${dimension.dimensionId}:${dimension.polarity}`)
+      .map((dimension) => humanizeSensoryDimension(dimension).label)
       .join(", ");
     return [
       {
