@@ -14,6 +14,8 @@ import {
   type VoiceSample,
 } from "../../domain/voice";
 import { clientToViewBoxPoint } from "./coordinate";
+import { presentEvidenceStatus } from "../../domain/sake-product-matching";
+import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -347,7 +349,7 @@ export function Experiment() {
           {error}
         </p>
       )}
-      {result && <Result result={result} />}
+      {result && <Result result={result} onTryAgain={() => setResult(null)} />}
 
       <footer className="experiment__footer">
         <strong>実験中の表示です。</strong>
@@ -360,7 +362,8 @@ export function Experiment() {
   );
 }
 
-function Result({ result }: { result: ExperimentResult }) {
+function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: () => void }) {
+  const sensoryHints = humanizeRepresentation(result.representation);
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
@@ -368,36 +371,120 @@ function Result({ result }: { result: ExperimentResult }) {
         <h2 id="result-title">あなたの表現から見えた手がかり</h2>
         <p>{result.message}</p>
       </div>
-      <div className="result__representation">
-        <span>your expression</span>
-        <strong>{result.expression || "voice (no transcription)"}</strong>
-        <span>shared sensory hints</span>
-        <div className="tag-list">
-          {result.representation.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
+      <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
+        <section className="translation-step">
+          <span className="translation-step__label">01 · あなたの表現</span>
+          <strong>{result.expression || "声（内容の文字起こしはしていません）"}</strong>
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
         </div>
+        <section className="translation-step">
+          <span className="translation-step__label">02 · 表現から見えた特徴</span>
+          {sensoryHints.length > 0 ? (
+            <ul className="translation-hints">
+              {sensoryHints.map((hint) => (
+                <li key={hint.internal}>
+                  <strong>{hint.label}</strong>
+                  <span>{hint.internal}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>今回の入力から、既存の感覚特徴は抽出されませんでした。</p>
+          )}
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
+        </div>
+        <section className="translation-step">
+          <span className="translation-step__label">03 · この特徴につながった日本酒の言葉</span>
+          <div className="candidate-list">
+            {result.candidates.length > 0 ? (
+              result.candidates.map((candidate) => (
+                <article className="candidate" key={candidate.entry.id}>
+                  <div>
+                    <span className="candidate__match">
+                      {humanizeSignalSource(candidate.matchedBy)}
+                    </span>
+                    <h3>{candidate.entry.displayTerm}</h3>
+                  </div>
+                  <p>{candidate.entry.definitionSummary}</p>
+                  <p className="candidate__why">{candidate.explanation}</p>
+                </article>
+              ))
+            ) : (
+              <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
+            )}
+          </div>
+        </section>
+        <div className="translation-connector" aria-hidden="true">
+          ↓
+        </div>
+        <section className="translation-step translation-step--products">
+          <span className="translation-step__label">04 · 実際の石川の日本酒で確かめる候補</span>
+          <p>上の候補語をterm参照で確認できる、出典付きのサンプルです。</p>
+        </section>
       </div>
-      {result.candidates.length > 0 ? (
-        <div className="candidate-list">
-          {result.candidates.map((candidate) => (
-            <article className="candidate" key={candidate.entry.id}>
-              <div>
-                <span className="candidate__match">
-                  {candidate.matchedBy === "both"
-                    ? "two signals meet"
-                    : `${candidate.matchedBy} signal`}
-                </span>
-                <h3>{candidate.entry.displayTerm}</h3>
-              </div>
-              <p>{candidate.entry.definitionSummary}</p>
-              <p className="candidate__why">{candidate.explanation}</p>
-            </article>
-          ))}
+      <section className="sake-connection" aria-labelledby="sake-connection-title">
+        <div className="sake-connection__heading">
+          <span className="experiment__eyebrow">04 · real sake to explore</span>
+          <h3 id="sake-connection-title">この言葉を実際の石川の日本酒で確かめる候補</h3>
+          <p>
+            候補語と出典付きサンプルのterm参照が重なった商品を表示しています。おすすめや順位付けではありません。
+          </p>
         </div>
-      ) : (
-        <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
-      )}
+        {result.sakeProducts.length > 0 ? (
+          <div className="sake-product-list">
+            {result.sakeProducts.map((match) => (
+              <article className="sake-product" key={match.product.id}>
+                <h4>{match.product.name}</h4>
+                <p className="sake-product__producer">{match.product.producer.name}</p>
+                <p>{match.product.descriptionSummary}</p>
+                <p className="sake-product__why">
+                  この商品は、候補語とterm参照が重なるため表示しています。
+                </p>
+                <ul className="sake-product__evidence">
+                  {match.matchedReferences.map((reference) => {
+                    const term = result.candidates.find(
+                      (candidate) => candidate.entry.id === reference.termId,
+                    )?.entry.displayTerm;
+                    const evidence = presentEvidenceStatus(reference.mappingStatus);
+                    return (
+                      <li key={reference.termId}>
+                        <strong>{term ?? reference.termId}</strong>
+                        <span>{evidence.label}</span>
+                        <p>{evidence.explanation}</p>
+                        <p>{reference.rationale}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="sake-product__source">
+                  <a href={match.product.sourceUrl} target="_blank" rel="noreferrer">
+                    商品情報（公式）
+                  </a>
+                  {match.product.provenance.slice(1).map((source) => (
+                    <span key={source.sourceId}>
+                      {" · "}
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.sourceType}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-result">
+            今回の小さなサンプルには、この候補語を直接支える商品がありません。別の表現で試すか、辞書と出典を確認してください。
+          </p>
+        )}
+      </section>
+      <button className="text-button" type="button" onClick={onTryAgain}>
+        別の感じで試してみる
+      </button>
       <details className="debug-view">
         <summary>開発者向けに計算過程を見る</summary>
         <pre>
@@ -408,6 +495,7 @@ function Result({ result }: { result: ExperimentResult }) {
               voice: result.voiceFeatures,
               gesture: result.gesture,
               representation: result.representation,
+              sakeProducts: result.sakeProducts,
             },
             null,
             2,

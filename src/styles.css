@@ -224,6 +224,67 @@ input:focus {
   padding-bottom: 1.5rem;
   border-bottom: 1px solid #4c4033;
 }
+.translation-trail {
+  display: grid;
+  gap: 0.75rem;
+  margin: 2rem 0;
+}
+.translation-step {
+  padding: 1rem;
+  border: 1px solid #574939;
+  border-radius: 0.7rem;
+  background: #1c1b19;
+}
+.translation-step__label {
+  display: block;
+  margin-bottom: 0.7rem;
+  color: #e2b96c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.translation-step > strong {
+  color: #f1cb84;
+  font-size: 1.25rem;
+}
+.translation-step > p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.translation-connector {
+  color: #d4ad67;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-align: center;
+}
+.translation-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.translation-hints li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #463b2e;
+}
+.translation-hints strong {
+  color: #f6f0e6;
+}
+.translation-hints span {
+  color: #a9a093;
+  font-size: 0.75rem;
+}
+.translation-step .candidate-list {
+  margin-top: 0.25rem;
+}
+.translation-step--products {
+  border-style: dashed;
+}
 .result__representation span {
   color: #a9a093;
   font-size: 0.72rem;
@@ -280,6 +341,79 @@ input:focus {
 }
 .empty-result {
   color: #c8bfb1;
+}
+.sake-connection {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid #4c4033;
+}
+.sake-connection__heading h3 {
+  max-width: 28ch;
+  font-size: 1.5rem;
+}
+.sake-connection__heading p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.sake-product-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+.sake-product {
+  padding: 1rem;
+  border: 1px solid #574939;
+  border-radius: 0.7rem;
+  background: #1c1b19;
+}
+.sake-product h4 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.sake-product p {
+  color: #c8bfb1;
+  line-height: 1.55;
+}
+.sake-product__producer,
+.sake-product__why,
+.sake-product__source {
+  font-size: 0.9rem;
+}
+.sake-product__why {
+  color: #e2b96c !important;
+}
+.sake-product__source a {
+  color: #f1cb84;
+}
+.sake-product__evidence {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+.sake-product__evidence li {
+  padding-top: 0.75rem;
+  border-top: 1px solid #40372d;
+}
+.sake-product__evidence strong,
+.sake-product__evidence span {
+  display: block;
+}
+.sake-product__evidence strong {
+  color: #f1cb84;
+}
+.sake-product__evidence span {
+  margin-top: 0.25rem;
+  color: #e2b96c;
+  font-size: 0.82rem;
+}
+.sake-product__evidence p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+}
+.result > .text-button {
+  margin-top: 1.5rem;
 }
 .debug-view {
   margin-top: 2rem;

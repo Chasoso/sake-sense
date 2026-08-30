@@ -189,4 +189,43 @@ describe("EXP-001 deterministic pipeline", () => {
       true,
     );
   });
+
+  it("connects a grounded candidate to Ishikawa sake products", () => {
+    const result = runLocalExperiment("スッ", shortSharpStroke);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.sakeProducts.length).toBeGreaterThan(0);
+    expect(result.sakeProducts[0].product.provenance.length).toBeGreaterThan(0);
+    expect(result.sakeProducts[0].matchedTermIds).toContain("kire");
+  });
+
+  it("allows a voice-only path when microphone input has usable duration", () => {
+    const result = runLocalExperiment("", [], shortVoice);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.inputSource).toBe("voice");
+    expect(result.gesture.pointCount).toBe(0);
+    expect(result.sakeProducts.length).toBeGreaterThan(0);
+  });
+
+  it("reports the sample limitation when no product supports a candidate", () => {
+    const result = runLocalExperiment("未登録", longGradualStroke);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.candidates.length).toBeGreaterThan(0);
+    expect(result.sakeProducts).toEqual([]);
+  });
+
+  it("explains a candidate with a human-readable sensory hint", () => {
+    const result = runLocalExperiment("スッ", shortSharpStroke);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    const kire = result.candidates.find((candidate) => candidate.entry.id === "kire");
+    expect(kire?.explanation).toContain("短く終わる感じ");
+    expect(kire?.explanation).not.toContain("duration:short");
+  });
 });
