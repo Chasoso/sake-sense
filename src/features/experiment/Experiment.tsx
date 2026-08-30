@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
+import { humanizeBodyFeatures } from "../../domain/body";
 import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
 import {
   appendWaveHistory,
@@ -362,7 +363,13 @@ export function Experiment() {
   );
 }
 
-function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: () => void }) {
+export function Result({
+  result,
+  onTryAgain,
+}: {
+  result: ExperimentResult;
+  onTryAgain: () => void;
+}) {
   const sensoryHints = humanizeRepresentation(result.representation);
   return (
     <section className="result" aria-labelledby="result-title">
@@ -374,13 +381,23 @@ function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: 
       <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
         <section className="translation-step">
           <span className="translation-step__label">01 · あなたの表現</span>
-          <strong>{result.expression || "声（内容の文字起こしはしていません）"}</strong>
+          <strong>
+            {result.expression ||
+              (result.inputSource === "body" ? "身体表現" : "声（内容の文字起こしはしていません）")}
+          </strong>
         </section>
         <div className="translation-connector" aria-hidden="true">
           ↓
         </div>
         <section className="translation-step">
           <span className="translation-step__label">02 · 表現から見えた特徴</span>
+          {result.bodyFeatures && (
+            <ul className="body-feature-trail">
+              {humanizeBodyFeatures(result.bodyFeatures).map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+          )}
           {sensoryHints.length > 0 ? (
             <ul className="translation-hints">
               {sensoryHints.map((hint) => (
@@ -493,6 +510,7 @@ function Result({ result, onTryAgain }: { result: ExperimentResult; onTryAgain: 
               inputSource: result.inputSource,
               transcription: result.expression || null,
               voice: result.voiceFeatures,
+              body: result.bodyFeatures,
               gesture: result.gesture,
               representation: result.representation,
               sakeProducts: result.sakeProducts,

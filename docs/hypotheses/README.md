@@ -13,6 +13,9 @@ These documents describe current, unvalidated beliefs. They are not product fact
 | [H005](H005-richer-expression-improves-engagement.md) | Richer expression may improve engagement.                                   | unvalidated    |
 | [H006](H006-real-sake-connection-gives-purpose.md)    | Connecting terms to real sake may give the translation a purpose.           | unvalidated    |
 
+| [H007](H007-body-expression-improves-engagement.md) | Whole-body expression may improve engagement. | unvalidated |
+| [H008](H008-body-to-sake-bridge-has-purpose.md) | A body-to-sake bridge may make translation purposeful. | unvalidated |
+
 ## Status vocabulary
 
 - `unvalidated`: an active belief without sufficient experiment evidence.

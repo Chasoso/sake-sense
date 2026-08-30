@@ -1,5 +1,5 @@
-import { Experiment } from "../features/experiment/Experiment";
+import { ExperimentModes } from "../features/experiment/ExperimentModes";
 
 export function App() {
-  return <Experiment />;
+  return <ExperimentModes />;
 }
