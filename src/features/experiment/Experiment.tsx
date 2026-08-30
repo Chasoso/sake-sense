@@ -69,6 +69,7 @@ export function Experiment() {
   };
 
   const startStroke = (event: React.PointerEvent<SVGSVGElement>) => {
+    const point = pointFromEvent(event);
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -76,7 +77,7 @@ export function Experiment() {
     }
     capturedPointerId.current = event.pointerId;
     setDrawing(true);
-    setStrokes((current) => [...current, [pointFromEvent(event)]]);
+    setStrokes((current) => [...current, [point]]);
     setResult(null);
     setError("");
   };
