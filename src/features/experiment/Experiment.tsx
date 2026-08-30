@@ -1,25 +1,74 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
-import { createGesturePath, type GesturePoint } from "../../domain/gesture";
+import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
+import {
+  appendWaveHistory,
+  advanceWavePhase,
+  createSyntheticWavePath,
+  estimatePitch,
+  extractVoiceFeatures,
+  mapPitchToWaveFrequency,
+  smoothWaveValue,
+  type SyntheticWavePoint,
+  type VoiceFeatures,
+  type VoiceSample,
+} from "../../domain/voice";
+import { clientToViewBoxPoint } from "./coordinate";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
   const scaleX = rect.width > 0 ? 320 / rect.width : 1;
   const scaleY = rect.height > 0 ? 160 / rect.height : 1;
+  const fallback = {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
+  };
+  const ctm = event.currentTarget.getScreenCTM();
+  const point = clientToViewBoxPoint(
+    event.clientX,
+    event.clientY,
+    ctm ? { a: ctm.a, b: ctm.b, c: ctm.c, d: ctm.d, e: ctm.e, f: ctm.f } : null,
+    fallback,
+  );
   return {
-    x: Math.min(Math.max(Math.round((event.clientX - rect.left) * scaleX), 0), 320),
-    y: Math.min(Math.max(Math.round((event.clientY - rect.top) * scaleY), 0), 160),
+    x: Math.round(point.x),
+    y: Math.round(point.y),
     t: Number.isFinite(event.timeStamp) ? Math.max(Math.round(event.timeStamp), 0) : 0,
   };
 }
 
 export function Experiment() {
   const [expression, setExpression] = useState("");
-  const [points, setPoints] = useState<GesturePoint[]>([]);
+  const [strokes, setStrokes] = useState<GestureStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState<
+    "idle" | "recording" | "captured" | "unavailable" | "denied"
+  >("idle");
+  const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
+  const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const capturedPointerId = useRef<number | null>(null);
+  const voiceStream = useRef<MediaStream | null>(null);
+  const voiceContext = useRef<AudioContext | null>(null);
+  const voiceAnalyser = useRef<AnalyserNode | null>(null);
+  const voiceSamples = useRef<VoiceSample[]>([]);
+  const voiceFirstFrame = useRef<number | null>(null);
+  const voiceElapsed = useRef(0);
+  const voiceFrame = useRef<number | null>(null);
+  const wavePhase = useRef(0);
+  const waveAmplitude = useRef(0);
+  const waveFrequency = useRef(mapPitchToWaveFrequency(null));
+  const waveLastTimestamp = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+      voiceStream.current?.getTracks().forEach((track) => track.stop());
+      void voiceContext.current?.close();
+    },
+    [],
+  );
 
   const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     if (capturedPointerId.current !== event.pointerId) return;
@@ -30,6 +79,7 @@ export function Experiment() {
   };
 
   const startStroke = (event: React.PointerEvent<SVGSVGElement>) => {
+    const point = pointFromEvent(event);
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -37,7 +87,7 @@ export function Experiment() {
     }
     capturedPointerId.current = event.pointerId;
     setDrawing(true);
-    setPoints([pointFromEvent(event)]);
+    setStrokes((current) => [...current, [point]]);
     setResult(null);
     setError("");
   };
@@ -45,7 +95,12 @@ export function Experiment() {
   const continueStroke = (event: React.PointerEvent<SVGSVGElement>) => {
     if (drawing && capturedPointerId.current === event.pointerId) {
       const point = pointFromEvent(event);
-      setPoints((current) => [...current, point]);
+      setStrokes((current) => {
+        if (current.length === 0) return current;
+        const next = [...current];
+        next[next.length - 1] = [...next[next.length - 1], point];
+        return next;
+      });
     }
   };
 
@@ -53,7 +108,12 @@ export function Experiment() {
     if (!drawing || capturedPointerId.current !== event.pointerId) return;
     const point = pointFromEvent(event);
     setDrawing(false);
-    setPoints((current) => [...current, point]);
+    setStrokes((current) => {
+      if (current.length === 0) return current;
+      const next = [...current];
+      next[next.length - 1] = [...next[next.length - 1], point];
+      return next;
+    });
     releasePointer(event);
   };
 
@@ -63,8 +123,101 @@ export function Experiment() {
     releasePointer(event);
   };
 
+  const sampleVoice = (timestamp: number) => {
+    const analyser = voiceAnalyser.current;
+    if (!analyser) return;
+    if (voiceFirstFrame.current === null) voiceFirstFrame.current = timestamp;
+    voiceElapsed.current = Math.max(timestamp - voiceFirstFrame.current, 0);
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    const level = Math.sqrt(
+      data.reduce((total, value) => total + ((value - 128) / 128) ** 2, 0) / data.length,
+    );
+    const pitch = estimatePitch(data, voiceContext.current?.sampleRate ?? 0);
+    const targetAmplitude = Math.min(level * 2.4, 1);
+    const targetFrequency = mapPitchToWaveFrequency(pitch);
+    const elapsedSinceLastFrame =
+      waveLastTimestamp.current === null ? 0 : timestamp - waveLastTimestamp.current;
+    waveLastTimestamp.current = timestamp;
+    waveAmplitude.current = smoothWaveValue(waveAmplitude.current, targetAmplitude);
+    waveFrequency.current = smoothWaveValue(waveFrequency.current, targetFrequency);
+    wavePhase.current = advanceWavePhase(
+      wavePhase.current,
+      waveFrequency.current,
+      elapsedSinceLastFrame,
+    );
+    setWaveHistory((current) =>
+      appendWaveHistory(current, {
+        amplitude: waveAmplitude.current,
+        frequency: waveFrequency.current,
+        phase: wavePhase.current,
+      }),
+    );
+    voiceSamples.current.push({ t: voiceElapsed.current, level });
+    voiceFrame.current = requestAnimationFrame(sampleVoice);
+  };
+
+  const stopVoice = () => {
+    if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+    voiceFrame.current = null;
+    voiceStream.current?.getTracks().forEach((track) => track.stop());
+    voiceStream.current = null;
+    const context = voiceContext.current;
+    voiceContext.current = null;
+    void context?.close();
+    const features = extractVoiceFeatures(voiceSamples.current, voiceElapsed.current);
+    voiceAnalyser.current = null;
+    setVoiceFeatures(features);
+    setVoiceStatus("captured");
+  };
+
+  const startVoice = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+      setWaveHistory([]);
+      setVoiceStatus("unavailable");
+      return;
+    }
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      context.createMediaStreamSource(stream).connect(analyser);
+      voiceStream.current = stream;
+      voiceContext.current = context;
+      voiceAnalyser.current = analyser;
+      voiceSamples.current = [];
+      voiceFirstFrame.current = null;
+      voiceElapsed.current = 0;
+      wavePhase.current = 0;
+      waveAmplitude.current = 0;
+      waveFrequency.current = mapPitchToWaveFrequency(null);
+      waveLastTimestamp.current = null;
+      setWaveHistory([]);
+      setVoiceFeatures(null);
+      setVoiceStatus("recording");
+      voiceFrame.current = requestAnimationFrame(sampleVoice);
+    } catch {
+      stream?.getTracks().forEach((track) => track.stop());
+      setWaveHistory([]);
+      setVoiceStatus("denied");
+    }
+  };
+
+  const voiceLabel =
+    voiceStatus === "recording"
+      ? "Listening locally… click stop when finished"
+      : voiceStatus === "captured"
+        ? "Voice captured locally; no recording was saved"
+        : voiceStatus === "denied"
+          ? "Microphone permission was denied. Use the text fallback below."
+          : voiceStatus === "unavailable"
+            ? "Microphone is unavailable in this browser. Use the text fallback below."
+            : "Say a short sensory expression; the recording stays in this browser.";
+
   const analyze = () => {
-    const next = runLocalExperiment(expression, points);
+    const next = runLocalExperiment(expression, strokes, voiceFeatures);
     if ("error" in next) {
       setError(next.error);
       setResult(null);
@@ -75,27 +228,61 @@ export function Experiment() {
   };
 
   const reset = () => {
+    if (voiceFrame.current !== null) cancelAnimationFrame(voiceFrame.current);
+    voiceFrame.current = null;
+    voiceStream.current?.getTracks().forEach((track) => track.stop());
+    voiceStream.current = null;
+    void voiceContext.current?.close();
+    voiceContext.current = null;
+    voiceAnalyser.current = null;
+    voiceSamples.current = [];
+    voiceFirstFrame.current = null;
+    voiceElapsed.current = 0;
     setExpression("");
-    setPoints([]);
+    setStrokes([]);
     setResult(null);
     setError("");
+    wavePhase.current = 0;
+    waveAmplitude.current = 0;
+    waveFrequency.current = mapPitchToWaveFrequency(null);
+    waveLastTimestamp.current = null;
+    setWaveHistory([]);
+    setVoiceFeatures(null);
+    setVoiceStatus("idle");
   };
-
-  const path = createGesturePath(points);
 
   return (
     <main className="experiment" aria-labelledby="experiment-title">
       <header className="experiment__header">
-        <p className="experiment__eyebrow">EXP-001 · local experiment</p>
+        <p className="experiment__eyebrow">EXP-002 · local experiment</p>
         <h1 id="experiment-title">感覚を、ことばの入口へ。</h1>
         <p>専門用語ではなく、あなたの感じた音や動きから始める 30〜60 秒の小さな実験です。</p>
       </header>
 
       <section className="experiment__grid" aria-label="感覚入力">
-        <label className="input-card">
-          <span className="input-card__step">01 · everyday expression</span>
-          <strong>感じた音・ことば</strong>
-          <span className="input-card__hint">例: スッ、じわ〜、ふわっ</span>
+        <label className="input-card input-card--voice">
+          <span className="input-card__step">01 · voice-first expression</span>
+          <strong>声で感じたことを話す</strong>
+          <span className="input-card__hint">
+            短い声の表現から始めます。音声は保存・uploadしません。
+          </span>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={voiceStatus === "recording" ? stopVoice : startVoice}
+          >
+            {voiceStatus === "recording" ? "音声入力を止める" : "音声入力を始める"}
+          </button>
+          <span className="input-card__hint">{voiceLabel}</span>
+          {voiceStatus === "recording" && (
+            <div className="voice-visualizer" role="status" aria-label="声の高さの変化を表示中">
+              <svg viewBox="0 0 320 64" aria-hidden="true">
+                <line x1="0" y1="32" x2="320" y2="32" />
+                <path d={createSyntheticWavePath(waveHistory)} />
+              </svg>
+            </div>
+          )}
+          <span className="input-card__fallback">音声が使えない場合のテキスト fallback</span>
           <input
             value={expression}
             onChange={(event) => setExpression(event.target.value)}
@@ -106,33 +293,40 @@ export function Experiment() {
         </label>
 
         <div className="input-card">
-          <span className="input-card__step">02 · one pointer gesture</span>
-          <strong>ひと筆で描く</strong>
-          <span className="input-card__hint">速さや終わり方を手がかりにします</span>
+          <span className="input-card__step">02 · free movement</span>
+          <strong>自由な動きで表現する</strong>
+          <span className="input-card__hint">1〜2秒ほど、形・速さ・方向を自由に動かします</span>
           <svg
             className="gesture-pad"
             viewBox="0 0 320 160"
             role="img"
-            aria-label="ポインターで一筆描くエリア"
+            aria-label="ポインターで自由に描くエリア"
             onPointerDown={startStroke}
             onPointerMove={continueStroke}
             onPointerUp={finishStroke}
             onPointerCancel={cancelStroke}
           >
             <rect width="320" height="160" rx="14" />
-            {path ? (
-              <path d={path} className="gesture-pad__line" fill="none" />
+            {strokes.length ? (
+              strokes.map((stroke, index) => (
+                <path
+                  key={index}
+                  d={createGesturePath(stroke)}
+                  className="gesture-pad__line"
+                  fill="none"
+                />
+              ))
             ) : (
               <text x="160" y="88" textAnchor="middle">
-                ここに一筆
+                ここに自由に描く
               </text>
             )}
           </svg>
           <button
             className="text-button"
             type="button"
-            onClick={() => setPoints([])}
-            disabled={!points.length}
+            onClick={() => setStrokes([])}
+            disabled={!strokes.length}
           >
             描き直す
           </button>
@@ -176,7 +370,7 @@ function Result({ result }: { result: ExperimentResult }) {
       </div>
       <div className="result__representation">
         <span>your expression</span>
-        <strong>{result.expression}</strong>
+        <strong>{result.expression || "voice (no transcription)"}</strong>
         <span>shared sensory hints</span>
         <div className="tag-list">
           {result.representation.tags.map((tag) => (
@@ -208,7 +402,13 @@ function Result({ result }: { result: ExperimentResult }) {
         <summary>開発者向けに計算過程を見る</summary>
         <pre>
           {JSON.stringify(
-            { gesture: result.gesture, representation: result.representation },
+            {
+              inputSource: result.inputSource,
+              transcription: result.expression || null,
+              voice: result.voiceFeatures,
+              gesture: result.gesture,
+              representation: result.representation,
+            },
             null,
             2,
           )}

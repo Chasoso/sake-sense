@@ -94,6 +94,44 @@ h1 {
   color: #a9a093;
   font-size: 0.9rem;
 }
+.input-card--voice .primary-button {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.input-card__fallback {
+  color: #d4ad67;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+.voice-visualizer {
+  background: #201c18;
+  border: 1px solid #6f5b3e;
+  border-radius: 999px;
+  display: flex;
+  height: 3rem;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  padding: 0.25rem;
+}
+.voice-visualizer svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+.voice-visualizer line {
+  stroke: #6f5b3e;
+  stroke-width: 1;
+}
+.voice-visualizer path {
+  fill: none;
+  stroke: #d4ad67;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+.input-card--voice input {
+  margin-top: 0;
+}
 input {
   width: 100%;
   margin-top: auto;

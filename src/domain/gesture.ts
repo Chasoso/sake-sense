@@ -4,6 +4,9 @@ export type GesturePoint = {
   t: number;
 };
 
+export type GestureStroke = GesturePoint[];
+export type GestureInput = GestureStroke[];
+
 export function createGesturePath(points: GesturePoint[], width = 320, height = 160): string {
   return points
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
@@ -21,6 +24,7 @@ export type GestureFeatures = {
   pathLength: number;
   averageSpeed: number;
   spread: number;
+  horizontalDirectionChanges: number;
   endingSpeedRatio: number;
   abruptEnding: boolean;
 };
@@ -40,7 +44,11 @@ function distance(from: GesturePoint, to: GesturePoint): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
 }
 
-export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures {
+export function extractGestureFeatures(input: GesturePoint[] | GestureInput): GestureFeatures {
+  const strokes: GestureInput = Array.isArray(input[0])
+    ? (input as GestureInput).filter((stroke) => stroke.length > 0)
+    : [input as GesturePoint[]];
+  const points = strokes.flat();
   if (points.length < 2) {
     return {
       pointCount: points.length,
@@ -48,35 +56,52 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
       pathLength: 0,
       averageSpeed: 0,
       spread: 0,
+      horizontalDirectionChanges: 0,
       endingSpeedRatio: 0,
       abruptEnding: false,
     };
   }
 
-  const durationMs = Math.max(points.at(-1)!.t - points[0].t, 0);
-  const pathLength = points
-    .slice(1)
-    .reduce((total, point, index) => total + distance(points[index], point), 0);
+  const durationMs = strokes.reduce(
+    (total, stroke) => total + Math.max(stroke.at(-1)!.t - stroke[0].t, 0),
+    0,
+  );
+  const pathLength = strokes.reduce(
+    (total, stroke) =>
+      total +
+      stroke
+        .slice(1)
+        .reduce((strokeTotal, point, index) => strokeTotal + distance(stroke[index], point), 0),
+    0,
+  );
   const xValues = points.map((point) => point.x);
   const yValues = points.map((point) => point.y);
   const spread = Math.hypot(
     Math.max(...xValues) - Math.min(...xValues),
     Math.max(...yValues) - Math.min(...yValues),
   );
-  const segments = points.slice(1).flatMap((point, index) => {
-    const duration = point.t - points[index].t;
-    return duration > 0
-      ? [
-          {
-            midpoint: (points[index].t + point.t) / 2,
-            speed: distance(points[index], point) / duration,
-          },
-        ]
-      : [];
-  });
-  const endingBoundary = points[0].t + durationMs * 0.75;
-  const endingSegments = segments.filter((segment) => segment.midpoint >= endingBoundary);
-  const earlierSegments = segments.filter((segment) => segment.midpoint < endingBoundary);
+  const segments = strokes.flatMap((stroke, strokeIndex) =>
+    stroke.slice(1).flatMap((point, index) => {
+      const duration = point.t - stroke[index].t;
+      return duration > 0
+        ? [
+            {
+              strokeIndex,
+              midpoint: (stroke[index].t + point.t) / 2,
+              speed: distance(stroke[index], point) / duration,
+            },
+          ]
+        : [];
+    }),
+  );
+  const finalStroke = strokes.at(-1)!;
+  const finalStrokeStart = finalStroke[0].t;
+  const finalStrokeDuration = Math.max(finalStroke.at(-1)!.t - finalStrokeStart, 0);
+  const endingBoundary = finalStrokeStart + finalStrokeDuration * 0.75;
+  const endingSegments = segments.filter(
+    (segment) => segment.strokeIndex === strokes.length - 1 && segment.midpoint >= endingBoundary,
+  );
+  const earlierSegments = segments.filter((segment) => !endingSegments.includes(segment));
   const terminalSpeeds = (endingSegments.length > 0 ? endingSegments : segments.slice(-1)).map(
     (segment) => segment.speed,
   );
@@ -86,6 +111,22 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
   const representativeSpeed = median(earlierSpeeds);
   const endingSpeed = average(terminalSpeeds);
   const endingSpeedRatio = representativeSpeed > 0 ? endingSpeed / representativeSpeed : 0;
+  const horizontalDirectionChanges = strokes.reduce(
+    (total, stroke) =>
+      total +
+      stroke.slice(2).reduce((changes, point, index) => {
+        const previous = stroke[index];
+        const current = stroke[index + 1];
+        const previousDirection = Math.sign(current.x - previous.x);
+        const currentDirection = Math.sign(point.x - current.x);
+        return previousDirection !== 0 &&
+          currentDirection !== 0 &&
+          previousDirection !== currentDirection
+          ? changes + 1
+          : changes;
+      }, 0),
+    0,
+  );
 
   return {
     pointCount: points.length,
@@ -93,6 +134,7 @@ export function extractGestureFeatures(points: GesturePoint[]): GestureFeatures 
     pathLength,
     averageSpeed: durationMs > 0 ? pathLength / durationMs : 0,
     spread,
+    horizontalDirectionChanges,
     endingSpeedRatio,
     abruptEnding: representativeSpeed > 0 && endingSpeedRatio >= 0.75,
   };
