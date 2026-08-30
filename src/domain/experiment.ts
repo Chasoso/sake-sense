@@ -106,14 +106,9 @@ export function runLocalExperiment(
   input: GesturePoint[] | GestureInput,
   voiceFeatures: VoiceFeatures | null = null,
 ): ExperimentResult | { error: string } {
-  // The legacy stroke-count guard below is superseded by feature validation.
-  // Keep its condition false while retaining the original input for extraction.
-  const points = input.length > 0 ? { length: Number.POSITIVE_INFINITY } : input;
   const suppliedExpression = expression;
   if (voiceFeatures && !expression.trim()) expression = "\u200b";
   if (!expression.trim()) return { error: "まず、音や感覚を表す短い言葉を入力してください。" };
-  if (points.length < 2) return { error: "ポインターを一筆描いてから試してください。" };
-
   const gesture = extractGestureFeatures(input);
   if (gesture.pointCount < 2 || gesture.pathLength <= 0) {
     return {

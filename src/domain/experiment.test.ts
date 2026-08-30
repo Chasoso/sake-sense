@@ -59,7 +59,8 @@ describe("EXP-001 deterministic pipeline", () => {
       error: "まず、音や感覚を表す短い言葉を入力してください。",
     });
     expect(runLocalExperiment("未知", [])).toEqual({
-      error: "ポインターを一筆描いてから試してください。",
+      error:
+        "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
     });
 
     const result = runLocalExperiment("未知", shortSharpStroke);
@@ -82,7 +83,7 @@ describe("EXP-001 deterministic pipeline", () => {
 
   it("rejects empty, tap-only, and zero-length gesture input", () => {
     const tap = { x: 10, y: 10, t: 0 };
-    const cases = [[[]], [tap], [[tap], [{ ...tap, x: 20 }]]];
+    const cases = [[], [[]], [tap], [[tap], [{ ...tap, x: 20 }]], [tap, { ...tap }]];
 
     for (const points of cases) {
       expect(runLocalExperiment("譛ｪ遏･", points)).toEqual({
