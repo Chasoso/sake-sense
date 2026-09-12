@@ -34,7 +34,7 @@ export type BodyMovementFeatures = {
   hasMeaningfulMovement: boolean;
   activeJointCount: number;
   endingSpeedRatio: number;
-  endingBehavior: "abrupt" | "gradual" | "unknown";
+  endingBehavior: "abrupt" | "gradual" | "continued" | "unknown";
   motionShape: BodyMotionShape;
 };
 
@@ -51,6 +51,7 @@ export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
   ];
   if (features.endingBehavior === "abrupt") summaries.push("最後にすっと止まりました");
   if (features.endingBehavior === "gradual") summaries.push("最後はゆっくり収まりました");
+  if (features.endingBehavior === "continued") summaries.push("最後まで動きが続いていました");
   if (features.motionShape.expansion === "expanding")
     summaries.push("腕や身体が外へ広がる動きでした");
   if (features.motionShape.expansion === "contracting")
@@ -76,6 +77,7 @@ export const BODY_MOVEMENT_ACTIVITY_THRESHOLD = 0.01;
 export const BODY_SHORT_DURATION_THRESHOLD_MS = 1800;
 export const BODY_BROAD_MOVEMENT_THRESHOLD = 1.5;
 export const BODY_ABRUPT_ENDING_RATIO = 0.75;
+export const BODY_MINIMUM_INACTIVE_TAIL_DURATION_MS = 120;
 export const BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15;
 export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
 export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
@@ -372,6 +374,27 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     ? ending.reduce((sum, speed) => sum + speed, 0) / ending.length
     : 0;
   const endingSpeedRatio = representative > 0 ? endingSpeed / representative : 0;
+  const inactiveTailStart =
+    lastActiveIndex === undefined ? segmentMovements.length : lastActiveIndex + 1;
+  const inactiveTailDuration = segmentDurations
+    .slice(inactiveTailStart)
+    .reduce((duration, segmentDuration) => duration + segmentDuration, 0);
+  const observedInactiveTail = inactiveTailDuration >= BODY_MINIMUM_INACTIVE_TAIL_DURATION_MS;
+  const slowdownWindow = activeSpeeds.slice(Math.max(activeSpeeds.length - 3, 0));
+  const hasProgressiveSlowdown =
+    slowdownWindow.length >= 2 &&
+    slowdownWindow.at(-1)! < slowdownWindow[0] &&
+    slowdownWindow.some((speed, index) => index > 0 && speed < slowdownWindow[index - 1]);
+  const endingBehavior =
+    activeSpeeds.length < 3 || representative === 0
+      ? "unknown"
+      : !observedInactiveTail
+        ? "continued"
+        : endingSpeedRatio >= BODY_ABRUPT_ENDING_RATIO
+          ? "abrupt"
+          : hasProgressiveSlowdown
+            ? "gradual"
+            : "unknown";
 
   return {
     frameCount: normalized.length,
@@ -380,14 +403,7 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     peakSpeed: segmentSpeeds.length ? Math.max(...segmentSpeeds) : 0,
     activeJointCount: jointMovement.filter((movement) => movement >= 0.08).length,
     endingSpeedRatio,
-    endingBehavior:
-      activeSpeeds.length < 3
-        ? "unknown"
-        : representative === 0
-          ? "unknown"
-          : endingSpeedRatio >= BODY_ABRUPT_ENDING_RATIO
-            ? "abrupt"
-            : "gradual",
+    endingBehavior,
     captureDurationMs,
     activeDurationMs,
     spread: movementSpread,
@@ -406,7 +422,10 @@ export function bodyToRepresentation(features: BodyMovementFeatures): GestureRep
       reason: `active body movement duration ${Math.round(features.activeDurationMs)}ms (experimental hint)`,
     });
   }
-  if (features.hasMeaningfulMovement && features.endingBehavior !== "unknown") {
+  if (
+    features.hasMeaningfulMovement &&
+    (features.endingBehavior === "abrupt" || features.endingBehavior === "gradual")
+  ) {
     dimensions.push({
       dimensionId: "shape",
       polarity: features.endingBehavior === "abrupt" ? "sharp" : "round",

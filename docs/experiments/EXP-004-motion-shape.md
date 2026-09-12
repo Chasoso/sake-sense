@@ -44,6 +44,12 @@ The new motion shape is an observed motion-level representation, not a sake voca
 
 Existing duration, ending, and product matching behavior remains in the shared pipeline. Unsupported motion features remain unmapped rather than being forced into a sake term.
 
+### Ending behavior boundary
+
+Ending behavior describes an observed stop, not the end of the capture timer. The final active movement sequence is inspected together with the inactive tail that follows it. A high-speed active sequence followed by sufficient observed inactivity may be `abrupt`; a measured slowdown followed by inactivity may be `gradual`. If movement remains active through the final frame, the result is `continued`, meaning that stopping was not observed. Insufficient or noisy evidence remains `unknown`. Only `abrupt` and `gradual` enter the existing experimental sharp/round bridge; `continued` and `unknown` remain unmapped for shape.
+
+The inactive-tail duration and the existing activity/speed ratios are named experimental heuristics. They are not scientific thresholds, and post-capture stillness is not treated as evidence of gradual slowing unless it is actually observed after the final active sequence.
+
 ## Replay and privacy
 
 EXP-003 replay is reused. It redraws the temporary `BodyPoseFrame[]` landmark sequence with original timestamps; it does not store or replay camera video. Retry and unmount clear the sequence. No upload, persistence, account/history storage, action-recognition model, face analysis, emotion inference, or cloud processing is added.

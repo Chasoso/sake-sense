@@ -116,6 +116,7 @@ describe("body movement features", () => {
       frame(600, 2),
       frame(700, 2.5),
       frame(800, 2.5),
+      frame(1000, 2.5),
     ]);
 
     expect(features.endingBehavior).toBe("abrupt");
@@ -127,16 +128,35 @@ describe("body movement features", () => {
       frame(100, 0.4),
       frame(200, 0.8),
       frame(300, 1.2),
+      frame(500, 1.2),
     ]);
     const gradual = extractBodyMovementFeatures([
       frame(0, 0),
       frame(100, 0.4),
       frame(200, 0.8),
       frame(500, 0.9),
+      frame(700, 0.9),
     ]);
 
     expect(abrupt.endingBehavior).toBe("abrupt");
     expect(gradual.endingBehavior).toBe("gradual");
+  });
+
+  it("marks movement that reaches capture end as continued", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 0.4),
+      frame(200, 0.8),
+      frame(300, 1.2),
+    ]);
+
+    expect(features.endingBehavior).toBe("continued");
+    expect(humanizeBodyFeatures(features)).toContain("最後まで動きが続いていました");
+    expect(bodyToRepresentation(features).dimensions).not.toContainEqual(
+      expect.objectContaining({ dimensionId: "shape" }),
+    );
+    expect(bodyToRepresentation(features).tags).not.toContain("body-sharp-ending");
+    expect(bodyToRepresentation(features).tags).not.toContain("body-soft-ending");
   });
 
   it("normalizes movement by shoulder width and keeps observable features inspectable", () => {
