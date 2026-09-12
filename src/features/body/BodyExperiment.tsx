@@ -8,6 +8,7 @@ import {
   type BodyMovementFeatures,
   type BodyPoseFrame,
 } from "../../domain/body";
+import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
 import { humanizeRepresentation } from "../../domain/translation-trail";
 import { createBodyPoseLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
@@ -21,6 +22,7 @@ type CaptureStatus =
   | "captured"
   | "denied"
   | "unavailable";
+type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
 const connections: Array<[number, number]> = [
   [11, 12],
@@ -67,11 +69,15 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
+  const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
+  const [replayStatus, setReplayStatus] = useState<ReplayStatus>("idle");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
+  const replayAnimationRef = useRef<number | null>(null);
+  const replayStartedAtRef = useRef(0);
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
 
@@ -85,7 +91,19 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
     landmarkerRef.current = null;
   };
 
-  useEffect(() => stopCapture, []);
+  const stopReplay = () => {
+    if (replayAnimationRef.current !== null) cancelAnimationFrame(replayAnimationRef.current);
+    replayAnimationRef.current = null;
+  };
+
+  useEffect(
+    () => () => {
+      stopCapture();
+      stopReplay();
+      framesRef.current = [];
+    },
+    [],
+  );
 
   const prepareCamera = async () => {
     if (!isCameraSupported()) {
@@ -125,7 +143,10 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
       drawPose(canvasRef.current!, bodyLandmarks);
     }
     if (elapsed >= 3000) {
+      const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
+      setCapturedFrames(capturedFrames);
+      setReplayStatus(capturedFrames.length ? "ready" : "idle");
       setFeatures(captured);
       setStatus("captured");
       stopCapture();
@@ -137,6 +158,9 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   const startCapture = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
     framesRef.current = [];
+    stopReplay();
+    setCapturedFrames([]);
+    setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
     setError("");
@@ -147,11 +171,35 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
 
   const retry = () => {
     stopCapture();
+    stopReplay();
     framesRef.current = [];
+    setCapturedFrames([]);
+    setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
     setStatus("idle");
     void prepareCamera();
+  };
+
+  const replay = () => {
+    if (!capturedFrames.length) return;
+    stopReplay();
+    setReplayStatus("replaying");
+    replayStartedAtRef.current = performance.now();
+    const renderReplay = (timestamp: number) => {
+      const elapsed = timestamp - replayStartedAtRef.current;
+      const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
+      if (frameIndex >= 0) drawPose(canvasRef.current!, capturedFrames[frameIndex].landmarks);
+      if (elapsed >= getReplayDurationMs(capturedFrames)) {
+        const finalFrame = capturedFrames.at(-1);
+        if (finalFrame) drawPose(canvasRef.current!, finalFrame.landmarks);
+        replayAnimationRef.current = null;
+        setReplayStatus("completed");
+        return;
+      }
+      replayAnimationRef.current = requestAnimationFrame(renderReplay);
+    };
+    replayAnimationRef.current = requestAnimationFrame(renderReplay);
   };
 
   const analyze = () => {
@@ -201,9 +249,14 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
           )}
           {status === "capturing" && <span>身体表現を取得中…</span>}
           {status === "captured" && (
-            <button className="primary-button" type="button" onClick={analyze}>
-              特徴と言葉への橋を見る
-            </button>
+            <>
+              <button className="primary-button" type="button" onClick={replay}>
+                動きをもう一度見る
+              </button>
+              <button className="primary-button" type="button" onClick={analyze}>
+                特徴と言葉への橋を見る
+              </button>
+            </>
           )}
           {(status === "captured" || status === "denied" || status === "unavailable") && (
             <button className="text-button" type="button" onClick={retry}>
@@ -219,6 +272,12 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
         {features && (
           <section className="body-features" aria-labelledby="body-features-title">
             <h2 id="body-features-title">身体表現から見えた特徴</h2>
+            <p className="body-features__replay-status" aria-live="polite">
+              {replayStatus === "ready" &&
+                "動きをもう一度見られます。リプレイは一時的に取得した骨格データだけを使います。"}
+              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
+              {replayStatus === "completed" && "リプレイが完了しました。"}
+            </p>
             <ul>
               {humanizeBodyFeatures(features).map((summary) => (
                 <li key={summary}>{summary}</li>

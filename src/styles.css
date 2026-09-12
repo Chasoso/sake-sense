@@ -119,6 +119,10 @@ h1 {
   color: #c8bfb1;
   line-height: 1.6;
 }
+.body-features__replay-status {
+  color: #c8bfb1;
+  line-height: 1.6;
+}
 .body-camera {
   position: relative;
   min-height: 18rem;

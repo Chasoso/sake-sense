@@ -11,7 +11,7 @@ Does a short, local whole-body expression make the path from movement to sensory
 
 ## What was built
 
-EXP-003 adds a separate selectable local flow. It requests camera access, shows a mirrored preview, captures approximately three seconds of pose landmarks, draws a lightweight skeleton feedback layer, and extracts deterministic movement features. The existing pipeline is reused:
+EXP-003 adds a separate selectable local flow. It requests camera access, shows a mirrored preview, captures approximately three seconds of pose landmarks, draws a lightweight skeleton feedback layer, and extracts deterministic movement features. After capture, the in-memory landmark sequence can be replayed on the same canvas using the original timestamps; this is a skeleton replay, not recorded video. The existing pipeline is reused:
 
 `body movement -> observable features -> existing sensory representation -> dictionary candidates -> provenance-backed Ishikawa sake`
 
@@ -19,7 +19,7 @@ The EXP-002 voice and free-form finger movement flow remains available from the 
 
 ## Pose technology and privacy
 
-The prototype uses MediaPipe Tasks Vision Pose Landmarker (`@mediapipe/tasks-vision`, Apache-2.0) with one local pose. The WASM runtime and official lite model are loaded when camera mode starts; landmark inference runs in the browser. Camera frames and landmarks are kept only in memory for the active capture, are not uploaded or persisted, and are cleared on retry/reset. No face, emotion, age, gender, ethnicity, health, intoxication, or preference inference is performed.
+The prototype uses MediaPipe Tasks Vision Pose Landmarker (`@mediapipe/tasks-vision`, Apache-2.0) with one local pose. The WASM runtime and official lite model are loaded when camera mode starts; landmark inference runs in the browser. Camera frames and landmarks are kept only in memory for the active capture and optional replay, are not uploaded or persisted, and are cleared on retry/reset or unmount. Replay exists to make the observed movement and H008's translation reasoning easier to inspect. No face, emotion, age, gender, ethnicity, health, intoxication, or preference inference is performed.
 
 If the browser cannot load the pose runtime/model, or camera permission is denied, the user can return to EXP-002. The model asset currently uses the official remote MediaPipe asset URL, so a fully offline deployment would need that asset packaged separately.
 
