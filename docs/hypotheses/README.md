@@ -15,6 +15,7 @@ These documents describe current, unvalidated beliefs. They are not product fact
 
 | [H007](H007-body-expression-improves-engagement.md) | Whole-body expression may improve engagement. | unvalidated |
 | [H008](H008-body-to-sake-bridge-has-purpose.md) | A body-to-sake bridge may make translation purposeful. | unvalidated |
+| [H009](H009-richer-body-motion-shape-improves-fidelity.md) | Richer body-motion shape may improve perceived fidelity. | unvalidated |
 
 ## Status vocabulary
 

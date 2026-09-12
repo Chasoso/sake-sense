@@ -12,6 +12,13 @@ export type BodyPoseFrame = {
   landmarks: BodyLandmark[];
 };
 
+export type BodyMotionShape = {
+  expansion: "expanding" | "contracting" | "unknown";
+  dominantDirection: "upward" | "downward" | "lateral" | "unknown";
+  repetition: "single" | "repeated" | "unknown";
+  participation: "localized" | "broad" | "unknown";
+};
+
 export type BodyMovementFeatures = {
   frameCount: number;
   captureDurationMs: number;
@@ -24,6 +31,7 @@ export type BodyMovementFeatures = {
   activeJointCount: number;
   endingSpeedRatio: number;
   endingBehavior: "abrupt" | "gradual" | "unknown";
+  motionShape: BodyMotionShape;
 };
 
 export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
@@ -39,6 +47,22 @@ export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
   ];
   if (features.endingBehavior === "abrupt") summaries.push("最後にすっと止まりました");
   if (features.endingBehavior === "gradual") summaries.push("最後はゆっくり収まりました");
+  if (features.motionShape.expansion === "expanding")
+    summaries.push("腕や身体が外へ広がる動きでした");
+  if (features.motionShape.expansion === "contracting")
+    summaries.push("身体の中心へ縮まる動きでした");
+  if (features.motionShape.dominantDirection === "upward")
+    summaries.push("上方向へ伸びる動きでした");
+  if (features.motionShape.dominantDirection === "downward")
+    summaries.push("下方向へ動く傾向がありました");
+  if (features.motionShape.dominantDirection === "lateral")
+    summaries.push("横方向へ動く傾向がありました");
+  if (features.motionShape.repetition === "single") summaries.push("一度のまとまった動きでした");
+  if (features.motionShape.repetition === "repeated")
+    summaries.push("動きが何度か繰り返されました");
+  if (features.motionShape.participation === "localized")
+    summaries.push("身体の一部を中心に動きました");
+  if (features.motionShape.participation === "broad") summaries.push("上半身を広く使う動きでした");
   return summaries;
 }
 
@@ -48,6 +72,11 @@ export const BODY_MOVEMENT_ACTIVITY_THRESHOLD = 0.01;
 export const BODY_SHORT_DURATION_THRESHOLD_MS = 1800;
 export const BODY_BROAD_MOVEMENT_THRESHOLD = 1.5;
 export const BODY_ABRUPT_ENDING_RATIO = 0.75;
+export const BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15;
+export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
+export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
+export const BODY_MOTION_REVERSAL_THRESHOLD = 0.08;
+export const BODY_BROAD_PARTICIPATION_RATIO = 0.5;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -81,6 +110,136 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+const MOTION_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+const ARM_JOINTS = [13, 15, 14, 16];
+const MOTION_REGIONS = [
+  [13, 15],
+  [14, 16],
+  [11, 12, 23, 24],
+  [25, 26, 27, 28],
+];
+
+function unknownMotionShape(): BodyMotionShape {
+  return {
+    expansion: "unknown",
+    dominantDirection: "unknown",
+    repetition: "unknown",
+    participation: "unknown",
+  };
+}
+
+function meanRadialDistance(frame: BodyPoseFrame): number {
+  const distances = ARM_JOINTS.map((index) => frame.landmarks[index])
+    .filter((landmark): landmark is BodyLandmark => landmark !== undefined)
+    .map((landmark) => Math.hypot(landmark.x, landmark.y));
+  return distances.length ? distances.reduce((sum, value) => sum + value, 0) / distances.length : 0;
+}
+
+function extractMotionShape(
+  normalized: BodyPoseFrame[],
+  segmentMovements: number[],
+  jointMovement: number[],
+): BodyMotionShape {
+  const activeFrameIndexes = new Set<number>();
+  segmentMovements.forEach((movement, index) => {
+    if (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD) {
+      activeFrameIndexes.add(index);
+      activeFrameIndexes.add(index + 1);
+    }
+  });
+  const activeFrames = [...activeFrameIndexes].sort((left, right) => left - right);
+  if (activeFrames.length < 2) return unknownMotionShape();
+
+  const firstFrame = normalized[activeFrames[0]];
+  const lastFrame = normalized[activeFrames.at(-1)!];
+  const radialChange = meanRadialDistance(lastFrame) - meanRadialDistance(firstFrame);
+  const expansion =
+    radialChange >= BODY_MOTION_SHAPE_CHANGE_THRESHOLD
+      ? "expanding"
+      : radialChange <= -BODY_MOTION_SHAPE_CHANGE_THRESHOLD
+        ? "contracting"
+        : "unknown";
+
+  const movingJoints = MOTION_JOINTS.filter(
+    (index) => (jointMovement[index] ?? 0) >= BODY_MOTION_REVERSAL_THRESHOLD,
+  );
+  const directionDisplacement = movingJoints.reduce(
+    (sum, index) => {
+      const start = firstFrame.landmarks[index];
+      const end = lastFrame.landmarks[index];
+      if (!start || !end) return sum;
+      return { x: sum.x + end.x - start.x, y: sum.y + end.y - start.y };
+    },
+    { x: 0, y: 0 },
+  );
+  const xMagnitude = Math.abs(directionDisplacement.x);
+  const yMagnitude = Math.abs(directionDisplacement.y);
+  const dominantDirection =
+    Math.max(xMagnitude, yMagnitude) < BODY_MOTION_DIRECTION_THRESHOLD
+      ? "unknown"
+      : xMagnitude >= yMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+        ? "lateral"
+        : yMagnitude >= xMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+          ? directionDisplacement.y < 0
+            ? "upward"
+            : "downward"
+          : "unknown";
+
+  let representativeJoint = movingJoints[0];
+  let representativePath = 0;
+  movingJoints.forEach((jointIndex) => {
+    let path = 0;
+    for (let index = 1; index < activeFrames.length; index += 1) {
+      const previous = normalized[activeFrames[index - 1]].landmarks[jointIndex];
+      const current = normalized[activeFrames[index]].landmarks[jointIndex];
+      if (previous && current) path += distance(previous, current);
+    }
+    if (path > representativePath) {
+      representativeJoint = jointIndex;
+      representativePath = path;
+    }
+  });
+  const trajectory = activeFrames
+    .map((frameIndex) => normalized[frameIndex].landmarks[representativeJoint])
+    .filter((landmark): landmark is BodyLandmark => landmark !== undefined);
+  const xRange = trajectory.length
+    ? Math.max(...trajectory.map((point) => point.x)) -
+      Math.min(...trajectory.map((point) => point.x))
+    : 0;
+  const yRange = trajectory.length
+    ? Math.max(...trajectory.map((point) => point.y)) -
+      Math.min(...trajectory.map((point) => point.y))
+    : 0;
+  const axis = xRange >= yRange ? "x" : "y";
+  const signs: number[] = [];
+  for (let index = 1; index < trajectory.length; index += 1) {
+    const delta = trajectory[index][axis] - trajectory[index - 1][axis];
+    if (Math.abs(delta) >= BODY_MOTION_REVERSAL_THRESHOLD) signs.push(Math.sign(delta));
+  }
+  let reversals = 0;
+  for (let index = 1; index < signs.length; index += 1) {
+    if (signs[index] !== signs[index - 1]) reversals += 1;
+  }
+  const repetition =
+    representativePath < BODY_MOTION_DIRECTION_THRESHOLD
+      ? "unknown"
+      : reversals >= 2
+        ? "repeated"
+        : "single";
+
+  const activeRegions = MOTION_REGIONS.filter((region) =>
+    region.some((index) => (jointMovement[index] ?? 0) >= BODY_MOTION_REVERSAL_THRESHOLD),
+  ).length;
+  const participation =
+    activeRegions === 0
+      ? "unknown"
+      : activeRegions / MOTION_REGIONS.length >= BODY_BROAD_PARTICIPATION_RATIO
+        ? "broad"
+        : "localized";
+
+  return { expansion, dominantDirection, repetition, participation };
+}
+
 export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMovementFeatures {
   const normalized = frames
     .map(normalizeFrame)
@@ -98,6 +257,7 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
       activeJointCount: 0,
       endingSpeedRatio: 0,
       endingBehavior: "unknown",
+      motionShape: unknownMotionShape(),
     };
   }
 
@@ -177,6 +337,7 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     activeDurationMs,
     spread: movementSpread,
     hasMeaningfulMovement: activeDurationMs > 0 && movementSpread > 0,
+    motionShape: extractMotionShape(normalized, segmentMovements, jointMovement),
   };
 }
 

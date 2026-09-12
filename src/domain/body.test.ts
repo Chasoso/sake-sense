@@ -15,6 +15,16 @@ function frame(t: number, wristX: number): BodyPoseFrame {
   return { t, landmarks };
 }
 
+function shapeFrame(t: number, positions: Record<number, { x: number; y: number }>): BodyPoseFrame {
+  const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: 0, y: 0 }));
+  landmarks[11] = { x: -0.5, y: 0 };
+  landmarks[12] = { x: 0.5, y: 0 };
+  Object.entries(positions).forEach(([index, position]) => {
+    landmarks[Number(index)] = position;
+  });
+  return { t, landmarks };
+}
+
 describe("body movement features", () => {
   it("extracts a short movement and maps it to short duration", () => {
     const features = extractBodyMovementFeatures([frame(0, 0), frame(500, 0.4)]);
@@ -135,12 +145,114 @@ describe("body movement features", () => {
 
     expect(staticFeatures.spread).toBe(0);
     expect(staticFeatures.hasMeaningfulMovement).toBe(false);
+    expect(staticFeatures.motionShape).toEqual({
+      expansion: "unknown",
+      dominantDirection: "unknown",
+      repetition: "unknown",
+      participation: "unknown",
+    });
     expect(bodyToRepresentation(staticFeatures).dimensions).toEqual([]);
     expect(smallFeatures.spread).toBeLessThan(1.5);
     expect(broadFeatures.spread).toBeGreaterThanOrEqual(1.5);
     expect(bodyToRepresentation(broadFeatures).dimensions).toContainEqual(
       expect.objectContaining({ dimensionId: "weight", polarity: "heavy" }),
     );
+  });
+
+  it("describes outward and inward arm movement as expansion or contraction", () => {
+    const outward = extractBodyMovementFeatures([
+      shapeFrame(0, {
+        13: { x: -0.3, y: -0.2 },
+        14: { x: 0.3, y: -0.2 },
+        15: { x: -0.4, y: -0.5 },
+        16: { x: 0.4, y: -0.5 },
+      }),
+      shapeFrame(100, {
+        13: { x: -0.5, y: -0.3 },
+        14: { x: 0.5, y: -0.3 },
+        15: { x: -0.7, y: -0.7 },
+        16: { x: 0.7, y: -0.7 },
+      }),
+      shapeFrame(200, {
+        13: { x: -0.7, y: -0.4 },
+        14: { x: 0.7, y: -0.4 },
+        15: { x: -1, y: -0.9 },
+        16: { x: 1, y: -0.9 },
+      }),
+    ]);
+    const inward = extractBodyMovementFeatures([
+      shapeFrame(0, {
+        13: { x: -0.7, y: -0.4 },
+        14: { x: 0.7, y: -0.4 },
+        15: { x: -1, y: -0.9 },
+        16: { x: 1, y: -0.9 },
+      }),
+      shapeFrame(100, {
+        13: { x: -0.5, y: -0.3 },
+        14: { x: 0.5, y: -0.3 },
+        15: { x: -0.7, y: -0.7 },
+        16: { x: 0.7, y: -0.7 },
+      }),
+      shapeFrame(200, {
+        13: { x: -0.3, y: -0.2 },
+        14: { x: 0.3, y: -0.2 },
+        15: { x: -0.4, y: -0.5 },
+        16: { x: 0.4, y: -0.5 },
+      }),
+    ]);
+
+    expect(outward.motionShape.expansion).toBe("expanding");
+    expect(inward.motionShape.expansion).toBe("contracting");
+    expect(humanizeBodyFeatures(outward)).toContain("腕や身体が外へ広がる動きでした");
+    expect(humanizeBodyFeatures(inward)).toContain("身体の中心へ縮まる動きでした");
+  });
+
+  it("describes coarse direction and participation", () => {
+    const upward = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: -0.4, y: 0.7 }, 16: { x: 0.4, y: 0.7 } }),
+      shapeFrame(100, { 15: { x: -0.4, y: 0.3 }, 16: { x: 0.4, y: 0.3 } }),
+      shapeFrame(200, { 15: { x: -0.4, y: -0.7 }, 16: { x: 0.4, y: -0.7 } }),
+    ]);
+    const lateral = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: 0, y: -0.2 } }),
+      shapeFrame(100, { 15: { x: 0.4, y: -0.2 } }),
+      shapeFrame(200, { 15: { x: 0.8, y: -0.2 } }),
+    ]);
+    const localized = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: 0, y: 0 } }),
+      shapeFrame(100, { 15: { x: 0.5, y: 0 } }),
+      shapeFrame(200, { 15: { x: 1, y: 0 } }),
+    ]);
+    const broad = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: -0.4, y: 0 }, 16: { x: 0.4, y: 0 } }),
+      shapeFrame(100, { 15: { x: -0.8, y: 0 }, 16: { x: 0.8, y: 0 } }),
+      shapeFrame(200, { 15: { x: -1, y: 0 }, 16: { x: 1, y: 0 } }),
+    ]);
+
+    expect(upward.motionShape.dominantDirection).toBe("upward");
+    expect(lateral.motionShape.dominantDirection).toBe("lateral");
+    expect(localized.motionShape.participation).toBe("localized");
+    expect(broad.motionShape.participation).toBe("broad");
+  });
+
+  it("detects meaningful repetition but ignores tiny movement", () => {
+    const repeated = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 0.4),
+      frame(200, 0),
+      frame(300, -0.4),
+      frame(400, 0),
+      frame(500, 0.4),
+    ]);
+    const tiny = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 0.02),
+      frame(200, 0),
+      frame(300, -0.02),
+    ]);
+
+    expect(repeated.motionShape.repetition).toBe("repeated");
+    expect(tiny.motionShape.repetition).not.toBe("repeated");
   });
 
   it("keeps unknown and insufficient dimensions unmapped", () => {
@@ -156,6 +268,12 @@ describe("body movement features", () => {
       activeJointCount: 1,
       endingSpeedRatio: 0,
       endingBehavior: "unknown",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "unknown",
+        participation: "unknown",
+      },
     });
 
     expect(partial.dimensions).toEqual([
@@ -185,6 +303,12 @@ describe("body movement features", () => {
       activeJointCount: 2,
       endingSpeedRatio: 0.4,
       endingBehavior: "gradual",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "unknown",
+        participation: "localized",
+      },
     });
 
     expect(descriptions).toContain("短い動きでした");

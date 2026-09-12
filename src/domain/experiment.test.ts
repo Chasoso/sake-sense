@@ -40,6 +40,12 @@ const bodyFeatures: BodyMovementFeatures = {
   activeJointCount: 4,
   endingSpeedRatio: 0.9,
   endingBehavior: "abrupt",
+  motionShape: {
+    expansion: "expanding",
+    dominantDirection: "unknown",
+    repetition: "single",
+    participation: "broad",
+  },
 };
 
 describe("EXP-001 deterministic pipeline", () => {

@@ -61,3 +61,7 @@ Deterministic tests cover normalized body feature extraction, short/sustained mo
 Human review is required. Try camera allow, deny, unavailable fallback, short movement followed by remaining stillness, static capture, small localized movement, broad upper-body movement, short abrupt movement, long gradual movement, insufficient/unknown movement, unusual/unmapped movement, retry/reset, and comparison with EXP-002. Check whether the movement feedback, feature-to-term reasoning, provenance-backed product connection, privacy wording, and non-recommendation framing are understandable.
 
 H007 and H008 remain `unvalidated`; the human owns the eventual `keep`, `revise`, or `reject` decision.
+
+## Learning carried into EXP-004
+
+Human review found that pose tracking was visually working and replay helped make the captured motion understandable. It also found that different motions could receive similar judgments: the current representation measured how much movement happened more reliably than how the body moved. This observation is recorded as evidence for EXP-004; H007 and H008 remain unchanged and unvalidated.
