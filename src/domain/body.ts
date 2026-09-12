@@ -12,6 +12,10 @@ export type BodyPoseFrame = {
   landmarks: BodyLandmark[];
 };
 
+type NormalizedBodyPoseFrame = BodyPoseFrame & {
+  bodyCenter: { x: number; y: number };
+};
+
 export type BodyMotionShape = {
   expansion: "expanding" | "contracting" | "unknown";
   dominantDirection: "upward" | "downward" | "lateral" | "unknown";
@@ -77,6 +81,7 @@ export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
 export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
 export const BODY_MOTION_REVERSAL_THRESHOLD = 0.08;
 export const BODY_BROAD_PARTICIPATION_RATIO = 0.5;
+export const BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD = 0.04;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -86,20 +91,36 @@ function distance(from: BodyLandmark, to: BodyLandmark): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
 }
 
-function normalizeFrame(frame: BodyPoseFrame): BodyPoseFrame | null {
+function shoulderGeometry(frame: BodyPoseFrame): {
+  center: { x: number; y: number };
+  scale: number;
+} | null {
   const left = frame.landmarks[LEFT_SHOULDER];
   const right = frame.landmarks[RIGHT_SHOULDER];
   if (!left || !right) return null;
   const center = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
-  const scale = Math.max(distance(left, right), 0.01);
+  return { center, scale: Math.max(distance(left, right), 0.01) };
+}
+
+function normalizeFrame(
+  frame: BodyPoseFrame,
+  stableScale: number,
+  origin: { x: number; y: number },
+): NormalizedBodyPoseFrame | null {
+  const geometry = shoulderGeometry(frame);
+  if (!geometry) return null;
   return {
     t: Math.max(finite(frame.t), 0),
     landmarks: frame.landmarks.map((landmark) => ({
-      x: (finite(landmark.x) - center.x) / scale,
-      y: (finite(landmark.y) - center.y) / scale,
+      x: (finite(landmark.x) - geometry.center.x) / geometry.scale,
+      y: (finite(landmark.y) - geometry.center.y) / geometry.scale,
       z: finite(landmark.z),
       visibility: finite(landmark.visibility ?? 1),
     })),
+    bodyCenter: {
+      x: (geometry.center.x - origin.x) / stableScale,
+      y: (geometry.center.y - origin.y) / stableScale,
+    },
   };
 }
 
@@ -136,7 +157,7 @@ function meanRadialDistance(frame: BodyPoseFrame): number {
 }
 
 function extractMotionShape(
-  normalized: BodyPoseFrame[],
+  normalized: NormalizedBodyPoseFrame[],
   segmentMovements: number[],
   jointMovement: number[],
 ): BodyMotionShape {
@@ -172,15 +193,27 @@ function extractMotionShape(
     },
     { x: 0, y: 0 },
   );
-  const xMagnitude = Math.abs(directionDisplacement.x);
-  const yMagnitude = Math.abs(directionDisplacement.y);
+  const centerStart = normalized[activeFrames[0]].bodyCenter;
+  const centerEnd = normalized[activeFrames.at(-1)!].bodyCenter;
+  const centerDisplacement = {
+    x: centerEnd.x - centerStart.x,
+    y: centerEnd.y - centerStart.y,
+  };
+  const relativeMagnitude = Math.hypot(directionDisplacement.x, directionDisplacement.y);
+  const centerMagnitude = Math.hypot(centerDisplacement.x, centerDisplacement.y);
+  const direction =
+    centerMagnitude > relativeMagnitude && centerMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
+      ? centerDisplacement
+      : directionDisplacement;
+  const xMagnitude = Math.abs(direction.x);
+  const yMagnitude = Math.abs(direction.y);
   const dominantDirection =
     Math.max(xMagnitude, yMagnitude) < BODY_MOTION_DIRECTION_THRESHOLD
       ? "unknown"
       : xMagnitude >= yMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
         ? "lateral"
         : yMagnitude >= xMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
-          ? directionDisplacement.y < 0
+          ? direction.y < 0
             ? "upward"
             : "downward"
           : "unknown";
@@ -199,9 +232,22 @@ function extractMotionShape(
       representativePath = path;
     }
   });
-  const trajectory = activeFrames
-    .map((frameIndex) => normalized[frameIndex].landmarks[representativeJoint])
-    .filter((landmark): landmark is BodyLandmark => landmark !== undefined);
+  const centerTrajectory = activeFrames.map((frameIndex) => normalized[frameIndex].bodyCenter);
+  let trajectory =
+    representativeJoint === undefined
+      ? centerTrajectory
+      : activeFrames
+          .map((frameIndex) => normalized[frameIndex].landmarks[representativeJoint])
+          .filter((landmark): landmark is BodyLandmark => landmark !== undefined);
+  const centerPath = centerTrajectory.reduce(
+    (path, point, index) =>
+      index === 0 ? path : path + distance(centerTrajectory[index - 1], point),
+    0,
+  );
+  if (centerPath > representativePath) {
+    representativePath = centerPath;
+    trajectory = centerTrajectory;
+  }
   const xRange = trajectory.length
     ? Math.max(...trajectory.map((point) => point.x)) -
       Math.min(...trajectory.map((point) => point.x))
@@ -241,9 +287,13 @@ function extractMotionShape(
 }
 
 export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMovementFeatures {
-  const normalized = frames
-    .map(normalizeFrame)
-    .filter((frame): frame is BodyPoseFrame => frame !== null);
+  const validFrames = frames.filter((frame) => shoulderGeometry(frame) !== null);
+  const geometries = validFrames.map((frame) => shoulderGeometry(frame)!);
+  const stableScale = median(geometries.map(({ scale }) => scale)) || 1;
+  const origin = geometries[0]?.center ?? { x: 0, y: 0 };
+  const normalized = validFrames
+    .map((frame) => normalizeFrame(frame, stableScale, origin))
+    .filter((frame): frame is NormalizedBodyPoseFrame => frame !== null);
   if (normalized.length < 2) {
     return {
       frameCount: normalized.length,
@@ -281,6 +331,11 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
       jointMovement[jointIndex] += jointDistance;
       movementSpread = Math.max(movementSpread, distance(startingLandmarks[jointIndex], landmark));
     });
+    const centerMovement = distance(previous.bodyCenter, current.bodyCenter);
+    if (centerMovement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD) {
+      movement += centerMovement;
+      movementSpread = Math.max(movementSpread, distance({ x: 0, y: 0 }, current.bodyCenter));
+    }
     segmentMovements.push(movement);
     segmentSpeeds.push(movement / elapsed);
     segmentDurations.push(elapsed);

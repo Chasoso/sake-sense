@@ -25,6 +25,15 @@ function shapeFrame(t: number, positions: Record<number, { x: number; y: number 
   return { t, landmarks };
 }
 
+function translatedFrame(t: number, offsetX: number): BodyPoseFrame {
+  const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: offsetX, y: 0 }));
+  landmarks[11] = { x: offsetX - 0.5, y: 0 };
+  landmarks[12] = { x: offsetX + 0.5, y: 0 };
+  landmarks[15] = { x: offsetX - 0.4, y: -0.5 };
+  landmarks[16] = { x: offsetX + 0.4, y: -0.5 };
+  return { t, landmarks };
+}
+
 describe("body movement features", () => {
   it("extracts a short movement and maps it to short duration", () => {
     const features = extractBodyMovementFeatures([frame(0, 0), frame(500, 0.4)]);
@@ -253,6 +262,47 @@ describe("body movement features", () => {
 
     expect(repeated.motionShape.repetition).toBe("repeated");
     expect(tiny.motionShape.repetition).not.toBe("repeated");
+  });
+
+  it("preserves whole-body sway through a separately normalized center trajectory", () => {
+    const sway = extractBodyMovementFeatures([
+      translatedFrame(0, 0),
+      translatedFrame(100, 0.3),
+      translatedFrame(200, -0.3),
+      translatedFrame(300, 0.3),
+    ]);
+    const jitter = extractBodyMovementFeatures([
+      translatedFrame(0, 0),
+      translatedFrame(100, 0.01),
+      translatedFrame(200, -0.01),
+      translatedFrame(300, 0.01),
+    ]);
+
+    expect(sway.hasMeaningfulMovement).toBe(true);
+    expect(sway.motionShape.dominantDirection).toBe("lateral");
+    expect(sway.motionShape.repetition).toBe("repeated");
+    expect(jitter.hasMeaningfulMovement).toBe(false);
+    expect(jitter.motionShape.repetition).not.toBe("repeated");
+  });
+
+  it("distinguishes arm expansion from a lateral sweep with similar timing", () => {
+    const outward = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 }, 16: { x: 0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: -0.7, y: -0.7 }, 16: { x: 0.7, y: -0.7 } }),
+      shapeFrame(200, { 15: { x: -1, y: -0.9 }, 16: { x: 1, y: -0.9 } }),
+    ]);
+    const lateralSweep = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: 0.2, y: -0.5 } }),
+      shapeFrame(200, { 15: { x: 0.8, y: -0.5 } }),
+    ]);
+
+    expect(outward.captureDurationMs).toBe(lateralSweep.captureDurationMs);
+    expect(outward.activeDurationMs).toBe(lateralSweep.activeDurationMs);
+    expect(outward.endingBehavior).toBe(lateralSweep.endingBehavior);
+    expect(outward.motionShape.expansion).toBe("expanding");
+    expect(lateralSweep.motionShape.dominantDirection).toBe("lateral");
+    expect(lateralSweep.motionShape.expansion).not.toBe("expanding");
   });
 
   it("keeps unknown and insufficient dimensions unmapped", () => {

@@ -24,7 +24,9 @@ EXP-004 adds four compact motion-level features:
 | Repetition              | Direction reversals of the most active representative joint after a minimum movement threshold                                        | 「動きが何度か繰り返されました」                                      |
 | Participation           | Active body-region ratio across left arm, right arm, torso, and lower-body groups                                                     | 「身体の一部を中心に動きました」 / 「上半身を広く使う動きでした」     |
 
-All values use the existing shoulder midpoint/width normalization. Ambiguous or insufficient evidence remains `unknown`.
+Body-relative geometry still uses the per-frame shoulder midpoint/width normalization, which is useful for expansion, contraction, and relative joint motion. In parallel, whole-body translation is tracked from the shoulder-center trajectory relative to the first frame and divided by a stable median shoulder width. This prevents side-to-side sway from disappearing through per-frame recentering while keeping camera-distance sensitivity controlled. Tiny center changes below the named global-activity heuristic are ignored. Ambiguous or insufficient evidence remains `unknown`.
+
+Whole-body center movement participates conservatively in activity, coarse direction, movement spread, and repetition. Relative and global signals are not blindly double-counted: the larger meaningful direction signal is used for the coarse direction description, while the center trajectory can become the representative path when it contains more movement. These remain experimental heuristics, not scientific measurements.
 
 The existing EXP-003 features—capture/active duration, movement, speed, spread, active joints, and ending behavior—remain available. New motion-shape descriptions are presented separately from those aggregate features.
 
