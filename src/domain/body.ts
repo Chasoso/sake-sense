@@ -94,6 +94,7 @@ export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
 export const BODY_MOTION_REVERSAL_THRESHOLD = 0.08;
 export const BODY_BROAD_PARTICIPATION_RATIO = 0.5;
 export const BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD = 0.04;
+export const BODY_JOINT_JITTER_THRESHOLD = 0.015;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -134,6 +135,26 @@ function normalizeFrame(
       y: (geometry.center.y - origin.y) / stableScale,
     },
   };
+}
+
+function suppressJointJitter(frames: NormalizedBodyPoseFrame[]): NormalizedBodyPoseFrame[] {
+  if (!frames.length) return [];
+  const filtered = [frames[0]];
+  for (let frameIndex = 1; frameIndex < frames.length; frameIndex += 1) {
+    const previous = filtered[frameIndex - 1];
+    const current = frames[frameIndex];
+    filtered.push({
+      ...current,
+      landmarks: current.landmarks.map((landmark, jointIndex) => {
+        const previousLandmark = previous.landmarks[jointIndex];
+        if (!previousLandmark) return landmark;
+        return distance(previousLandmark, landmark) < BODY_JOINT_JITTER_THRESHOLD
+          ? previousLandmark
+          : landmark;
+      }),
+    });
+  }
+  return filtered;
 }
 
 function median(values: number[]): number {
@@ -304,9 +325,11 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
   const geometries = validFrames.map((frame) => shoulderGeometry(frame)!);
   const stableScale = median(geometries.map(({ scale }) => scale)) || 1;
   const origin = geometries[0]?.center ?? { x: 0, y: 0 };
-  const normalized = validFrames
-    .map((frame) => normalizeFrame(frame, stableScale, origin))
-    .filter((frame): frame is NormalizedBodyPoseFrame => frame !== null);
+  const normalized = suppressJointJitter(
+    validFrames
+      .map((frame) => normalizeFrame(frame, stableScale, origin))
+      .filter((frame): frame is NormalizedBodyPoseFrame => frame !== null),
+  );
   if (normalized.length < 2) {
     return {
       frameCount: normalized.length,
@@ -352,9 +375,9 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     });
     const centerMovement = distance(previous.bodyCenter, current.bodyCenter);
     centerSegmentMovements.push(centerMovement);
-    regionMovements[2] += centerMovement;
     if (centerMovement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD) {
       movement += centerMovement;
+      regionMovements[2] += centerMovement;
       movementSpread = Math.max(movementSpread, distance({ x: 0, y: 0 }, current.bodyCenter));
     }
     segmentMovements.push(movement);

@@ -188,6 +188,48 @@ describe("body movement features", () => {
     expect(descriptions).not.toContain("上半身を広く使う動きでした");
   });
 
+  it("does not accumulate jitter across a long static capture", () => {
+    const features = extractBodyMovementFeatures(
+      Array.from({ length: 41 }, (_, index) => jitterFrame(index * 100, index % 2 ? -1 : 1)),
+    );
+
+    expect(features.totalMovement).toBe(0);
+    expect(features.hasMeaningfulMovement).toBe(false);
+    expect(features.endingBehavior).toBe("unknown");
+    expect(features.motionShape).toEqual({
+      expansion: "unknown",
+      dominantDirection: "unknown",
+      repetition: "unknown",
+      participation: "unknown",
+    });
+    expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
+  it("keeps coherent small hand movement as localized movement", () => {
+    const features = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: 0, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: 0.03, y: -0.5 } }),
+      shapeFrame(200, { 15: { x: 0.06, y: -0.5 } }),
+      shapeFrame(300, { 15: { x: 0.09, y: -0.5 } }),
+    ]);
+
+    expect(features.hasMeaningfulMovement).toBe(true);
+    expect(features.motionShape.participation).toBe("localized");
+    expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
+  it("keeps coherent slow movement as meaningful but not fast", () => {
+    const features = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: 0, y: -0.5 } }),
+      shapeFrame(500, { 15: { x: 0.04, y: -0.5 } }),
+      shapeFrame(1000, { 15: { x: 0.08, y: -0.5 } }),
+      shapeFrame(1500, { 15: { x: 0.12, y: -0.5 } }),
+    ]);
+
+    expect(features.hasMeaningfulMovement).toBe(true);
+    expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
   it("ignores a one-frame pose spike for fast movement", () => {
     const features = extractBodyMovementFeatures([
       frame(0, 0),

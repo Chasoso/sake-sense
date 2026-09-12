@@ -54,6 +54,10 @@ The inactive-tail duration and the existing activity/speed ratios are named expe
 
 Pose estimation jitter is not treated as intentional movement from a single peak or from capture-wide cumulative distance. The fast description requires a consecutive run of fast active segments and a minimum duration. Region participation requires repeated regional activity, while tiny or incoherent multi-joint jitter remains unclassified. A coherent localized movement can still be meaningful through its normalized spread, and whole-body sway continues to use the separate body-center trajectory. These activity, speed, and regional thresholds are experimental heuristics.
 
+Human review also found that landmarks visibly move a little while the person is still. Before movement features are calculated, each normalized joint now uses a named experimental dead zone; displacements below it are carried forward from the previous filtered pose. Body-center movement keeps its separate whole-body threshold, so center translation is not removed by the joint filter. Static jitter should therefore produce no meaningful movement, while intentional small movement above the normalized dead zone remains available.
+
+The body capture retry and next-capture paths explicitly clear the pose canvas after stopping replay/capture, so a previous skeleton is not mistaken for the new capture.
+
 ## Replay and privacy
 
 EXP-003 replay is reused. It redraws the temporary `BodyPoseFrame[]` landmark sequence with original timestamps; it does not store or replay camera video. Retry and unmount clear the sequence. No upload, persistence, account/history storage, action-recognition model, face analysis, emotion inference, or cloud processing is added.
