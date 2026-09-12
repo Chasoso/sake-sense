@@ -34,6 +34,19 @@ function translatedFrame(t: number, offsetX: number): BodyPoseFrame {
   return { t, landmarks };
 }
 
+function jitterFrame(t: number, phase: number): BodyPoseFrame {
+  const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: 0, y: 0 }));
+  landmarks[11] = { x: -0.5, y: 0 };
+  landmarks[12] = { x: 0.5, y: 0 };
+  for (const index of [13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
+    landmarks[index] = {
+      x: ((index % 3) - 1) * 0.002 * phase,
+      y: (index % 2 === 0 ? 1 : -1) * 0.002 * phase,
+    };
+  }
+  return { t, landmarks };
+}
+
 describe("body movement features", () => {
   it("extracts a short movement and maps it to short duration", () => {
     const features = extractBodyMovementFeatures([frame(0, 0), frame(500, 0.4)]);
@@ -157,6 +170,48 @@ describe("body movement features", () => {
     );
     expect(bodyToRepresentation(features).tags).not.toContain("body-sharp-ending");
     expect(bodyToRepresentation(features).tags).not.toContain("body-soft-ending");
+  });
+
+  it("does not describe multi-joint pose jitter as fast or broad movement", () => {
+    const features = extractBodyMovementFeatures([
+      jitterFrame(0, 1),
+      jitterFrame(100, -1),
+      jitterFrame(200, 1),
+      jitterFrame(300, -1),
+      jitterFrame(400, 1),
+    ]);
+    const descriptions = humanizeBodyFeatures(features);
+
+    expect(features.hasSustainedFastMovement).toBe(false);
+    expect(features.motionShape.participation).toBe("unknown");
+    expect(descriptions).not.toContain("速い動きが含まれていました");
+    expect(descriptions).not.toContain("上半身を広く使う動きでした");
+  });
+
+  it("ignores a one-frame pose spike for fast movement", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 1.5),
+      frame(200, 0),
+      frame(300, 0),
+    ]);
+
+    expect(features.peakSpeed).toBeGreaterThan(0.01);
+    expect(features.hasSustainedFastMovement).toBe(false);
+    expect(humanizeBodyFeatures(features)).not.toContain("速い動きが含まれていました");
+  });
+
+  it("describes coherent fast movement only after sustained evidence", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, 0),
+      frame(100, 1.2),
+      frame(200, 2.4),
+      frame(300, 3.6),
+      frame(400, 4.8),
+    ]);
+
+    expect(features.hasSustainedFastMovement).toBe(true);
+    expect(humanizeBodyFeatures(features)).toContain("速い動きが含まれていました");
   });
 
   it("normalizes movement by shoulder width and keeps observable features inspectable", () => {

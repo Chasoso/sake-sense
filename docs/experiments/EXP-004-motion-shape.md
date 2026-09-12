@@ -50,6 +50,10 @@ Ending behavior describes an observed stop, not the end of the capture timer. Th
 
 The inactive-tail duration and the existing activity/speed ratios are named experimental heuristics. They are not scientific thresholds, and post-capture stillness is not treated as evidence of gradual slowing unless it is actually observed after the final active sequence.
 
+### Pose-jitter boundary
+
+Pose estimation jitter is not treated as intentional movement from a single peak or from capture-wide cumulative distance. The fast description requires a consecutive run of fast active segments and a minimum duration. Region participation requires repeated regional activity, while tiny or incoherent multi-joint jitter remains unclassified. A coherent localized movement can still be meaningful through its normalized spread, and whole-body sway continues to use the separate body-center trajectory. These activity, speed, and regional thresholds are experimental heuristics.
+
 ## Replay and privacy
 
 EXP-003 replay is reused. It redraws the temporary `BodyPoseFrame[]` landmark sequence with original timestamps; it does not store or replay camera video. Retry and unmount clear the sequence. No upload, persistence, account/history storage, action-recognition model, face analysis, emotion inference, or cloud processing is added.

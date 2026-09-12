@@ -30,6 +30,7 @@ export type BodyMovementFeatures = {
   totalMovement: number;
   averageSpeed: number;
   peakSpeed: number;
+  hasSustainedFastMovement?: boolean;
   spread: number;
   hasMeaningfulMovement: boolean;
   activeJointCount: number;
@@ -47,7 +48,9 @@ export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
     features.spread >= BODY_BROAD_MOVEMENT_THRESHOLD
       ? "大きく広がりました"
       : "まとまった範囲で動きました",
-    features.peakSpeed >= 0.01 ? "速い動きが含まれていました" : "ゆっくりした動きでした",
+    features.hasSustainedFastMovement === true
+      ? "速い動きが含まれていました"
+      : "ゆっくりした動きでした",
   ];
   if (features.endingBehavior === "abrupt") summaries.push("最後にすっと止まりました");
   if (features.endingBehavior === "gradual") summaries.push("最後はゆっくり収まりました");
@@ -78,6 +81,13 @@ export const BODY_SHORT_DURATION_THRESHOLD_MS = 1800;
 export const BODY_BROAD_MOVEMENT_THRESHOLD = 1.5;
 export const BODY_ABRUPT_ENDING_RATIO = 0.75;
 export const BODY_MINIMUM_INACTIVE_TAIL_DURATION_MS = 120;
+export const BODY_FAST_SPEED_THRESHOLD = 0.01;
+export const BODY_MINIMUM_FAST_SEGMENTS = 3;
+export const BODY_MINIMUM_FAST_DURATION_MS = 250;
+export const BODY_REGION_ACTIVITY_THRESHOLD = 0.03;
+export const BODY_MINIMUM_REGION_ACTIVE_SEGMENTS = 2;
+export const BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS = 2;
+export const BODY_MEANINGFUL_SPREAD_THRESHOLD = 0.08;
 export const BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15;
 export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
 export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
@@ -162,6 +172,7 @@ function extractMotionShape(
   normalized: NormalizedBodyPoseFrame[],
   segmentMovements: number[],
   jointMovement: number[],
+  regionActiveSegmentCounts: number[],
 ): BodyMotionShape {
   const activeFrameIndexes = new Set<number>();
   segmentMovements.forEach((movement, index) => {
@@ -275,8 +286,8 @@ function extractMotionShape(
         ? "repeated"
         : "single";
 
-  const activeRegions = MOTION_REGIONS.filter((region) =>
-    region.some((index) => (jointMovement[index] ?? 0) >= BODY_MOTION_REVERSAL_THRESHOLD),
+  const activeRegions = regionActiveSegmentCounts.filter(
+    (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
   ).length;
   const participation =
     activeRegions === 0
@@ -317,6 +328,8 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
   const segmentMovements: number[] = [];
   const segmentDurations: number[] = [];
   const jointMovement = new Array(normalized[0].landmarks.length).fill(0) as number[];
+  const regionSegmentMovements = MOTION_REGIONS.map(() => [] as number[]);
+  const centerSegmentMovements: number[] = [];
   const startingLandmarks = normalized[0].landmarks;
   let movementSpread = 0;
   for (let index = 1; index < normalized.length; index += 1) {
@@ -325,15 +338,21 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     const elapsed = current.t - previous.t;
     if (elapsed <= 0) continue;
     let movement = 0;
+    const regionMovements = MOTION_REGIONS.map(() => 0);
     current.landmarks.forEach((landmark, jointIndex) => {
       const previousLandmark = previous.landmarks[jointIndex];
       if (!previousLandmark) return;
       const jointDistance = distance(previousLandmark, landmark);
       movement += jointDistance;
       jointMovement[jointIndex] += jointDistance;
+      MOTION_REGIONS.forEach((region, regionIndex) => {
+        if (region.includes(jointIndex)) regionMovements[regionIndex] += jointDistance;
+      });
       movementSpread = Math.max(movementSpread, distance(startingLandmarks[jointIndex], landmark));
     });
     const centerMovement = distance(previous.bodyCenter, current.bodyCenter);
+    centerSegmentMovements.push(centerMovement);
+    regionMovements[2] += centerMovement;
     if (centerMovement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD) {
       movement += centerMovement;
       movementSpread = Math.max(movementSpread, distance({ x: 0, y: 0 }, current.bodyCenter));
@@ -341,6 +360,9 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     segmentMovements.push(movement);
     segmentSpeeds.push(movement / elapsed);
     segmentDurations.push(elapsed);
+    regionMovements.forEach((regionMovement, regionIndex) => {
+      regionSegmentMovements[regionIndex].push(regionMovement);
+    });
   }
 
   const validTimes = normalized.map((frame) => frame.t);
@@ -357,6 +379,28 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
   const activeIndexes = segmentMovements
     .map((movement, index) => (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? index : -1))
     .filter((index) => index >= 0);
+  const regionActiveSegmentCounts = regionSegmentMovements.map(
+    (regionMovements) =>
+      regionMovements.filter((movement) => movement >= BODY_REGION_ACTIVITY_THRESHOLD).length,
+  );
+  const meaningfulRegionCount = regionActiveSegmentCounts.filter(
+    (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
+  ).length;
+  const centerActiveSegmentCount = centerSegmentMovements.filter(
+    (movement) => movement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD,
+  ).length;
+  const centerDisplacement = Math.max(
+    ...normalized.map((frame) => Math.hypot(frame.bodyCenter.x, frame.bodyCenter.y)),
+    0,
+  );
+  const meaningfulCenterMovement =
+    centerActiveSegmentCount >= BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS &&
+    centerDisplacement >= BODY_MEANINGFUL_SPREAD_THRESHOLD;
+  const hasMeaningfulMovement =
+    activeDurationMs > 0 &&
+    (meaningfulRegionCount > 0 ||
+      meaningfulCenterMovement ||
+      movementSpread >= BODY_MEANINGFUL_SPREAD_THRESHOLD);
   const lastActiveIndex = activeIndexes.at(-1);
   const finalSequence: number[] = [];
   for (
@@ -396,19 +440,44 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
             ? "gradual"
             : "unknown";
 
+  let currentFastSegments = 0;
+  let currentFastDuration = 0;
+  let longestFastSegments = 0;
+  let longestFastDuration = 0;
+  segmentSpeeds.forEach((speed, index) => {
+    if (
+      speed >= BODY_FAST_SPEED_THRESHOLD &&
+      segmentMovements[index] >= BODY_MOVEMENT_ACTIVITY_THRESHOLD
+    ) {
+      currentFastSegments += 1;
+      currentFastDuration += segmentDurations[index];
+      longestFastSegments = Math.max(longestFastSegments, currentFastSegments);
+      longestFastDuration = Math.max(longestFastDuration, currentFastDuration);
+    } else {
+      currentFastSegments = 0;
+      currentFastDuration = 0;
+    }
+  });
+  const hasSustainedFastMovement =
+    longestFastSegments >= BODY_MINIMUM_FAST_SEGMENTS &&
+    longestFastDuration >= BODY_MINIMUM_FAST_DURATION_MS;
+
   return {
     frameCount: normalized.length,
     totalMovement: segmentMovements.reduce((sum, movement) => sum + movement, 0),
     averageSpeed: activeDurationMs > 0 ? activeMovement / activeDurationMs : 0,
     peakSpeed: segmentSpeeds.length ? Math.max(...segmentSpeeds) : 0,
+    hasSustainedFastMovement,
     activeJointCount: jointMovement.filter((movement) => movement >= 0.08).length,
     endingSpeedRatio,
     endingBehavior,
     captureDurationMs,
     activeDurationMs,
     spread: movementSpread,
-    hasMeaningfulMovement: activeDurationMs > 0 && movementSpread > 0,
-    motionShape: extractMotionShape(normalized, segmentMovements, jointMovement),
+    hasMeaningfulMovement,
+    motionShape: hasMeaningfulMovement
+      ? extractMotionShape(normalized, segmentMovements, jointMovement, regionActiveSegmentCounts)
+      : unknownMotionShape(),
   };
 }
 
