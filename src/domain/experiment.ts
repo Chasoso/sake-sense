@@ -9,6 +9,7 @@ import type { GestureFeatures, GestureInput } from "./gesture";
 import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
 import { humanizeSensoryDimension } from "./translation-trail";
+import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
@@ -50,8 +51,9 @@ function hasDurationConflict(
 
 export type ExperimentResult = {
   expression: string;
-  inputSource: "text" | "voice";
+  inputSource: "text" | "voice" | "body";
   voiceFeatures: VoiceFeatures | null;
+  bodyFeatures: BodyMovementFeatures | null;
   gesture: GestureFeatures;
   representation: GestureRepresentation;
   candidates: Array<{
@@ -93,6 +95,8 @@ function expressionCandidateIds(expression: string): string[] {
 function gestureCandidateIds(representation: GestureRepresentation): string[] {
   const ids = new Set<string>();
   for (const dimension of representation.dimensions) {
+    if (dimension.dimensionId === "weight" && dimension.polarity === "light") ids.add("tanrei");
+    if (dimension.dimensionId === "weight" && dimension.polarity === "heavy") ids.add("nojun");
     if (dimension.dimensionId === "duration" && dimension.polarity === "short") ids.add("kire");
     if (dimension.dimensionId === "duration" && dimension.polarity === "lingering")
       ids.add("atoaji");
@@ -108,14 +112,20 @@ export function runLocalExperiment(
   expression: string,
   input: GesturePoint[] | GestureInput,
   voiceFeatures: VoiceFeatures | null = null,
+  bodyFeatures: BodyMovementFeatures | null = null,
 ): ExperimentResult | { error: string } {
   const suppliedExpression = expression;
-  if (voiceFeatures && !expression.trim()) expression = "\u200b";
+  if ((voiceFeatures || bodyFeatures) && !expression.trim()) expression = "\u200b";
   if (!expression.trim()) return { error: "まず、音や感覚を表す短い言葉を入力してください。" };
   const gesture = extractGestureFeatures(input);
   const hasGestureMovement = gesture.pointCount >= 2 && gesture.pathLength > 0;
   const hasVoiceInput = voiceFeatures !== null && voiceFeatures.durationMs > 0;
-  if (!hasGestureMovement && !hasVoiceInput) {
+  const hasBodyInput =
+    bodyFeatures !== null &&
+    bodyFeatures.frameCount >= 2 &&
+    bodyFeatures.hasMeaningfulMovement &&
+    bodyFeatures.activeDurationMs > 0;
+  if (!hasGestureMovement && !hasVoiceInput && !hasBodyInput) {
     return {
       error:
         "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
@@ -124,13 +134,27 @@ export function runLocalExperiment(
   const gestureRepresentation = hasGestureMovement
     ? gestureToRepresentation(gesture)
     : { dimensions: [], tags: [] };
+  const bodyRepresentation = hasBodyInput ? bodyToRepresentation(bodyFeatures) : null;
   const voiceRepresentation = voiceFeatures ? voiceToRepresentation(voiceFeatures) : null;
   const representation: GestureRepresentation = {
-    dimensions: [...gestureRepresentation.dimensions, ...(voiceRepresentation?.dimensions ?? [])],
-    tags: [...new Set([...gestureRepresentation.tags, ...(voiceRepresentation?.tags ?? [])])],
+    dimensions: [
+      ...gestureRepresentation.dimensions,
+      ...(bodyRepresentation?.dimensions ?? []),
+      ...(voiceRepresentation?.dimensions ?? []),
+    ],
+    tags: [
+      ...new Set([
+        ...gestureRepresentation.tags,
+        ...(bodyRepresentation?.tags ?? []),
+        ...(voiceRepresentation?.tags ?? []),
+      ]),
+    ],
   };
   const expressionIds = expressionCandidateIds(expression);
-  const gestureIds = gestureCandidateIds(gestureRepresentation);
+  const gestureIds = gestureCandidateIds({
+    dimensions: [...gestureRepresentation.dimensions, ...(bodyRepresentation?.dimensions ?? [])],
+    tags: [...gestureRepresentation.tags, ...(bodyRepresentation?.tags ?? [])],
+  });
   const voiceIds = voiceRepresentation ? gestureCandidateIds(voiceRepresentation) : [];
   const signalIds = [...new Set([...gestureIds, ...voiceIds])];
   const allIds = [...new Set([...expressionIds, ...signalIds])];
@@ -178,7 +202,13 @@ export function runLocalExperiment(
   const hasVoice = voiceIds.length > 0;
   const hasSignal = hasGesture || hasVoice;
   const overlap = expressionIds.some((id) => signalIds.includes(id));
-  const signalsConflict = hasDurationConflict(gestureRepresentation, voiceRepresentation);
+  const signalsConflict = hasDurationConflict(
+    {
+      dimensions: [...gestureRepresentation.dimensions, ...(bodyRepresentation?.dimensions ?? [])],
+      tags: [],
+    },
+    voiceRepresentation,
+  );
   const interpretation = !candidates.length
     ? "no-match"
     : hasVoice && hasGesture
@@ -205,8 +235,9 @@ export function runLocalExperiment(
 
   return {
     expression: suppliedExpression,
-    inputSource: suppliedExpression.trim() ? "text" : "voice",
+    inputSource: suppliedExpression.trim() ? "text" : bodyFeatures ? "body" : "voice",
     voiceFeatures,
+    bodyFeatures,
     gesture,
     representation,
     candidates,

@@ -30,8 +30,8 @@ export type GestureFeatures = {
 };
 
 export type SensoryDimension = {
-  dimensionId: "shape" | "duration";
-  polarity: "sharp" | "round" | "short" | "lingering";
+  dimensionId: "weight" | "shape" | "duration";
+  polarity: "light" | "heavy" | "sharp" | "round" | "short" | "lingering";
   reason: string;
 };
 

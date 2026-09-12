@@ -18,6 +18,8 @@ export function humanizeSensoryDimension(
     "duration:lingering": "\u4f59\u97fb\u304c\u6b8b\u308b\u611f\u3058",
     "shape:sharp": "\u92ed\u304f\u7d42\u308f\u308b\u52d5\u304d",
     "shape:round": "\u4e38\u307f\u306e\u3042\u308b\u52d5\u304d",
+    "weight:light": "\u8efd\u3084\u304b\u306a\u5e83\u304c\u308a",
+    "weight:heavy": "\u5927\u304d\u304f\u5e83\u304c\u308b\u52d5\u304d",
   };
   const internal = `${dimension.dimensionId}:${dimension.polarity}`;
   return { label: labels[internal] ?? internal, internal };
