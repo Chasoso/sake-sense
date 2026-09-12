@@ -187,12 +187,17 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
     setReplayStatus("replaying");
     replayStartedAtRef.current = performance.now();
     const renderReplay = (timestamp: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        stopReplay();
+        return;
+      }
       const elapsed = timestamp - replayStartedAtRef.current;
       const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) drawPose(canvasRef.current!, capturedFrames[frameIndex].landmarks);
+      if (frameIndex >= 0) drawPose(canvas, capturedFrames[frameIndex].landmarks);
       if (elapsed >= getReplayDurationMs(capturedFrames)) {
         const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) drawPose(canvasRef.current!, finalFrame.landmarks);
+        if (finalFrame) drawPose(canvas, finalFrame.landmarks);
         replayAnimationRef.current = null;
         setReplayStatus("completed");
         return;
@@ -203,6 +208,7 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   };
 
   const analyze = () => {
+    stopReplay();
     if (!features) return;
     const next = runLocalExperiment("", [], null, features);
     if ("error" in next) setError(next.error);
