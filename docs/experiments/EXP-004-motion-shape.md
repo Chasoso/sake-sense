@@ -58,6 +58,10 @@ Human review also found that landmarks visibly move a little while the person is
 
 The body capture retry and next-capture paths explicitly clear the pose canvas after stopping replay/capture, so a previous skeleton is not mistaken for the new capture.
 
+### Body-relative direction
+
+Human review also showed that screen-relative X/Y can mislabel an upward arm movement as lateral when the camera or body is tilted. Dominant direction now uses one robust capture-level shoulder orientation, with the shoulder midpoint-to-hip midpoint vector selecting the body-down sign. Relative limb motion and body-center translation are projected onto these body-local horizontal/up axes separately; a clearly stronger source wins, while similarly strong conflicting sources remain `unknown`. Missing or unreliable torso orientation does not fall back to screen-relative direction. The orientation and activity thresholds remain experimental heuristics.
+
 ## Replay and privacy
 
 EXP-003 replay is reused. It redraws the temporary `BodyPoseFrame[]` landmark sequence with original timestamps; it does not store or replay camera video. Retry and unmount clear the sequence. No upload, persistence, account/history storage, action-recognition model, face analysis, emotion inference, or cloud processing is added.

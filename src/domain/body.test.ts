@@ -11,6 +11,8 @@ function frame(t: number, wristX: number): BodyPoseFrame {
   const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: 0, y: 0 }));
   landmarks[11] = { x: -0.5, y: 0 };
   landmarks[12] = { x: 0.5, y: 0 };
+  landmarks[23] = { x: -0.3, y: 1 };
+  landmarks[24] = { x: 0.3, y: 1 };
   landmarks[15] = { x: wristX, y: -0.5 };
   return { t, landmarks };
 }
@@ -19,6 +21,8 @@ function shapeFrame(t: number, positions: Record<number, { x: number; y: number 
   const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: 0, y: 0 }));
   landmarks[11] = { x: -0.5, y: 0 };
   landmarks[12] = { x: 0.5, y: 0 };
+  landmarks[23] = { x: -0.3, y: 1 };
+  landmarks[24] = { x: 0.3, y: 1 };
   Object.entries(positions).forEach(([index, position]) => {
     landmarks[Number(index)] = position;
   });
@@ -29,6 +33,8 @@ function translatedFrame(t: number, offsetX: number): BodyPoseFrame {
   const landmarks: BodyLandmark[] = Array.from({ length: 33 }, () => ({ x: offsetX, y: 0 }));
   landmarks[11] = { x: offsetX - 0.5, y: 0 };
   landmarks[12] = { x: offsetX + 0.5, y: 0 };
+  landmarks[23] = { x: offsetX - 0.3, y: 1 };
+  landmarks[24] = { x: offsetX + 0.3, y: 1 };
   landmarks[15] = { x: offsetX - 0.4, y: -0.5 };
   landmarks[16] = { x: offsetX + 0.4, y: -0.5 };
   return { t, landmarks };
@@ -45,6 +51,29 @@ function jitterFrame(t: number, phase: number): BodyPoseFrame {
     };
   }
   return { t, landmarks };
+}
+
+function rotateFrame(frameToRotate: BodyPoseFrame, angle: number): BodyPoseFrame {
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  return {
+    ...frameToRotate,
+    landmarks: frameToRotate.landmarks.map((landmark) => ({
+      ...landmark,
+      x: cosine * landmark.x - sine * landmark.y,
+      y: sine * landmark.x + cosine * landmark.y,
+    })),
+  };
+}
+
+function translateFrame(frameToTranslate: BodyPoseFrame, offsetX: number): BodyPoseFrame {
+  return {
+    ...frameToTranslate,
+    landmarks: frameToTranslate.landmarks.map((landmark) => ({
+      ...landmark,
+      x: landmark.x + offsetX,
+    })),
+  };
 }
 
 describe("body movement features", () => {
@@ -359,6 +388,59 @@ describe("body movement features", () => {
     expect(lateral.motionShape.dominantDirection).toBe("lateral");
     expect(localized.motionShape.participation).toBe("localized");
     expect(broad.motionShape.participation).toBe("broad");
+  });
+
+  it("uses body-relative upward direction when the camera is level or rotated", () => {
+    const level = [
+      shapeFrame(0, { 15: { x: -0.4, y: 0.6 } }),
+      shapeFrame(100, { 15: { x: -0.4, y: 0.1 } }),
+      shapeFrame(200, { 15: { x: -0.4, y: -0.5 } }),
+    ];
+    const rotated = level.map((pose) => rotateFrame(pose, Math.PI / 7));
+
+    expect(extractBodyMovementFeatures(level).motionShape.dominantDirection).toBe("upward");
+    expect(extractBodyMovementFeatures(rotated).motionShape.dominantDirection).toBe("upward");
+  });
+
+  it("keeps a lateral arm sweep lateral under camera rotation", () => {
+    const level = [
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: 0.1, y: -0.5 } }),
+      shapeFrame(200, { 15: { x: 0.7, y: -0.5 } }),
+    ];
+    const rotated = level.map((pose) => rotateFrame(pose, -Math.PI / 7));
+
+    expect(extractBodyMovementFeatures(rotated).motionShape.dominantDirection).toBe("lateral");
+  });
+
+  it("uses body-relative downward direction", () => {
+    const features = extractBodyMovementFeatures([
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: -0.4, y: 0.1 } }),
+      shapeFrame(200, { 15: { x: -0.4, y: 0.7 } }),
+    ]);
+
+    expect(features.motionShape.dominantDirection).toBe("downward");
+  });
+
+  it("keeps strong upward limb motion ahead of slight lateral torso drift", () => {
+    const features = extractBodyMovementFeatures([
+      translateFrame(shapeFrame(0, { 15: { x: -0.4, y: 0.6 } }), 0),
+      translateFrame(shapeFrame(100, { 15: { x: -0.4, y: 0.1 } }), 0.05),
+      translateFrame(shapeFrame(200, { 15: { x: -0.4, y: -0.5 } }), 0.1),
+    ]);
+
+    expect(features.motionShape.dominantDirection).toBe("upward");
+  });
+
+  it("leaves equally strong limb and center directions ambiguous", () => {
+    const features = extractBodyMovementFeatures([
+      translateFrame(shapeFrame(0, { 15: { x: -0.4, y: 0.6 } }), 0),
+      translateFrame(shapeFrame(100, { 15: { x: -0.4, y: 0.1 } }), 0.5),
+      translateFrame(shapeFrame(200, { 15: { x: -0.4, y: -0.5 } }), 1),
+    ]);
+
+    expect(features.motionShape.dominantDirection).toBe("unknown");
   });
 
   it("detects meaningful repetition but ignores tiny movement", () => {

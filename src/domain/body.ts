@@ -16,6 +16,11 @@ type NormalizedBodyPoseFrame = BodyPoseFrame & {
   bodyCenter: { x: number; y: number };
 };
 
+type BodyOrientation = {
+  horizontal: { x: number; y: number };
+  up: { x: number; y: number };
+};
+
 export type BodyMotionShape = {
   expansion: "expanding" | "contracting" | "unknown";
   dominantDirection: "upward" | "downward" | "lateral" | "unknown";
@@ -104,6 +109,15 @@ function distance(from: BodyLandmark, to: BodyLandmark): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
 }
 
+function dot(left: { x: number; y: number }, right: { x: number; y: number }): number {
+  return left.x * right.x + left.y * right.y;
+}
+
+function normalizedVector(vector: { x: number; y: number }): { x: number; y: number } | null {
+  const length = Math.hypot(vector.x, vector.y);
+  return length > 0 ? { x: vector.x / length, y: vector.y / length } : null;
+}
+
 function shoulderGeometry(frame: BodyPoseFrame): {
   center: { x: number; y: number };
   scale: number;
@@ -157,6 +171,52 @@ function suppressJointJitter(frames: NormalizedBodyPoseFrame[]): NormalizedBodyP
   return filtered;
 }
 
+function getBodyOrientation(frames: BodyPoseFrame[]): BodyOrientation | null {
+  const shoulderAngles: number[] = [];
+  const torsoDownVectors: Array<{ x: number; y: number }> = [];
+  frames.forEach((frame) => {
+    const leftShoulder = frame.landmarks[LEFT_SHOULDER];
+    const rightShoulder = frame.landmarks[RIGHT_SHOULDER];
+    const leftHip = frame.landmarks[23];
+    const rightHip = frame.landmarks[24];
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return;
+    if (
+      (leftShoulder.visibility ?? 1) < 0.35 ||
+      (rightShoulder.visibility ?? 1) < 0.35 ||
+      (leftHip.visibility ?? 1) < 0.35 ||
+      (rightHip.visibility ?? 1) < 0.35
+    )
+      return;
+    const shoulder = normalizedVector({
+      x: rightShoulder.x - leftShoulder.x,
+      y: rightShoulder.y - leftShoulder.y,
+    });
+    const torsoDown = normalizedVector({
+      x: (leftHip.x + rightHip.x) / 2 - (leftShoulder.x + rightShoulder.x) / 2,
+      y: (leftHip.y + rightHip.y) / 2 - (leftShoulder.y + rightShoulder.y) / 2,
+    });
+    if (!shoulder || !torsoDown) return;
+    shoulderAngles.push(Math.atan2(shoulder.y, shoulder.x));
+    torsoDownVectors.push(torsoDown);
+  });
+  if (!shoulderAngles.length || !torsoDownVectors.length) return null;
+  const horizontal = normalizedVector({
+    x: median(shoulderAngles.map((angle) => Math.cos(angle))),
+    y: median(shoulderAngles.map((angle) => Math.sin(angle))),
+  });
+  const torsoDown = normalizedVector({
+    x: median(torsoDownVectors.map((vector) => vector.x)),
+    y: median(torsoDownVectors.map((vector) => vector.y)),
+  });
+  if (!horizontal || !torsoDown) return null;
+  const perpendicular = { x: -horizontal.y, y: horizontal.x };
+  const down =
+    dot(perpendicular, torsoDown) >= 0
+      ? perpendicular
+      : { x: -perpendicular.x, y: -perpendicular.y };
+  return { horizontal, up: { x: -down.x, y: -down.y } };
+}
+
 function median(values: number[]): number {
   if (!values.length) return 0;
   const sorted = [...values].sort((left, right) => left - right);
@@ -194,6 +254,7 @@ function extractMotionShape(
   segmentMovements: number[],
   jointMovement: number[],
   regionActiveSegmentCounts: number[],
+  orientation: BodyOrientation | null,
 ): BodyMotionShape {
   const activeFrameIndexes = new Set<number>();
   segmentMovements.forEach((movement, index) => {
@@ -233,21 +294,44 @@ function extractMotionShape(
     x: centerEnd.x - centerStart.x,
     y: centerEnd.y - centerStart.y,
   };
-  const relativeMagnitude = Math.hypot(directionDisplacement.x, directionDisplacement.y);
-  const centerMagnitude = Math.hypot(centerDisplacement.x, centerDisplacement.y);
-  const direction =
-    centerMagnitude > relativeMagnitude && centerMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
-      ? centerDisplacement
-      : directionDisplacement;
-  const xMagnitude = Math.abs(direction.x);
-  const yMagnitude = Math.abs(direction.y);
+  const relativeProjection = orientation
+    ? {
+        horizontal: dot(directionDisplacement, orientation.horizontal),
+        vertical: dot(directionDisplacement, orientation.up),
+      }
+    : null;
+  const centerProjection = orientation
+    ? {
+        horizontal: dot(centerDisplacement, orientation.horizontal),
+        vertical: dot(centerDisplacement, orientation.up),
+      }
+    : null;
+  const relativeMagnitude = relativeProjection
+    ? Math.hypot(relativeProjection.horizontal, relativeProjection.vertical)
+    : 0;
+  const centerMagnitude = centerProjection
+    ? Math.hypot(centerProjection.horizontal, centerProjection.vertical)
+    : 0;
+  const selectedProjection =
+    !orientation ||
+    (relativeMagnitude < BODY_MOTION_DIRECTION_THRESHOLD &&
+      centerMagnitude < BODY_MOTION_DIRECTION_THRESHOLD)
+      ? null
+      : relativeMagnitude >= centerMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+        ? relativeProjection
+        : centerMagnitude >= relativeMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+          ? centerProjection
+          : null;
+  const horizontalMagnitude = selectedProjection ? Math.abs(selectedProjection.horizontal) : 0;
+  const verticalMagnitude = selectedProjection ? Math.abs(selectedProjection.vertical) : 0;
   const dominantDirection =
-    Math.max(xMagnitude, yMagnitude) < BODY_MOTION_DIRECTION_THRESHOLD
+    !selectedProjection ||
+    Math.max(horizontalMagnitude, verticalMagnitude) < BODY_MOTION_DIRECTION_THRESHOLD
       ? "unknown"
-      : xMagnitude >= yMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+      : horizontalMagnitude >= verticalMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
         ? "lateral"
-        : yMagnitude >= xMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
-          ? direction.y < 0
+        : verticalMagnitude >= horizontalMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
+          ? selectedProjection.vertical > 0
             ? "upward"
             : "downward"
           : "unknown";
@@ -322,6 +406,7 @@ function extractMotionShape(
 
 export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMovementFeatures {
   const validFrames = frames.filter((frame) => shoulderGeometry(frame) !== null);
+  const orientation = getBodyOrientation(validFrames);
   const geometries = validFrames.map((frame) => shoulderGeometry(frame)!);
   const stableScale = median(geometries.map(({ scale }) => scale)) || 1;
   const origin = geometries[0]?.center ?? { x: 0, y: 0 };
@@ -499,7 +584,13 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     spread: movementSpread,
     hasMeaningfulMovement,
     motionShape: hasMeaningfulMovement
-      ? extractMotionShape(normalized, segmentMovements, jointMovement, regionActiveSegmentCounts)
+      ? extractMotionShape(
+          normalized,
+          segmentMovements,
+          jointMovement,
+          regionActiveSegmentCounts,
+          orientation,
+        )
       : unknownMotionShape(),
   };
 }
