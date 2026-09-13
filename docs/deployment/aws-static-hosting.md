@@ -63,11 +63,16 @@ These steps require an AWS account owner or administrator and are intentionally 
      --stack-name sake-sense-production \
      --capabilities CAPABILITY_NAMED_IAM \
      --parameter-overrides \
-       GitHubRepository=Chasoso/sake-sense \
+       GitHubOwner=Chasoso \
+       GitHubRepositoryName=sake-sense \
+       GitHubOwnerId=128229844 \
+       GitHubRepositoryId=1350297937 \
        GitHubEnvironmentName=production \
        GitHubOidcProviderArn=<OIDC_PROVIDER_ARN> \
      --region <AWS_REGION>
    ```
+
+   The same command updates the existing `sake-sense-production` stack; do not delete the stack first. CloudFormation updates the deployment role trust policy in place.
 
 5. Record the stack outputs. Do not commit them.
 6. Create the GitHub Environment named `production`.
@@ -82,6 +87,21 @@ These steps require an AWS account owner or administrator and are intentionally 
 10. Run the production deployment workflow, or push the approved commit to `main`, and verify the CloudFront URL.
 
 The OIDC provider is an account-shared bootstrap resource and is intentionally not created by this application stack. The deployment role is stack-owned and references the provider ARN supplied by `GitHubOidcProviderArn`. This separation avoids a stack collision when the AWS account already has the GitHub provider.
+
+GitHub owner and repository IDs are public, non-secret identifiers used to keep the OIDC subject stable across an owner or repository rename. They are not AWS credentials. The resulting subject for this repository is:
+
+`repo:Chasoso@128229844/sake-sense@1350297937:environment:production`
+
+After the stack create/update, verify the role trust policy:
+
+```bash
+aws iam get-role \
+  --role-name sake-sense-production-github-deploy \
+  --query 'Role.AssumeRolePolicyDocument' \
+  --output json
+```
+
+Confirm that the output contains the exact subject above and the audience `sts.amazonaws.com`.
 
 ## Deployment
 
@@ -102,7 +122,7 @@ The workflow never uses static AWS access keys or AWS secrets. Pull requests do 
 The OIDC trust policy requires both:
 
 - audience `sts.amazonaws.com`;
-- subject `repo:Chasoso/sake-sense:environment:production`.
+- subject `repo:Chasoso@128229844/sake-sense@1350297937:environment:production`.
 
 The role can list and manage objects only in the generated website bucket and create invalidations only for the generated distribution. It has no `AdministratorAccess`, account-wide wildcard permissions, or infrastructure-update permission. Infrastructure updates remain a human bootstrap/maintenance action unless a separately reviewed workflow is introduced.
 
