@@ -40,6 +40,7 @@ Do not silently delete failed experiments. Keep concise records even when a hypo
 - [EXP-003 - Whole-body movement tasting interface](EXP-003-body-expression.md)
 - [EXP-004 - Richer body-motion shape representation](EXP-004-motion-shape.md)
 - [EXP-005 - AI-assisted sensory language bridge](EXP-005-ai-semantic-language-bridge.md)
+- [EXP-006 - Subtle body motion representation](EXP-006-motion-representation.md)
 
 - [EXP-001 — Sensory dictionary v0.1 research spike](EXP-001-sensory-dictionary-v0.1.md)
 - [EXP-002 — Voice and richer expression](EXP-002-voice-richer-expression.md)
