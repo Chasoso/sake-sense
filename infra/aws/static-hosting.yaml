@@ -7,6 +7,24 @@ Parameters:
     Default: Chasoso/sake-sense
     Description: GitHub owner/repository allowed to deploy through OIDC.
     AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+  GitHubOwner:
+    Type: String
+    Default: Chasoso
+    Description: GitHub owner name used in the immutable OIDC subject.
+    AllowedPattern: "^[A-Za-z0-9_.-]+$"
+  GitHubRepositoryName:
+    Type: String
+    Default: sake-sense
+    Description: GitHub repository name used in the immutable OIDC subject.
+    AllowedPattern: "^[A-Za-z0-9_.-]+$"
+  GitHubOwnerId:
+    Type: String
+    Description: Immutable GitHub owner ID used in the OIDC subject.
+    AllowedPattern: "^[0-9]+$"
+  GitHubRepositoryId:
+    Type: String
+    Description: Immutable GitHub repository ID used in the OIDC subject.
+    AllowedPattern: "^[0-9]+$"
   GitHubEnvironmentName:
     Type: String
     Default: production
@@ -124,7 +142,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:environment:${GitHubEnvironmentName}
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepositoryName}@${GitHubRepositoryId}:environment:${GitHubEnvironmentName}
       Policies:
         - PolicyName: FrontendDeployment
           PolicyDocument:
