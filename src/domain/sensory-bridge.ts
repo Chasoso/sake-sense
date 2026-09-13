@@ -44,6 +44,38 @@ export interface SensoryBridgeProvider {
   interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse>;
 }
 
+export function serializeSensoryBridgeRequest(request: SensoryBridgeRequest): string {
+  return JSON.stringify({
+    input: request.input,
+    dictionaryContext: request.dictionaryContext,
+  });
+}
+
+export function createHttpSensoryBridgeProvider(
+  endpoint: string,
+  timeoutMs = 8000,
+): SensoryBridgeProvider {
+  return {
+    kind: "ai",
+    async interpret(request): Promise<SensoryBridgeRawResponse> {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Math.max(timeoutMs, 1));
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: serializeSensoryBridgeRequest(request),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`semantic bridge request failed: ${response.status}`);
+        return (await response.json()) as SensoryBridgeRawResponse;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  };
+}
+
 export type SensoryBridgeValidation =
   | { ok: true; value: SensoryBridgeResponse }
   | { ok: false; error: string };

@@ -20,7 +20,7 @@ The bridge response contains sensory expressions, validated dictionary candidate
 
 ## Provider status
 
-This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. The current UI identifies the deterministic local fixture explicitly; it does not claim that an AI interpreted the movement. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A future real provider would receive the structured motion input and grounded mapped dictionary context. A production provider requires a separate product and architecture decision.
+Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. Local development and CI use the deterministic fixture. When `VITE_SENSORY_BRIDGE_API_URL` is configured for production, the browser sends only the structured motion input and grounded mapped dictionary context to the dedicated API Gateway/Lambda/Bedrock adapter. The browser and Lambda validators remain authoritative, and unavailable or invalid responses use a no-candidate fallback. No real provider is called by standard tests.
 
 ## Semantic boundary
 
@@ -32,7 +32,7 @@ The bridge does not detect taste, emotion, personality, preference, health, age,
 
 ## Automated verification
 
-Tests cover observable input construction, dictionary serialization, prompt safety language, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, and fallback behavior. Standard validation remains no-network.
+Tests cover observable input construction, dictionary serialization, prompt safety language, production request serialization without raw sensor fields, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, and fallback behavior. Standard validation remains no-network.
 
 ## Human Experience Gate
 

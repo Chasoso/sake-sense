@@ -1,0 +1,84 @@
+# Production AI semantic bridge
+
+Issue #33 adds an opt-in, provider-neutral production path:
+
+```text
+Browser-derived feature summary
+  -> API Gateway HTTP API
+  -> Lambda (request validation)
+  -> Amazon Bedrock Converse
+  -> Lambda (structured-response validation)
+  -> browser's existing semantic bridge validator
+  -> curated dictionary and provenance-backed sake matching
+```
+
+Raw camera frames, images, MediaPipe landmarks, pose history, microphone audio, and speech transcription are never sent to AWS. The browser sends only the existing `SensoryBridgeInput` values and the concise mapped dictionary context (`id`, display term, definition summary, and dimensions).
+
+## Selected model
+
+- Model/inference profile: `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- Primary stack region: `ap-northeast-1`
+- Global cross-region inference is intentional for this MVP.
+- The model ID is a CloudFormation parameter and Lambda environment configuration, not a frontend-controlled value.
+- Claude Haiku 4.5 is used for low-latency, concise structured interpretation. It can be replaced later by changing the backend parameter after reviewing structured-output support and IAM scope.
+
+The Lambda uses the Bedrock Runtime Converse API with `outputConfig.textFormat` JSON Schema structured output. The application validator remains authoritative even when Bedrock returns a schema-constrained response.
+
+## Human deployment
+
+Codex does not deploy this stack or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action in the AWS account before continuing; do not silently select another model.
+
+Deploy the dedicated stack after the static hosting stack has produced the CloudFront domain:
+
+```bash
+aws cloudformation deploy \
+  --template-file infra/aws/ai-semantic-bridge.yaml \
+  --stack-name sake-sense-ai-production \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    AllowedOrigin=https://<CLOUDFRONT_DOMAIN> \
+    BedrockModelId=global.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  --region ap-northeast-1
+```
+
+Set the following GitHub `production` Environment variable from the stack output:
+
+- `VITE_SENSORY_BRIDGE_API_URL`: `SemanticBridgeApiEndpoint`
+
+The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default.
+
+## Safeguards and boundaries
+
+- API Gateway route: `POST /semantic-bridge`
+- CORS: one configured CloudFront origin; no wildcard
+- Throttling target: 1 request/second, burst 5
+- Lambda timeout: 10 seconds; reserved concurrency defaults to 2
+- Request size limit: 12,000 bytes
+- Bedrock output limit: 256 tokens; low temperature
+- Candidate IDs are restricted to the mapped dictionary IDs supplied in the request and validated again in the browser.
+- Provider errors, timeouts, malformed JSON, and unknown IDs return a safe non-candidate response through the existing fallback path.
+- The endpoint is unauthenticated in this MVP. Throttling and conservative limits bound, but do not eliminate, public traffic cost risk.
+
+Bedrock costs are driven by input/output tokens and cross-region inference. Additional cost drivers are API Gateway requests, Lambda duration/requests, and CloudWatch logs. Idle serverless cost is minimal, but public traffic remains the principal uncontrolled risk.
+
+The Lambda logs only a sanitized success/failure category. It does not log request payloads, prompts, model responses, landmarks, audio, or user text.
+
+## Local validation
+
+Normal CI never calls AWS or Bedrock. Use the fixture provider when `VITE_SENSORY_BRIDGE_API_URL` is absent. The backend contract and provider failure paths are covered by deterministic tests with mocked `fetch`/provider responses.
+
+## Human Experience Gate
+
+All items below remain pending until a human deploys the stack and tests the HTTPS production flow:
+
+- [ ] Body flow reaches the production AI semantic bridge
+- [ ] Repeated lateral sway does not automatically become a sake term
+- [ ] Short abrupt motion produces cautious understandable wording
+- [ ] Slow expanding motion does not force an authoritative sake term
+- [ ] Ambiguous motion permits zero or multiple candidates
+- [ ] AI failure produces usable fallback without raw provider errors
+- [ ] Voice structured features work where supported; no raw audio upload occurs
+- [ ] Browser DevTools confirms only structured feature JSON is sent
+- [ ] Mobile HTTPS Body and Voice flows work
+- [ ] CloudFront frontend reaches the API without CORS errors
+- [ ] Logs contain no raw sensor data

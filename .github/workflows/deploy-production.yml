@@ -25,6 +25,7 @@ jobs:
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      VITE_SENSORY_BRIDGE_API_URL: ${{ vars.VITE_SENSORY_BRIDGE_API_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -47,7 +48,7 @@ jobs:
       - name: Check deployment configuration
         run: |
           set -euo pipefail
-          for variable in AWS_REGION AWS_ROLE_ARN S3_BUCKET_NAME CLOUDFRONT_DISTRIBUTION_ID; do
+          for variable in AWS_REGION AWS_ROLE_ARN S3_BUCKET_NAME CLOUDFRONT_DISTRIBUTION_ID VITE_SENSORY_BRIDGE_API_URL; do
             if [ -z "${!variable}" ]; then
               echo "Missing GitHub production variable: ${variable}" >&2
               exit 1

@@ -7,6 +7,8 @@ import {
   getSelectableSensoryTermIds,
   presentSensoryBridgeProvider,
   serializeSensoryDictionaryContext,
+  serializeSensoryBridgeRequest,
+  createHttpSensoryBridgeProvider,
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
@@ -111,6 +113,46 @@ describe("EXP-005 sensory bridge", () => {
 
   it("declares the fixture implementation source explicitly", () => {
     expect(createFixtureSensoryBridgeProvider().kind).toBe("fixture");
+  });
+
+  it("serializes only derived bridge fields for the production provider", () => {
+    const serialized = serializeSensoryBridgeRequest({
+      input: buildSensoryBridgeInput(baseFeatures),
+      dictionaryContext: serializeSensoryDictionaryContext(),
+    });
+    expect(serialized).not.toContain("landmark");
+    expect(serialized).not.toContain("video");
+    expect(serialized).not.toContain("audio");
+    expect(serialized).toContain('"duration":"lingering"');
+    expect(serialized).toContain('"id":"kire"');
+  });
+
+  it("uses the explicit AI provider for an HTTP endpoint", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input, init) => {
+      expect(init?.method).toBe("POST");
+      expect(String(init?.body)).toContain('"dictionaryContext"');
+      return new Response(
+        JSON.stringify({
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures: ["direction:lateral"],
+          reason: "ambiguous observable input",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+    try {
+      const provider = createHttpSensoryBridgeProvider("https://example.test/semantic-bridge");
+      expect(provider.kind).toBe("ai");
+      const response = await provider.interpret({
+        input: buildSensoryBridgeInput(baseFeatures),
+        dictionaryContext: serializeSensoryDictionaryContext(),
+      });
+      expect(validateSensoryBridgeResponse(response).ok).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("accepts zero candidates as a valid unmapped response", () => {
