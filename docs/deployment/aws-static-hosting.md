@@ -34,7 +34,28 @@ The stack outputs the bucket name, distribution ID, distribution domain name, an
 These steps require an AWS account owner or administrator and are intentionally not performed by Codex:
 
 1. Choose the AWS account and region, and confirm the production deployment policy.
-2. From a trusted machine with AWS CLI credentials, deploy the stack:
+2. From a trusted machine with AWS CLI credentials, check whether the account already has the provider for `https://token.actions.githubusercontent.com`:
+
+   ```bash
+   aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text
+   aws iam get-open-id-connect-provider --open-id-connect-provider-arn <OIDC_PROVIDER_ARN>
+   ```
+
+   Confirm that the provider has `sts.amazonaws.com` as an audience.
+
+3. If the provider does not exist, create it once with an account-owner-approved AWS CLI session:
+
+   ```bash
+   aws iam create-open-id-connect-provider \
+     --url https://token.actions.githubusercontent.com \
+     --client-id-list sts.amazonaws.com \
+     --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+     --region <AWS_REGION>
+   ```
+
+   Use the existing or newly returned provider ARN as `<OIDC_PROVIDER_ARN>` below. Codex does not create or modify this account-level resource.
+
+4. From the same trusted machine, deploy the stack:
 
    ```bash
    aws cloudformation deploy \
@@ -48,39 +69,19 @@ These steps require an AWS account owner or administrator and are intentionally 
      --region <AWS_REGION>
    ```
 
-3. Record the stack outputs. Do not commit them.
-4. Create the GitHub Environment named `production`.
-5. Add these non-secret GitHub Environment variables from the stack outputs:
+5. Record the stack outputs. Do not commit them.
+6. Create the GitHub Environment named `production`.
+7. Add these non-secret GitHub Environment variables from the stack outputs:
    - `AWS_REGION`
    - `AWS_ROLE_ARN`
    - `S3_BUCKET_NAME`
    - `CLOUDFRONT_DISTRIBUTION_ID`
 
-6. Configure required reviewers or other environment protection appropriate for production.
-7. Verify that the workflow can only assume the role from the `production` environment for `Chasoso/sake-sense`.
+8. Configure required reviewers or other environment protection appropriate for production.
+9. Verify that the workflow can only assume the role from the `production` environment for `Chasoso/sake-sense`.
+10. Run the production deployment workflow, or push the approved commit to `main`, and verify the CloudFront URL.
 
 The OIDC provider is an account-shared bootstrap resource and is intentionally not created by this application stack. The deployment role is stack-owned and references the provider ARN supplied by `GitHubOidcProviderArn`. This separation avoids a stack collision when the AWS account already has the GitHub provider.
-
-### GitHub OIDC provider check
-
-Before deploying the stack, a human AWS operator must check whether the account already has the provider for `https://token.actions.githubusercontent.com`:
-
-```bash
-aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text
-aws iam get-open-id-connect-provider --open-id-connect-provider-arn <OIDC_PROVIDER_ARN>
-```
-
-The provider must have `sts.amazonaws.com` as an audience. If the provider does not exist, create it once with an account-owner-approved AWS CLI session:
-
-```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
-  --region <AWS_REGION>
-```
-
-Use the returned provider ARN as `GitHubOidcProviderArn` in the CloudFormation command. Codex does not create or modify this account-level resource.
 
 ## Deployment
 
