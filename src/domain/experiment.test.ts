@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runLocalExperiment } from "./experiment";
+import { runBodySemanticExperiment, runLocalExperiment } from "./experiment";
 import type { GesturePoint } from "./gesture";
 import type { VoiceFeatures } from "./voice";
 import type { BodyMovementFeatures } from "./body";
@@ -274,5 +274,60 @@ describe("EXP-001 deterministic pipeline", () => {
     });
 
     expect(result).toEqual({ error: "動きで表現してから試してください。" });
+  });
+
+  it("keeps broad repeated sway unmapped in the EXP-005 body path", async () => {
+    const result = await runBodySemanticExperiment({
+      ...bodyFeatures,
+      activeDurationMs: 2200,
+      endingBehavior: "continued",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "lateral",
+        repetition: "repeated",
+        participation: "broad",
+      },
+    });
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.sensoryBridge?.input.spread).toBe("broad");
+    expect(result.sensoryBridge?.response.candidateTermIds).toEqual([]);
+    expect(result.sakeProducts).toEqual([]);
+    expect(result.representation.dimensions).toEqual([]);
+  });
+
+  it("passes only validated fixture candidates to product matching", async () => {
+    const result = await runBodySemanticExperiment({
+      ...bodyFeatures,
+      activeDurationMs: 500,
+      spread: 0.5,
+      endingBehavior: "abrupt",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "single",
+        participation: "localized",
+      },
+    });
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.sensoryBridge?.response.candidateTermIds).toEqual(["kire"]);
+    expect(result.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
+  });
+
+  it("falls back to observation-only output when the bridge provider fails", async () => {
+    const result = await runBodySemanticExperiment(bodyFeatures, {
+      interpret: async () => {
+        throw new Error("provider unavailable");
+      },
+    });
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.sensoryBridge?.provider).toBe("fallback");
+    expect(result.candidates).toEqual([]);
+    expect(result.sakeProducts).toEqual([]);
   });
 });

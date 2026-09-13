@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
+import { runBodySemanticExperiment, type ExperimentResult } from "../../domain/experiment";
 import {
   extractBodyMovementFeatures,
   bodyToRepresentation,
@@ -215,10 +215,10 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
     replayAnimationRef.current = requestAnimationFrame(renderReplay);
   };
 
-  const analyze = () => {
+  const analyze = async () => {
     stopReplay();
     if (!features) return;
-    const next = runLocalExperiment("", [], null, features);
+    const next = await runBodySemanticExperiment(features);
     if ("error" in next) setError(next.error);
     else setResult(next);
   };
@@ -231,7 +231,7 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   return (
     <main className="experiment" aria-labelledby="body-experiment-title">
       <header className="experiment__header">
-        <p className="experiment__eyebrow">EXP-003 · local body experiment</p>
+        <p className="experiment__eyebrow">EXP-005 · local semantic bridge</p>
         <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
         <p>3秒くらいの動きで表現してください。手だけでも、上半身でもOKです。正解はありません。</p>
       </header>

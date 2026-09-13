@@ -411,11 +411,45 @@ export function Result({
             <p>今回の入力から、既存の感覚特徴は抽出されませんでした。</p>
           )}
         </section>
+        {result.sensoryBridge && (
+          <>
+            <div className="translation-connector" aria-hidden="true">
+              ↓
+            </div>
+            <section className="translation-step translation-step--bridge">
+              <span className="translation-step__label">03 · AIによる感覚表現の橋渡し</span>
+              <p>AIは味を判定しているのではなく、観測した身体表現を言葉へ橋渡ししています。</p>
+              <p>
+                この実験ではネットワークを使わず、同じ契約を確認するローカルfixtureを使っています。
+              </p>
+              {result.sensoryBridge.response.sensoryExpressions.length > 0 ? (
+                <ul className="translation-hints">
+                  {result.sensoryBridge.response.sensoryExpressions.map((expression) => (
+                    <li key={expression}>
+                      <strong>{expression}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>無理なく対応する感覚表現はまだ見つかっていません。</p>
+              )}
+              <p className="candidate__why">{result.sensoryBridge.response.reason}</p>
+              {result.sensoryBridge.response.unmappedFeatures.length > 0 && (
+                <p>
+                  一部の特徴は未対応のまま保持しています（
+                  {result.sensoryBridge.response.unmappedFeatures.join("、")}）。
+                </p>
+              )}
+            </section>
+          </>
+        )}
         <div className="translation-connector" aria-hidden="true">
           ↓
         </div>
         <section className="translation-step">
-          <span className="translation-step__label">03 · この特徴につながった日本酒の言葉</span>
+          <span className="translation-step__label">
+            {result.sensoryBridge ? "04" : "03"} · この特徴につながった日本酒の言葉
+          </span>
           <div className="candidate-list">
             {result.candidates.length > 0 ? (
               result.candidates.map((candidate) => (
@@ -439,7 +473,9 @@ export function Result({
           ↓
         </div>
         <section className="translation-step translation-step--products">
-          <span className="translation-step__label">04 · 実際の石川の日本酒で確かめる候補</span>
+          <span className="translation-step__label">
+            {result.sensoryBridge ? "05" : "04"} · 実際の石川の日本酒で確かめる候補
+          </span>
           <p>上の候補語をterm参照で確認できる、出典付きのサンプルです。</p>
         </section>
       </div>
