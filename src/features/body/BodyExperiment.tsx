@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Camera, Play, RotateCcw } from "lucide-react";
 import { runBodySemanticExperiment, type ExperimentResult } from "../../domain/experiment";
 import {
   extractBodyMovementFeatures,
-  bodyToRepresentation,
   humanizeBodyFeatures,
   type BodyLandmark,
   type BodyMovementFeatures,
   type BodyPoseFrame,
 } from "../../domain/body";
 import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
-import { humanizeRepresentation } from "../../domain/translation-trail";
 import { createBodyPoseLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
@@ -64,7 +63,13 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
   });
 }
 
-export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
+export function BodyExperiment({
+  onFallback,
+  onBack,
+}: {
+  onFallback: () => void;
+  onBack: () => void;
+}) {
   const [status, setStatus] = useState<CaptureStatus>("idle");
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
@@ -223,23 +228,39 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
     else setResult(next);
   };
 
-  const bodyRepresentation = features ? bodyToRepresentation(features) : null;
-  const hintItems = bodyRepresentation ? humanizeRepresentation(bodyRepresentation) : [];
-
-  if (result) return <Result result={result} onTryAgain={retry} />;
+  if (result) {
+    return (
+      <main className="experience-screen" aria-labelledby="result-title">
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={onBack}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>最初に戻る</span>
+          </button>
+          <span className="experience-screen__brand">Sake Sense</span>
+        </nav>
+        <Result result={result} onTryAgain={retry} />
+      </main>
+    );
+  }
 
   return (
-    <main className="experiment" aria-labelledby="body-experiment-title">
-      <header className="experiment__header">
-        <p className="experiment__eyebrow">EXP-005 · local semantic bridge</p>
+    <main className="experience-screen" aria-labelledby="body-experiment-title">
+      <nav className="experience-screen__nav" aria-label="画面の移動">
+        <button className="icon-text-button" type="button" onClick={onBack}>
+          <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+          <span>戻る</span>
+        </button>
+        <span className="experience-screen__brand">Sake Sense</span>
+      </nav>
+      <header className="experience-screen__header">
         <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
-        <p>3秒くらいの動きで表現してください。手だけでも、上半身でもOKです。正解はありません。</p>
+        <p>手だけでも、上半身でも大丈夫です。正解はありません。</p>
       </header>
       <section className="body-capture-card" aria-label="身体表現のカメラ入力">
         <div className="body-capture-card__copy">
           <h2>あなたの動きを見てみる</h2>
           <p>
-            映像は端末内で処理され、保存・送信されません。カメラは身体の動きの特徴だけを一時的に取得します。
+            映像は端末内で処理され、保存・送信されません。3秒ほどの動きだけを一時的に取得します。
           </p>
         </div>
         <div className="body-camera" data-status={status}>
@@ -249,66 +270,73 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
           {status === "capturing" && <span>動いてください…</span>}
           {status === "captured" && <span>動きを取得しました</span>}
         </div>
+        {status === "captured" && (
+          <button
+            className="button button--secondary body-replay-button"
+            type="button"
+            onClick={replay}
+          >
+            <Play size={18} strokeWidth={1.8} aria-hidden="true" />
+            動きをもう一度見る
+          </button>
+        )}
+        {(status === "denied" || status === "unavailable") && (
+          <p className="form-error" role="alert">
+            {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
+          </p>
+        )}
+        {features && (
+          <section className="body-features" aria-labelledby="body-features-title">
+            <h2 id="body-features-title">こんな動きでした</h2>
+            <p className="body-features__replay-status" aria-live="polite">
+              {replayStatus === "ready" && "リプレイには一時的に取得した骨格データだけを使います。"}
+              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
+              {replayStatus === "completed" && "リプレイが完了しました。"}
+            </p>
+            <ul>
+              {humanizeBodyFeatures(features)
+                .slice(0, 4)
+                .map((summary) => (
+                  <li key={summary}>{summary}</li>
+                ))}
+            </ul>
+            <p className="body-features__note">
+              これらは観測した動きの特徴です。味そのものを判定したものではありません。
+            </p>
+          </section>
+        )}
         <div className="body-capture-card__actions">
           {status === "idle" && (
-            <button className="primary-button" type="button" onClick={prepareCamera}>
+            <button className="button button--primary" type="button" onClick={prepareCamera}>
+              <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
               カメラを準備する
             </button>
           )}
           {status === "loading" && <span>カメラを準備しています…</span>}
           {status === "ready" && (
-            <button className="primary-button" type="button" onClick={startCapture}>
+            <button className="button button--primary" type="button" onClick={startCapture}>
               3秒の動きを始める
             </button>
           )}
           {status === "capturing" && <span>身体表現を取得中…</span>}
           {status === "captured" && (
-            <>
-              <button className="primary-button" type="button" onClick={replay}>
-                動きをもう一度見る
-              </button>
-              <button className="primary-button" type="button" onClick={analyze}>
-                特徴と言葉への橋を見る
-              </button>
-            </>
+            <button className="button button--primary" type="button" onClick={analyze}>
+              この動きから言葉を探す
+            </button>
           )}
           {(status === "captured" || status === "denied" || status === "unavailable") && (
-            <button className="text-button" type="button" onClick={retry}>
+            <button className="icon-text-button" type="button" onClick={retry}>
+              <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
               もう一度試す
             </button>
           )}
         </div>
-        {(status === "denied" || status === "unavailable") && (
-          <p className="form-error" role="alert">
-            {error || "カメラが利用できません。EXP-002の声・動き入力を使ってください。"}
-          </p>
-        )}
-        {features && (
-          <section className="body-features" aria-labelledby="body-features-title">
-            <h2 id="body-features-title">身体表現から見えた特徴</h2>
-            <p className="body-features__replay-status" aria-live="polite">
-              {replayStatus === "ready" &&
-                "動きをもう一度見られます。リプレイは一時的に取得した骨格データだけを使います。"}
-              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
-              {replayStatus === "completed" && "リプレイが完了しました。"}
-            </p>
-            <ul>
-              {humanizeBodyFeatures(features).map((summary) => (
-                <li key={summary}>{summary}</li>
-              ))}
-            </ul>
-            <p className="body-features__note">
-              これらは観測した動きの特徴です。味そのものを判定したものではありません。
-            </p>
-            <div className="tag-list">
-              {hintItems.map((hint) => (
-                <span key={hint.internal}>{hint.label}</span>
-              ))}
-            </div>
-          </section>
-        )}
-        <button className="text-button" type="button" onClick={onFallback}>
-          EXP-002の声・指の動きを使う
+        <button
+          className="button button--secondary body-capture-card__fallback"
+          type="button"
+          onClick={onFallback}
+        >
+          声で表現する
         </button>
       </section>
     </main>
