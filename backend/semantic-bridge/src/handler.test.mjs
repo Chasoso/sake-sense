@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildConverseInput } from "./bedrock.mjs";
 import { createHandler } from "./handler.mjs";
+import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
 const env = {
   ALLOWED_ORIGIN: "https://example.cloudfront.net",
@@ -51,7 +52,8 @@ describe("production semantic bridge Lambda", () => {
   });
 
   it("rejects malformed, oversized, unexpected, invalid, unknown, duplicate, and unmapped data", async () => {
-    const handler = testHandler(vi.fn());
+    const invoke = vi.fn();
+    const handler = testHandler(invoke);
     const requests = [
       "{",
       "x".repeat(12_001),
@@ -67,6 +69,7 @@ describe("production semantic bridge Lambda", () => {
     for (const body of requests) {
       expect((await handler({ body })).statusCode).toBe(400);
     }
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("bounds the Bedrock request and keeps model configuration server-side", () => {
@@ -119,24 +122,82 @@ describe("production semantic bridge Lambda", () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid model output and sanitizes provider failures", async () => {
-    const invalid = testHandler(
-      vi.fn(async () => ({
-        candidateTermIds: ["unknown"],
+  it("logs request validation failures separately", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(),
+      logger,
+    });
+    const response = await handler({ body: JSON.stringify({ modality: "unknown" }) });
+    expect(response.statusCode).toBe(400);
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify({ category: "request_validation_failure" }),
+    );
+  });
+
+  it("maps every invalid model response to HTTP 502", async () => {
+    const invalidResponses = [
+      "not-json",
+      {},
+      {
         sensoryExpressions: [],
+        candidateTermIds: [],
+        unmappedFeatures: [],
+        reason: "ok",
+        extra: true,
+      },
+      {
+        sensoryExpressions: [],
+        candidateTermIds: ["kire", "kire"],
         unmappedFeatures: [],
         reason: "invalid",
-      })),
-    );
-    expect((await invalid({ body: bodyRequest })).statusCode).toBe(400);
+      },
+      {
+        sensoryExpressions: [],
+        candidateTermIds: ["unknown"],
+        unmappedFeatures: [],
+        reason: "invalid",
+      },
+    ];
+    for (const modelResponse of invalidResponses) {
+      const invalid = testHandler(vi.fn(async () => modelResponse));
+      const response = await invalid({ body: bodyRequest });
+      expect(response.statusCode).toBe(502);
+      expect(response.body).toBe('{"error":"semantic bridge unavailable"}');
+    }
+  });
 
-    const failing = testHandler(
-      vi.fn(async () => {
+  it("maps empty provider output to HTTP 502 and logs provider validation", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(async () => {
+        throw new SemanticBridgeProviderValidationError("empty model response");
+      }),
+      logger,
+    });
+    const response = await handler({ body: bodyRequest });
+    expect(response.statusCode).toBe(502);
+    expect(response.body).not.toContain("empty model response");
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify({ category: "provider_validation_failure" }),
+    );
+  });
+
+  it("classifies provider invocation failures separately and sanitizes details", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+
+    const failing = createHandler({
+      env,
+      invoke: vi.fn(async () => {
         throw new Error("secret provider detail");
       }),
-    );
+      logger,
+    });
     const response = await failing({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
     expect(response.body).not.toContain("secret provider detail");
+    expect(logger.error).toHaveBeenCalledWith(JSON.stringify({ category: "provider_failure" }));
   });
 });

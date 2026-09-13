@@ -78,6 +78,7 @@ The existing AWS deployment variables remain unchanged. The frontend explicitly 
 - Bedrock output limit: 256 tokens; low temperature
 - Candidate IDs are restricted to mapped dictionary IDs from the canonical repository JSON. The browser supplies IDs only; Lambda reconstructs `displayTerm`, `definitionSummary`, and `dimensions` before building the Bedrock prompt, and the browser validates the response again.
 - Provider errors, timeouts, malformed JSON, and unknown IDs return a safe non-candidate response through the existing fallback path.
+- HTTP 400 denotes an invalid browser semantic-bridge request; HTTP 502 denotes provider invocation failure or invalid provider/model output. Both remain sanitized and use the frontend fallback path.
 - The endpoint is unauthenticated in this MVP. Throttling and conservative limits bound, but do not eliminate, public traffic cost risk.
 
 The Lambda role uses the three resources required by the documented Global Cross-Region Inference policy: the `ap-northeast-1` inference-profile ARN, the `ap-northeast-1` source-region foundation-model ARN, and the region/account-independent global foundation-model ARN. The policy grants only `bedrock:InvokeModel`. It does not use a broad `bedrock:*` action or an unconstrained resource.

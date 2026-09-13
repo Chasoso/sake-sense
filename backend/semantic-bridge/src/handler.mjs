@@ -1,7 +1,8 @@
 import { invokeBedrock } from "./bedrock.mjs";
 import {
   parseAndValidateRequest,
-  SemanticBridgeValidationError,
+  SemanticBridgeRequestValidationError,
+  SemanticBridgeProviderValidationError,
   validateModelResponse,
 } from "./validation.mjs";
 
@@ -34,10 +35,16 @@ export function createHandler({
       );
       return apiResponse(200, response, origin);
     } catch (error) {
-      const statusCode = error instanceof SemanticBridgeValidationError ? 400 : 502;
+      const isRequestValidationFailure = error instanceof SemanticBridgeRequestValidationError;
+      const isProviderValidationFailure = error instanceof SemanticBridgeProviderValidationError;
+      const statusCode = isRequestValidationFailure ? 400 : 502;
       logger.error?.(
         JSON.stringify({
-          category: statusCode === 400 ? "validation_failure" : "provider_failure",
+          category: isRequestValidationFailure
+            ? "request_validation_failure"
+            : isProviderValidationFailure
+              ? "provider_validation_failure"
+              : "provider_failure",
         }),
       );
       return apiResponse(

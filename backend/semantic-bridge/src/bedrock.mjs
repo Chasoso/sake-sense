@@ -1,4 +1,5 @@
 import { responseSchema, systemInstruction } from "./schema.mjs";
+import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
 export function buildConverseInput(request, env) {
   return {
@@ -25,8 +26,12 @@ export async function invokeBedrock(request, env, clientFactory = defaultClientF
   const { client, ConverseCommand } = await clientFactory(env);
   const result = await client.send(new ConverseCommand(buildConverseInput(request, env)));
   const text = result.output?.message?.content?.find((item) => item.text)?.text;
-  if (!text) throw new Error("empty model response");
-  return JSON.parse(text);
+  if (!text) throw new SemanticBridgeProviderValidationError("empty model response");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new SemanticBridgeProviderValidationError("malformed model JSON");
+  }
 }
 
 async function defaultClientFactory(env) {

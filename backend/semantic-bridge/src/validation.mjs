@@ -16,11 +16,19 @@ const voiceValues = {
   endingBehavior: ["maintained", "fading", "unknown"],
 };
 
-export class SemanticBridgeValidationError extends Error {
+export class SemanticBridgeRequestValidationError extends Error {
   constructor(message) {
     super(message);
-    this.name = "SemanticBridgeValidationError";
+    this.name = "SemanticBridgeRequestValidationError";
     this.statusCode = 400;
+  }
+}
+
+export class SemanticBridgeProviderValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "SemanticBridgeProviderValidationError";
+    this.statusCode = 502;
   }
 }
 
@@ -32,8 +40,8 @@ function hasOnlyKeys(value, keys) {
   return isRecord(value) && Object.keys(value).every((key) => keys.includes(key));
 }
 
-function assert(condition, message) {
-  if (!condition) throw new SemanticBridgeValidationError(message);
+function assert(condition, message, ErrorClass = SemanticBridgeRequestValidationError) {
+  if (!condition) throw new ErrorClass(message);
 }
 
 function validateBodyInput(input) {
@@ -108,7 +116,7 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
   try {
     value = JSON.parse(raw);
   } catch {
-    throw new SemanticBridgeValidationError("malformed JSON");
+    throw new SemanticBridgeRequestValidationError("malformed JSON");
   }
   assert(hasOnlyKeys(value, ["modality", "input", "allowedTermIds"]), "invalid request fields");
   assert(value.modality === "body" || value.modality === "voice", "invalid modality");
@@ -130,24 +138,29 @@ export function validateModelResponse(value, allowedIds) {
   assert(
     isRecord(value) && Object.keys(value).every((key) => responseKeys.includes(key)),
     "invalid model response fields",
+    SemanticBridgeProviderValidationError,
   );
   for (const key of ["sensoryExpressions", "candidateTermIds", "unmappedFeatures"]) {
     assert(
       Array.isArray(value[key]) && value[key].every((item) => typeof item === "string"),
       "invalid model response array",
+      SemanticBridgeProviderValidationError,
     );
   }
   assert(
     typeof value.reason === "string" && value.reason.trim().length > 0,
     "invalid model response reason",
+    SemanticBridgeProviderValidationError,
   );
   assert(
     new Set(value.candidateTermIds).size === value.candidateTermIds.length,
     "duplicate candidate ID",
+    SemanticBridgeProviderValidationError,
   );
   assert(
     value.candidateTermIds.every((id) => allowedIds.has(id)),
     "unknown candidate ID",
+    SemanticBridgeProviderValidationError,
   );
   return value;
 }
