@@ -83,6 +83,46 @@ function reversalCount(points: MotionPoint[]): number {
   return count;
 }
 
+function signedTurn(a: MotionPoint, b: MotionPoint, c: MotionPoint): number {
+  const first = { x: b.x - a.x, y: b.y - a.y };
+  const second = { x: c.x - b.x, y: c.y - b.y };
+  return Math.atan2(
+    first.x * second.y - first.y * second.x,
+    first.x * second.x + first.y * second.y,
+  );
+}
+
+function hasCircularGeometry(points: MotionPoint[], pathLength: number): boolean {
+  if (points.length < 5 || pathLength < 0.2) return false;
+  const centroid = {
+    x: average(points.map((point) => point.x)),
+    y: average(points.map((point) => point.y)),
+  };
+  const radius = points.map((point) => distance(point, centroid));
+  const meanRadius = average(radius);
+  const radiusVariation = variation(radius);
+  const area = Math.abs(
+    points.reduce((sum, point, index) => {
+      const next = points[(index + 1) % points.length];
+      return sum + point.x * next.y - next.x * point.y;
+    }, 0) / 2,
+  );
+  const turns = points
+    .slice(1, -1)
+    .map((_, index) => signedTurn(points[index], points[index + 1], points[index + 2]));
+  const totalTurn = turns.reduce((sum, turn) => sum + Math.abs(turn), 0);
+  const signedTurnTotal = Math.abs(turns.reduce((sum, turn) => sum + turn, 0));
+  const closure = distance(points[0], points.at(-1)!) / Math.max(pathLength, EPSILON);
+  return (
+    meanRadius > 0.05 &&
+    radiusVariation < 0.75 &&
+    area / Math.max(pathLength ** 2, EPSILON) > 0.025 &&
+    closure < 0.3 &&
+    totalTurn > Math.PI * 1.5 &&
+    signedTurnTotal / Math.max(totalTurn, EPSILON) > 0.65
+  );
+}
+
 function pathShape(
   points: MotionPoint[],
   pathLength: number,
@@ -91,9 +131,10 @@ function pathShape(
   const displacement = distance(points[0], points.at(-1)!);
   const reversals = reversalCount(points);
   const closure = distance(points[0], points.at(-1)!) / Math.max(pathLength, EPSILON);
-  if (reversals >= 2 && closure > 0.35) return "oscillating";
-  if (closure < 0.35 && pathLength > 0.2) return "circular";
-  if (displacement / pathLength > 0.82) return "straight";
+  if (hasCircularGeometry(points, pathLength)) return "circular";
+  if (reversals === 1 && closure < 0.25) return "out-and-back";
+  if (reversals >= 2 && displacement / Math.max(pathLength, EPSILON) < 0.9) return "oscillating";
+  if (displacement / pathLength > 0.95) return "straight";
   if (reversals >= 3) return "irregular";
   return "curved";
 }
@@ -129,16 +170,26 @@ function dominantJoints(frames: NormalizedMotionFrame[]): MotionJoint[] {
     .map(([joint]) => joint);
 }
 
-function phases(
-  frames: NormalizedMotionFrame[],
+function phaseRuns(
   speeds: number[],
-): { pauseCount: number; boundaries: number[] } {
+): Array<{ startSegment: number; endSegment: number; state: "moving" | "pause" }> {
+  if (!speeds.length) return [];
   const peak = Math.max(...speeds, 0);
-  const pauseIndices = speeds
-    .map((speed, index) => (peak > 0 && speed <= peak * 0.12 ? index + 1 : -1))
-    .filter((index) => index >= 0);
-  const boundaries = [...new Set([0, ...pauseIndices, frames.length - 1])].sort((a, b) => a - b);
-  return { pauseCount: pauseIndices.length ? 1 : 0, boundaries };
+  const stateAt = (index: number): "moving" | "pause" =>
+    peak > 0 && speeds[index] <= peak * 0.12 ? "pause" : "moving";
+  const runs: Array<{ startSegment: number; endSegment: number; state: "moving" | "pause" }> = [];
+  let startSegment = 0;
+  let state = stateAt(0);
+  for (let index = 1; index < speeds.length; index += 1) {
+    const nextState = stateAt(index);
+    if (nextState !== state) {
+      runs.push({ startSegment, endSegment: index, state });
+      startSegment = index;
+      state = nextState;
+    }
+  }
+  runs.push({ startSegment, endSegment: speeds.length, state });
+  return runs;
 }
 
 export function describeMotion(frames: BodyPoseFrame[]): ExtendedMotionDescriptors {
@@ -149,10 +200,10 @@ export function describeMotion(frames: BodyPoseFrame[]): ExtendedMotionDescripto
   const peakSpeed = Math.max(...speeds, 0);
   const meanSpeed = average(speeds);
   const extent = points.length ? Math.max(...points.map((point) => distance(points[0], point))) : 0;
-  const { pauseCount, boundaries } = phases(normalized, speeds);
-  const intervals = boundaries
-    .slice(1)
-    .map((boundary, index) => normalized[boundary].tMs - normalized[boundaries[index]].tMs);
+  const runs = phaseRuns(speeds);
+  const intervals = runs.map(
+    (run) => normalized[run.endSegment].tMs - normalized[run.startSegment].tMs,
+  );
   const leftMovement = normalized
     .slice(1)
     .reduce(
@@ -172,15 +223,27 @@ export function describeMotion(frames: BodyPoseFrame[]): ExtendedMotionDescripto
     amplitudes.slice(0, Math.max(1, Math.floor(amplitudes.length / 3))),
   );
   const lastAmplitude = average(amplitudes.slice(-Math.max(1, Math.floor(amplitudes.length / 3))));
-  const finalSpeeds = speeds.slice(-Math.max(1, Math.floor(speeds.length / 4)));
-  const initialSpeed = average(speeds.slice(0, Math.max(1, Math.floor(speeds.length / 4))));
-  const finalSpeed = average(finalSpeeds);
+  const activeThreshold = peakSpeed * 0.12;
+  let lastActiveIndex = speeds.length - 1;
+  while (lastActiveIndex >= 0 && speeds[lastActiveIndex] <= activeThreshold) lastActiveIndex -= 1;
+  const inactiveTail = speeds.length - 1 - lastActiveIndex;
+  const activeSpeeds = speeds.slice(0, lastActiveIndex + 1);
+  const initialSpeed = average(
+    activeSpeeds.slice(0, Math.max(1, Math.floor(activeSpeeds.length / 4))),
+  );
+  const finalActiveSpeeds = activeSpeeds.slice(-Math.max(1, Math.floor(activeSpeeds.length / 4)));
+  const finalSpeed = average(finalActiveSpeeds);
+  const activeWindow = activeSpeeds.slice(-Math.min(3, activeSpeeds.length));
+  const hasProgressiveSlowdown =
+    activeWindow.length >= 3 && activeWindow.at(-1)! < activeWindow[0] * 0.65;
   const endingShape =
-    finalSpeed < initialSpeed * 0.35
-      ? "gradual"
-      : finalSpeed > initialSpeed * 0.75
-        ? "abrupt"
-        : "sustained";
+    activeSpeeds.length === 0
+      ? "unknown"
+      : hasProgressiveSlowdown && finalSpeed < initialSpeed * 0.7
+        ? "gradual"
+        : inactiveTail > 0
+          ? "abrupt"
+          : "sustained";
   const jointMovement = new Map<MotionJoint, number>(JOINTS.map((joint) => [joint, 0]));
   for (let index = 1; index < normalized.length; index += 1) {
     JOINTS.forEach((joint) =>
@@ -216,7 +279,7 @@ export function describeMotion(frames: BodyPoseFrame[]): ExtendedMotionDescripto
     rhythm: {
       repetitionCount: rhythmRepetitions,
       temporalRegularity: 1 / (1 + variation(intervals)),
-      pauseCount,
+      pauseCount: runs.filter((run) => run.state === "pause").length,
       intervalVariation: variation(intervals),
       amplitudeTrend:
         lastAmplitude > firstAmplitude * 1.25
@@ -239,7 +302,7 @@ export function describeMotion(frames: BodyPoseFrame[]): ExtendedMotionDescripto
       finalAmplitude: amplitudes.at(-1) ?? 0,
       decayDurationMs:
         endingShape === "gradual"
-          ? average(durations.slice(-3)) * Math.min(3, finalSpeeds.length)
+          ? average(durations.slice(-3)) * Math.min(3, finalActiveSpeeds.length)
           : 0,
     },
   };
@@ -249,30 +312,40 @@ export function segmentMotionPhases(frames: BodyPoseFrame[], descriptors = descr
   const normalized = normalizeMotionSequence(frames);
   if (normalized.length < 2) return [];
   const { speeds } = segmentValues(normalized);
-  const peak = Math.max(...speeds, 0);
-  const boundaries = [
-    ...new Set([
-      0,
-      ...speeds
-        .map((speed, index) => (peak > 0 && speed <= peak * 0.12 ? index + 1 : -1))
-        .filter((index) => index > 0),
-      normalized.length - 1,
-    ]),
-  ].sort((a, b) => a - b);
-  const phases: MotionPhase[] = [];
-  for (let index = 1; index < boundaries.length; index += 1) {
-    const start = normalized[boundaries[index - 1]];
-    const end = normalized[boundaries[index]];
-    const localSpeeds = speeds.slice(boundaries[index - 1], boundaries[index]);
+  const runs = phaseRuns(speeds);
+  const phases: MotionPhase[] = runs.map((run, index) => {
+    const start = normalized[run.startSegment];
+    const end = normalized[run.endSegment];
+    const localSpeeds = speeds.slice(run.startSegment, run.endSegment);
     const localVariation = variation(localSpeeds);
-    const label = localSpeeds.every((speed) => speed <= peak * 0.12)
-      ? "pause"
-      : descriptors.ending.shape === "gradual" && index === boundaries.length - 1
-        ? "decelerating"
-        : localVariation > 0.5
-          ? "oscillating"
-          : "active";
-    phases.push({ startMs: start.tMs, endMs: end.tMs, label });
+    const label =
+      run.state === "pause"
+        ? "pause"
+        : descriptors.ending.shape === "gradual" && index === runs.length - 1
+          ? "decelerating"
+          : localVariation > 0.5
+            ? "oscillating"
+            : "active";
+    return { startMs: start.tMs, endMs: end.tMs, label };
+  });
+  while (phases.length > 4) {
+    const candidates = phases
+      .map((phase, index) => ({ phase, index }))
+      .filter(
+        ({ phase, index }) => index > 0 && index < phases.length - 1 && phase.label !== "pause",
+      );
+    const fallback = phases
+      .map((phase, index) => ({ phase, index }))
+      .filter(({ index }) => index > 0 && index < phases.length - 1);
+    const candidate = [...(candidates.length ? candidates : fallback)].sort(
+      (left, right) =>
+        left.phase.endMs - left.phase.startMs - (right.phase.endMs - right.phase.startMs),
+    )[0];
+    if (!candidate) break;
+    phases[candidate.index - 1].endMs = candidate.phase.endMs;
+    phases.splice(candidate.index, 1);
   }
-  return phases.slice(0, 4);
+  return phases;
 }
+
+export { pathShape };

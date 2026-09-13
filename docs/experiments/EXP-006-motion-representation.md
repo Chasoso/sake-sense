@@ -21,37 +21,57 @@ Raw pose frames remain local until capture/replay state is cleared. This experim
 
 An experiment-only harness under `src/experiments/motion-representation/` compares:
 
-1. the existing `BodyMovementFeatures` baseline;
-2. deterministic extended trajectory, dynamics, rhythm, body-usage, and ending descriptors;
-3. a compact normalized `MotionSignature` with simple temporal phases.
+1. the production coarse `SensoryBridgeInput` contract;
+2. the full existing `BodyMovementFeatures` baseline;
+3. deterministic extended trajectory, dynamics, rhythm, body-usage, and ending descriptors;
+4. a compact normalized `MotionSignature` with simple temporal phases.
 
 The harness uses synthetic, landmark-like pose sequences and reuses the existing extractor for the baseline. It is not imported by the capture UI or semantic bridge.
 
 ## Current status
 
-Automated comparison and stability checks are provided by the experiment tests. On the 12 deterministic fixtures, the current coarse key produced 8 unique signatures (4 collision counts), while the v0 Motion Signature key produced 12 unique signatures (0 collision counts). This is a fixture result, not a claim of statistical or human-level discrimination: the fixtures and descriptor thresholds were designed together and still need human review.
+Automated comparison and stability checks are provided by the experiment tests. The comparison now separates four levels:
+
+| Representation                      | Unique fixture keys | Interpretation                                                                                    |
+| ----------------------------------- | ------------------: | ------------------------------------------------------------------------------------------------- |
+| Production coarse contract          |              8 / 12 | Six pairwise distinctions collide after categorical bridge serialization.                         |
+| Full current `BodyMovementFeatures` |             12 / 12 | Numeric/current extractor fields retain these fixture distinctions after meaningful quantization. |
+| Extended descriptors                |             12 / 12 | Adds path, dynamics, rhythm, body-usage, and ending descriptors.                                  |
+| `MotionSignature v0`                |             12 / 12 | Adds the compact descriptor groups plus bounded temporal phases.                                  |
+
+One fixture is intentionally known-unobservable (`fingertip-only-lateral`). It is not treated as a success case for richer discrimination. The six coarse collision pairs are `circular-movement/slow-expand-return`, `circular-movement/fine-tremor`, `shrinking-circle/pause`, `shrinking-circle/asymmetric-left-right`, `slow-expand-return/fine-tremor`, and `pause/asymmetric-left-right`. This is a deterministic fixture result, not statistical or human-level validation.
 
 ## Representations compared
 
-### A. Current `BodyMovementFeatures`
+### A. Production coarse contract
 
-The baseline is the repository implementation itself, not a copy. It remains the production representation and is included in the comparison report so that duration, ending, spread, direction, repetition, participation, and speed behavior can be inspected per fixture.
+The production AI receives the categorical `SensoryBridgeInput` built by `buildSensoryBridgeInput()`: duration, ending, expansion, direction, repetition, participation, spread, and sustained-fast speed evidence. The comparison calls that real builder rather than reconstructing it.
 
-### B. Extended descriptors
+### B. Full current `BodyMovementFeatures`
+
+The full current extractor retains frame/capture/active duration, movement totals, mean/peak speed, sustained-fast evidence, spread, meaningful-activity flag, active-joint count, ending ratio/behavior, and the complete current motion-shape categories. Numeric values are quantized at meaningful engineering tolerances, so small jitter is not automatically a new identity. On this fixture set it separates every fixture, even though the production coarse contract does not.
+
+### C. Extended descriptors
 
 The experiment derives normalized trajectory shape/complexity/extent, mean and peak speed, speed variation, acceleration tendency, smoothness, repetition/pause/interval measures, amplitude trend, dominant joints, left/right asymmetry, participation extent, and ending decay. Numeric values are normalized by the first-frame shoulder width and shoulder-centered coordinates. Time is represented relative to the capture timestamps.
 
-### C. `MotionSignature v0`
+### D. `MotionSignature v0`
 
 `MotionSignature` is a compact derived object containing the extended descriptor groups and at most four deterministic temporal phases. It contains no raw landmark arrays. The phase splitter uses low-speed pauses as boundaries, otherwise preserves a small number of activity regimes; it is deliberately heuristic and can miss overlapping or very subtle phases.
 
-The repeatable report is available through `compareMotionRepresentations()` and `renderComparisonMarkdown()` in `src/experiments/motion-representation/report.ts`.
+The repeatable report is available through `compareMotionRepresentations()` and `renderComparisonMarkdown()` in `src/experiments/motion-representation/report.ts`. It includes unique counts, collision pairs, known-unobservable fixture count, and recovered observable distinctions.
 
 ## Test gesture set and comparison
 
 The fixture set covers large/small lateral sweeps, fingertip-only movement, wrist oscillation, circular and shrinking-circle paths, rapid outward expansion, slow expansion/return, fine tremor, a pause, fast-to-slow motion, and left/right asymmetry. The current-vs-signature collision summary is asserted by the experiment test and is regenerated from the fixtures rather than hand-entered.
 
-The fingertip-only fixture is intentionally a limitation case: Pose-only input cannot observe articulation below the wrist, so a production decision about that distinction cannot be made from this harness.
+The fingertip-only fixture is a limitation case, not a tiny wrist movement: all Pose wrist landmarks remain static. Pose therefore produces the same representation as a still hand, as it should; Motion Signature does not invent a distinction absent from the sensor input.
+
+Path-shape fixtures distinguish straight one-way, straight out-and-back, ellipse/circle-like closure, an open curved arc, and lateral oscillation. Circular classification requires closed geometry, non-trivial enclosed-area/turn evidence, and consistent angular progression; start/end closure alone is insufficient. The out-and-back fixture is therefore not circular.
+
+Temporal segmentation groups contiguous low-speed segments into one pause region and preserves the post-pause active phase. The pause fixture is represented as `active -> pause -> active`; the phase cap merges a short non-essential phase rather than truncating the beginning or ending.
+
+Ending descriptors distinguish gradual deceleration, an abrupt stop after a fast final active segment, and continued movement at capture end. An inactive tail alone is not labeled gradual: progressive slowdown before the tail is required.
 
 ## Noise and performance
 
@@ -63,7 +83,7 @@ The fixture uses 13 frames over approximately three seconds and eight representa
 
 Pose is sufficient for coarse shoulder/elbow/wrist trajectory, timing, and asymmetry experiments. It is not sufficient for fingertip movement, finger opening/closing, or reliable wrist rotation. MediaPipe Hands should remain a separate experiment if those distinctions matter; it is not added to production here.
 
-**Decision: `revise` pending human review.** The fixture evidence supports investigating a selected normalized Motion Signature with temporal phases because it separates four fixture collisions that the baseline key collapses. It does not justify changing the production contract yet: descriptor thresholds are heuristic, the fixture set is synthetic, and real capture quality and intended human differences have not been evaluated. A follow-up should first validate the signature against recorded-but-local human examples, then select only descriptors that remain stable and interpretable.
+**Decision: `revise` pending human review.** The evidence supports a narrower conclusion: the production coarse contract loses six observable fixture pair distinctions, while the full current `BodyMovementFeatures` already retains those distinctions for this synthetic set. The extended descriptors and Motion Signature add useful path/phase diagnostics, but have not demonstrated additional discrimination beyond the full current extractor here. They correctly do not recover the unobservable fingertip case. This does not justify changing the production contract: thresholds are heuristic, the fixture set is synthetic, and real capture quality and intended human differences have not been evaluated. A follow-up should validate selected descriptors against recorded-but-local human examples before any production adoption.
 
 ## Privacy, performance, and sensor boundary
 

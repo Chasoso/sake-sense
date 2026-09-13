@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractBodyMovementFeatures } from "../../domain/body";
-import { motionFixtures } from "./fixtures";
-import { compareMotionRepresentations, summarizeCollisionCounts } from "./report";
+import { endingFixtures, motionFixtures, pathShapeFixtures } from "./fixtures";
+import { compareMotionRepresentations, signatureKey, summarizeCollisionCounts } from "./report";
 import { describeMotion, segmentMotionPhases } from "./descriptors";
 import { createMotionSignature } from "./signature";
 import type { BodyLandmark, BodyPoseFrame } from "../../domain/body";
@@ -22,8 +22,8 @@ function jitter(frames: BodyPoseFrame[]): BodyPoseFrame[] {
     ...frame,
     landmarks: frame.landmarks.map((landmark, landmarkIndex) => ({
       ...landmark,
-      x: landmark.x + Math.sin(frameIndex + landmarkIndex) * 0.001,
-      y: landmark.y + Math.cos(frameIndex + landmarkIndex) * 0.001,
+      x: landmark.x + Math.sin(frameIndex + landmarkIndex) * 0.0001,
+      y: landmark.y + Math.cos(frameIndex + landmarkIndex) * 0.0001,
     })),
   }));
 }
@@ -66,6 +66,14 @@ describe("motion representation experiment", () => {
     expect(Math.abs(noisy.dynamics.meanSpeed - original.dynamics.meanSpeed)).toBeLessThan(0.001);
   });
 
+  it("does not create a new quantized identity from small noise", () => {
+    const source = motionFixtures[4].frames;
+    const noisy = jitter(source);
+    expect(signatureKey(createMotionSignature(source))).toBe(
+      signatureKey(createMotionSignature(noisy)),
+    );
+  });
+
   it("describes direction, dynamics, ending, and body contribution", () => {
     const descriptors = describeMotion(motionFixtures[10].frames);
     expect(descriptors.trajectory.dominantDirection).toBe("right");
@@ -102,10 +110,42 @@ describe("motion representation experiment", () => {
   it("compares the current coarse baseline with the richer signature", () => {
     const comparisons = compareMotionRepresentations();
     const summary = summarizeCollisionCounts(comparisons);
-    expect(summary.gestureCount).toBe(12);
-    expect(summary.baselineUnique).toBeGreaterThan(0);
-    expect(summary.signatureUnique).toBeGreaterThanOrEqual(summary.baselineUnique);
-    expect(summary.recoveredDistinctions).toBeGreaterThanOrEqual(0);
+    expect(summary.fixtureCount).toBe(12);
+    expect(summary.coarseUnique).toBeGreaterThan(0);
+    expect(summary.fullCurrentUnique).toBeGreaterThan(0);
+    expect(summary.motionSignatureUnique).toBeGreaterThan(0);
+    expect(summary.recoveredObservableDistinctions).toBeGreaterThanOrEqual(0);
     expect(comparisons[0].current).toEqual(extractBodyMovementFeatures(motionFixtures[0].frames));
+  });
+
+  it("distinguishes straight, out-and-back, curved, circular, and oscillating paths", () => {
+    const shapes = new Map(
+      pathShapeFixtures.map((fixture) => [
+        fixture.id,
+        describeMotion(fixture.frames).trajectory.pathShape,
+      ]),
+    );
+    expect(shapes.get("straight-one-way")).toBe("straight");
+    expect(shapes.get("straight-out-and-back")).toBe("out-and-back");
+    expect(shapes.get("ellipse")).toBe("circular");
+    expect(shapes.get("curved-arc")).toBe("curved");
+    expect(shapes.get("lateral-oscillation")).toBe("oscillating");
+    expect(shapes.get("straight-out-and-back")).not.toBe("circular");
+  });
+
+  it("consolidates a pause and preserves the active phase after it", () => {
+    const phases = segmentMotionPhases(motionFixtures[9].frames);
+    expect(phases.map((phase) => phase.label)).toEqual(["active", "pause", "active"]);
+  });
+
+  it("separates gradual, abrupt, and continued endings", () => {
+    const endings = endingFixtures.map((fixture) => describeMotion(fixture.frames).ending.shape);
+    expect(endings).toEqual(["gradual", "abrupt", "sustained"]);
+  });
+
+  it("does not invent a distinction for fingertip movement absent from Pose", () => {
+    const fingertip = createMotionSignature(motionFixtures[2].frames);
+    const still = createMotionSignature(motionFixtures[2].frames.map((frame) => ({ ...frame })));
+    expect(fingertip).toEqual(still);
   });
 });

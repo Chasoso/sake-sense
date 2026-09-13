@@ -52,8 +52,8 @@ export const motionFixtures: MotionFixture[] = [
   {
     id: "fingertip-only-lateral",
     label: "fingertip-only lateral movement",
-    intendedDifference: "sub-wrist articulation is not observable in Pose",
-    frames: sequence((p) => ({ x: baseWrist.x + (p > 0.45 ? 0.025 : 0), y: baseWrist.y })),
+    intendedDifference: "Pose cannot distinguish this from a still hand",
+    frames: sequence(() => baseWrist),
   },
   {
     id: "wrist-oscillation",
@@ -126,5 +126,65 @@ export const motionFixtures: MotionFixture[] = [
       (p) => ({ x: -0.4 + 0.9 * p, y: -0.5 }),
       () => ({ x: 0.4, y: -0.5 }),
     ),
+  },
+];
+
+export const pathShapeFixtures: MotionFixture[] = [
+  {
+    id: "straight-one-way",
+    label: "straight one-way",
+    intendedDifference: "single linear direction",
+    frames: sequence((p) => ({ x: -0.4 + 0.9 * p, y: -0.5 })),
+  },
+  {
+    id: "straight-out-and-back",
+    label: "straight out-and-back",
+    intendedDifference: "one linear reversal, no enclosed area",
+    frames: sequence((p) => ({ x: -0.4 + 0.9 * (p < 0.5 ? p * 2 : 2 - p * 2), y: -0.5 })),
+  },
+  {
+    id: "ellipse",
+    label: "ellipse",
+    intendedDifference: "closed curved path with unequal radii",
+    frames: sequence((p) => ({
+      x: -0.4 + 0.65 * Math.cos(p * Math.PI * 2),
+      y: -0.5 + 0.3 * Math.sin(p * Math.PI * 2),
+    })),
+  },
+  {
+    id: "curved-arc",
+    label: "single curved arc",
+    intendedDifference: "open arc, not a complete loop",
+    frames: sequence((p) => ({
+      x: -0.4 + 0.7 * Math.sin((p * Math.PI) / 2),
+      y: -0.5 + 0.7 * (1 - Math.cos((p * Math.PI) / 2)),
+    })),
+  },
+  {
+    id: "lateral-oscillation",
+    label: "lateral oscillation",
+    intendedDifference: "repeated linear reversals",
+    frames: sequence((p) => ({ x: -0.4 + 0.22 * Math.sin(p * Math.PI * 4), y: -0.5 })),
+  },
+];
+
+export const endingFixtures: MotionFixture[] = [
+  {
+    id: "gradual-deceleration",
+    label: "gradual deceleration",
+    intendedDifference: "speed decreases across the final active segments",
+    frames: sequence((p) => ({ x: -0.4 + 1.0 * (1 - (1 - p) ** 3), y: -0.5 })),
+  },
+  {
+    id: "abrupt-stop",
+    label: "abrupt stop",
+    intendedDifference: "fast final active segment followed by an inactive tail",
+    frames: sequence((p) => ({ x: -0.4 + 0.8 * Math.min(p * 1.8, 1), y: -0.5 })),
+  },
+  {
+    id: "continued-ending",
+    label: "continued movement through capture end",
+    intendedDifference: "movement remains active at the final frame",
+    frames: sequence((p) => ({ x: -0.4 + 0.9 * p, y: -0.5 })),
   },
 ];

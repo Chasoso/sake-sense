@@ -16,7 +16,13 @@ export type NormalizedMotionFrame = {
   joints: Record<MotionJoint, MotionPoint>;
 };
 
-export type PathShape = "straight" | "curved" | "circular" | "oscillating" | "irregular";
+export type PathShape =
+  | "straight"
+  | "out-and-back"
+  | "curved"
+  | "circular"
+  | "oscillating"
+  | "irregular";
 export type EndingShape = "abrupt" | "gradual" | "sustained" | "unknown";
 
 export type ExtendedMotionDescriptors = {
