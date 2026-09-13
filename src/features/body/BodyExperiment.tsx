@@ -257,6 +257,31 @@ export function BodyExperiment({
           {status === "capturing" && <span>動いてください…</span>}
           {status === "captured" && <span>動きを取得しました</span>}
         </div>
+        {(status === "denied" || status === "unavailable") && (
+          <p className="form-error" role="alert">
+            {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
+          </p>
+        )}
+        {features && (
+          <section className="body-features" aria-labelledby="body-features-title">
+            <h2 id="body-features-title">こんな動きでした</h2>
+            <p className="body-features__replay-status" aria-live="polite">
+              {replayStatus === "ready" && "リプレイには一時的に取得した骨格データだけを使います。"}
+              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
+              {replayStatus === "completed" && "リプレイが完了しました。"}
+            </p>
+            <ul>
+              {humanizeBodyFeatures(features)
+                .slice(0, 4)
+                .map((summary) => (
+                  <li key={summary}>{summary}</li>
+                ))}
+            </ul>
+            <p className="body-features__note">
+              これらは観測した動きの特徴です。味そのものを判定したものではありません。
+            </p>
+          </section>
+        )}
         <div className="body-capture-card__actions">
           {status === "idle" && (
             <button className="button button--primary" type="button" onClick={prepareCamera}>
@@ -273,12 +298,12 @@ export function BodyExperiment({
           {status === "capturing" && <span>身体表現を取得中…</span>}
           {status === "captured" && (
             <>
+              <button className="button button--primary" type="button" onClick={analyze}>
+                この動きから言葉を探す
+              </button>
               <button className="button button--secondary" type="button" onClick={replay}>
                 <Play size={18} strokeWidth={1.8} aria-hidden="true" />
                 動きをもう一度見る
-              </button>
-              <button className="button button--primary" type="button" onClick={analyze}>
-                この動きから言葉を探す
               </button>
             </>
           )}
@@ -289,32 +314,6 @@ export function BodyExperiment({
             </button>
           )}
         </div>
-        {(status === "denied" || status === "unavailable") && (
-          <p className="form-error" role="alert">
-            {error || "カメラが利用できません。EXP-002の声・動き入力を使ってください。"}
-          </p>
-        )}
-        {features && (
-          <section className="body-features" aria-labelledby="body-features-title">
-            <h2 id="body-features-title">こんな動きでした</h2>
-            <p className="body-features__replay-status" aria-live="polite">
-              {replayStatus === "ready" &&
-                "動きをもう一度見られます。リプレイは一時的に取得した骨格データだけを使います。"}
-              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
-              {replayStatus === "completed" && "リプレイが完了しました。"}
-            </p>
-            <ul>
-              {humanizeBodyFeatures(features)
-                .slice(0, 4)
-                .map((summary) => (
-                  <li key={summary}>{summary}</li>
-                ))}
-            </ul>
-            <p className="body-features__note">
-              これらは観測した動きの特徴です。味そのものを判定したものではありません。
-            </p>
-          </section>
-        )}
         <button
           className="button button--secondary body-capture-card__fallback"
           type="button"

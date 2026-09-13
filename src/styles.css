@@ -203,6 +203,7 @@ h4 {
   font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif;
   font-weight: 600;
   letter-spacing: 0.04em;
+  text-wrap: balance;
 }
 
 .start-screen__copy h1 {
@@ -244,6 +245,7 @@ h4 {
   position: relative;
   width: min(100%, 360px);
   height: auto;
+  border-radius: var(--radius-frame);
   filter: drop-shadow(0 16px 18px rgb(43 43 43 / 10%));
 }
 
@@ -595,13 +597,6 @@ input {
   font-weight: 600;
 }
 
-.translation-connector {
-  padding: 2px 0;
-  color: var(--gold);
-  font-size: 1.2rem;
-  text-align: center;
-}
-
 .body-feature-trail,
 .translation-hints {
   display: grid;
@@ -743,6 +738,12 @@ input {
 
   .start-screen__visual img {
     width: min(72vw, 280px);
+  }
+
+  .start-screen__copy h1,
+  .experience-screen__header h1 {
+    font-size: clamp(1.85rem, 8vw, 2.45rem);
+    letter-spacing: 0.02em;
   }
 
   .start-screen__actions,

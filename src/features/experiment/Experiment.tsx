@@ -405,49 +405,42 @@ export function Result({
         </p>
       </div>
       <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
-        <section className="translation-step translation-step--expression">
-          <span className="translation-step__label">あなたの表現</span>
-          <strong>
-            {result.expression ||
-              (result.inputSource === "body" ? "身体表現" : "声（内容の文字起こしはしていません）")}
-          </strong>
-        </section>
-        <div className="translation-connector" aria-hidden="true">
-          ↓
-        </div>
-        <section className="translation-step translation-step--observed">
-          <span className="translation-step__label">
-            {isBodyResult ? "こんな動きでした" : "こんな表現でした"}
-          </span>
-          {bodyObservations.length > 0 && (
-            <ul className="body-feature-trail">
-              {bodyObservations.map((feature) => (
-                <li key={feature}>{feature}</li>
-              ))}
-            </ul>
-          )}
-          {sensoryHints.length > 0 ? (
-            <ul className="translation-hints">
-              {sensoryHints.map((hint) => (
-                <li key={hint.internal}>
-                  <strong>{hint.label}</strong>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>今回の入力から、既存の感覚特徴は抽出されませんでした。</p>
-          )}
-        </section>
+        {!isBodyResult && (
+          <section className="translation-step translation-step--expression">
+            <span className="translation-step__label">あなたの表現</span>
+            <strong>{result.expression || "声（内容の文字起こしはしていません）"}</strong>
+          </section>
+        )}
+        {(bodyObservations.length > 0 || sensoryHints.length > 0) && (
+          <section className="translation-step translation-step--observed">
+            <span className="translation-step__label">
+              {isBodyResult ? "こんな動きでした" : "こんな表現でした"}
+            </span>
+            {bodyObservations.length > 0 && (
+              <ul className="body-feature-trail">
+                {bodyObservations.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+            )}
+            {sensoryHints.length > 0 && (
+              <ul className="translation-hints">
+                {sensoryHints.map((hint) => (
+                  <li key={hint.internal}>
+                    <strong>{hint.label}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
         {result.sensoryBridge && (
           <>
-            <div className="translation-connector" aria-hidden="true">
-              ↓
-            </div>
-            <section className="translation-step translation-step--bridge">
-              <span className="translation-step__label">
-                {isBodyResult ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
-              </span>
-              {sensoryExpressions.length > 0 ? (
+            {sensoryExpressions.length > 0 && (
+              <section className="translation-step translation-step--bridge">
+                <span className="translation-step__label">
+                  {isBodyResult ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
+                </span>
                 <ul className="translation-hints">
                   {sensoryExpressions.map((expression) => (
                     <li key={expression}>
@@ -455,17 +448,12 @@ export function Result({
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p>無理なく対応する感覚表現はまだ見つかっていません。</p>
-              )}
-            </section>
+              </section>
+            )}
           </>
         )}
         {result.candidates.length > 0 && (
           <>
-            <div className="translation-connector" aria-hidden="true">
-              ↓
-            </div>
             <section className="translation-step translation-step--candidate">
               <span className="translation-step__label">日本酒の言葉で言うと</span>
               <div className="candidate-list">
