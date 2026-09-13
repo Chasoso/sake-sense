@@ -10,6 +10,17 @@ import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
 import { humanizeSensoryDimension } from "./translation-trail";
 import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
+import {
+  buildSensoryBridgeInput,
+  createFallbackSensoryBridgeResponse,
+  createFixtureSensoryBridgeProvider,
+  serializeSensoryDictionaryContext,
+  validateSensoryBridgeResponse,
+  type SensoryBridgeInput,
+  type SensoryBridgeProviderKind,
+  type SensoryBridgeResponse,
+  type SensoryBridgeProvider,
+} from "./sensory-bridge";
 
 type DictionaryEntry = (typeof dictionaryData.entries)[number];
 
@@ -70,6 +81,11 @@ export type ExperimentResult = {
     | "voice-and-gesture"
     | "no-match";
   message: string;
+  sensoryBridge?: {
+    input: SensoryBridgeInput;
+    response: SensoryBridgeResponse;
+    provider: SensoryBridgeProviderKind;
+  };
 };
 
 const expressionMappings: Record<string, string[]> = {
@@ -244,5 +260,66 @@ export function runLocalExperiment(
     sakeProducts,
     interpretation,
     message,
+  };
+}
+
+export async function runBodySemanticExperiment(
+  bodyFeatures: BodyMovementFeatures,
+  provider: SensoryBridgeProvider = createFixtureSensoryBridgeProvider(),
+): Promise<ExperimentResult | { error: string }> {
+  if (!bodyFeatures.hasMeaningfulMovement || bodyFeatures.activeDurationMs <= 0) {
+    return { error: "動きで表現してから試してください。" };
+  }
+  const input = buildSensoryBridgeInput(bodyFeatures);
+  const request = {
+    input,
+    dictionaryContext: serializeSensoryDictionaryContext(),
+  };
+  let response: SensoryBridgeResponse;
+  let providerStatus: SensoryBridgeProviderKind = provider.kind;
+  try {
+    const validation = validateSensoryBridgeResponse(await provider.interpret(request));
+    if (validation.ok) response = validation.value;
+    else {
+      response = createFallbackSensoryBridgeResponse(input, validation.error);
+      providerStatus = "fallback";
+    }
+  } catch {
+    response = createFallbackSensoryBridgeResponse(input);
+    providerStatus = "fallback";
+  }
+  const entryById = new Map(dictionaryData.entries.map((entry) => [entry.id, entry]));
+  const candidates = response.candidateTermIds.flatMap((id) => {
+    const entry = entryById.get(id);
+    if (!entry) return [];
+    return [
+      {
+        entry,
+        matchedBy: "gesture" as const,
+        explanation: response.reason,
+      },
+    ];
+  });
+  return {
+    expression: "",
+    inputSource: "body",
+    voiceFeatures: null,
+    bodyFeatures,
+    gesture: extractGestureFeatures([]),
+    representation: { dimensions: [], tags: [] },
+    candidates,
+    sakeProducts: findSakeProductMatches(response.candidateTermIds),
+    interpretation: candidates.length ? "gesture-only" : "no-match",
+    message:
+      providerStatus === "fixture"
+        ? "現在は実AIには接続せず、ローカルfixtureで観測から言葉への橋渡しを再現しています。"
+        : providerStatus === "ai"
+          ? "AIは味を判定しているのではなく、観測した身体表現を日本酒語へ実験的に橋渡ししています。"
+          : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
+    sensoryBridge: {
+      input,
+      response,
+      provider: providerStatus,
+    },
   };
 }

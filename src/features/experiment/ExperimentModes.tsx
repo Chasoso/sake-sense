@@ -13,7 +13,7 @@ export function ExperimentModes() {
           type="button"
           onClick={() => setMode("body")}
         >
-          EXP-003 · 体で表現する
+          EXP-005 · 体から言葉へ
         </button>
         <button
           className={mode === "exp-002" ? "experiment-mode-switch__active" : ""}
