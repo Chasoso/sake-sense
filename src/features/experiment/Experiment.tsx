@@ -211,14 +211,14 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
 
   const voiceLabel =
     voiceStatus === "recording"
-      ? "Listening locally… click stop when finished"
+      ? "端末内で声の特徴を取得しています。終わったら止めてください。"
       : voiceStatus === "captured"
-        ? "Voice captured locally; no recording was saved"
+        ? "声の特徴を取得しました。録音は保存していません。"
         : voiceStatus === "denied"
-          ? "Microphone permission was denied. Use the text fallback below."
+          ? "マイクが許可されませんでした。短い言葉でも入力できます。"
           : voiceStatus === "unavailable"
-            ? "Microphone is unavailable in this browser. Use the text fallback below."
-            : "Say a short sensory expression; the recording stays in this browser.";
+            ? "このブラウザではマイクを使えません。短い言葉でも入力できます。"
+            : "声の内容は送信・保存せず、声の出し方の特徴だけを使います。";
 
   const analyze = () => {
     const next = runLocalExperiment(expression, strokes, voiceFeatures);
@@ -267,16 +267,16 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
         </nav>
       )}
       <header className="experience-screen__header">
-        <h1 id="experiment-title">声で表現してみてください。</h1>
-        <p>短い声やことばで、感じたことを自由に表現してみましょう。</p>
+        <h1 id="experiment-title">声の出し方で表現してみてください。</h1>
+        <p>「スー」「ギュッ」など、感じたままの声を短く出してみましょう。</p>
       </header>
 
-      <section className="experiment__grid" aria-label="感覚入力">
-        <label className="input-card input-card--voice">
+      <section className="voice-primary" aria-labelledby="voice-primary-title">
+        <div className="input-card input-card--voice">
           <span className="input-card__step">声の表現</span>
-          <strong>声で感じたことを話す</strong>
+          <h2 id="voice-primary-title">声の出し方で表現する</h2>
           <span className="input-card__hint">
-            短い声の表現から始めます。音声は保存・uploadしません。
+            声の高さや変化、続き方などを使います。声の内容は文字起こししません。
           </span>
           <button
             className="button button--primary"
@@ -295,20 +295,24 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
               </svg>
             </div>
           )}
-          <span className="input-card__fallback">音声が使えない場合のテキスト fallback</span>
-          <input
-            value={expression}
-            onChange={(event) => setExpression(event.target.value)}
-            placeholder="短い表現を入力"
-            maxLength={24}
-            aria-label="感じた音やことば"
-          />
-        </label>
+          <div className="voice-text-fallback">
+            <span className="input-card__step">言葉でも残したい場合</span>
+            <input
+              value={expression}
+              onChange={(event) => setExpression(event.target.value)}
+              placeholder="短い表現を入力"
+              maxLength={24}
+              aria-label="感じた音やことば"
+            />
+          </div>
+        </div>
+      </section>
 
+      <details className="optional-input">
+        <summary>もっと表現したい場合</summary>
         <div className="input-card input-card--gesture">
-          <span className="input-card__step">動きの表現</span>
-          <strong>指で自由に描く</strong>
-          <span className="input-card__hint">形や速さを、線で自由に表現します</span>
+          <h2>指の動きも加えられます</h2>
+          <span className="input-card__hint">形や速さを、線で自由に表現します。</span>
           <svg
             className="gesture-pad"
             viewBox="0 0 320 160"
@@ -319,7 +323,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
             onPointerUp={finishStroke}
             onPointerCancel={cancelStroke}
           >
-            <rect width="320" height="160" rx="14" />
+            <rect width="320" height="160" rx="7" />
             {strokes.length ? (
               strokes.map((stroke, index) => (
                 <path
@@ -344,7 +348,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
             描き直す
           </button>
         </div>
-      </section>
+      </details>
 
       <div className="experiment__actions">
         <button className="button button--primary" type="button" onClick={analyze}>
