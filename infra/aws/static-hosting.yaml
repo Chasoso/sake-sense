@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Private S3 and CloudFront static hosting foundation for Sake Sense.
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Default: Chasoso/sake-sense
+    Description: GitHub owner/repository allowed to deploy through OIDC.
+    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+  GitHubEnvironmentName:
+    Type: String
+    Default: production
+    Description: GitHub Environment used by the production deployment workflow.
+    AllowedPattern: "^[A-Za-z0-9_.-]+$"
+  GitHubOidcProviderArn:
+    Type: String
+    Description: Existing IAM OIDC provider ARN for https://token.actions.githubusercontent.com.
+    AllowedPattern: "^arn:[^:]+:iam::[0-9]{12}:oidc-provider/token\\.actions\\.githubusercontent\\.com$"
+
+Resources:
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: Access control for the private Sake Sense website bucket.
+        Name: !Sub ${AWS::StackName}-s3-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Sake Sense production frontend
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            Id: S3Origin
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - PathPattern: /index.html
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: true
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ErrorCachingMinTTL: 0
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ErrorCachingMinTTL: 0
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${WebsiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  GitHubDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Least-privilege frontend deployment role for Sake Sense.
+      RoleName: !Sub ${AWS::StackName}-github-deploy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:environment:${GitHubEnvironmentName}
+      Policies:
+        - PolicyName: FrontendDeployment
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListWebsiteBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt WebsiteBucket.Arn
+              - Sid: ManageWebsiteObjects
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${WebsiteBucket.Arn}/*
+              - Sid: InvalidateDistribution
+                Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID for invalidation.
+    Value: !Ref CloudFrontDistribution
+  CloudFrontDomainName:
+    Description: CloudFront HTTPS domain for the production frontend.
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  DeploymentRoleArn:
+    Description: IAM role ARN to configure as the GitHub production variable AWS_ROLE_ARN.
+    Value: !GetAtt GitHubDeploymentRole.Arn
+  WebsiteBucketName:
+    Description: Private S3 bucket name for frontend artifacts.
+    Value: !Ref WebsiteBucket
