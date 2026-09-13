@@ -49,14 +49,12 @@ export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
   const summaries = [
     features.activeDurationMs <= BODY_SHORT_DURATION_THRESHOLD_MS
       ? "短い動きでした"
-      : "ゆっくり続く動きでした",
+      : "長く続く動きでした",
     features.spread >= BODY_BROAD_MOVEMENT_THRESHOLD
-      ? "大きく広がりました"
+      ? "大きな範囲を動きました"
       : "まとまった範囲で動きました",
-    features.hasSustainedFastMovement === true
-      ? "速い動きが含まれていました"
-      : "ゆっくりした動きでした",
   ];
+  if (features.hasSustainedFastMovement === true) summaries.push("速い動きが含まれていました");
   if (features.endingBehavior === "abrupt") summaries.push("最後にすっと止まりました");
   if (features.endingBehavior === "gradual") summaries.push("最後はゆっくり収まりました");
   if (features.endingBehavior === "continued") summaries.push("最後まで動きが続いていました");

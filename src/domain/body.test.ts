@@ -564,4 +564,98 @@ describe("body movement features", () => {
     expect(descriptions).toContain("最後はゆっくり収まりました");
     expect(descriptions.join(" ")).not.toContain("averageSpeed");
   });
+
+  it("describes long duration and sustained speed independently", () => {
+    const descriptions = humanizeBodyFeatures({
+      frameCount: 10,
+      captureDurationMs: 3000,
+      activeDurationMs: 2400,
+      totalMovement: 4,
+      averageSpeed: 0.002,
+      peakSpeed: 0.02,
+      hasSustainedFastMovement: true,
+      spread: 2,
+      hasMeaningfulMovement: true,
+      activeJointCount: 2,
+      endingSpeedRatio: 1,
+      endingBehavior: "continued",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "unknown",
+        participation: "unknown",
+      },
+    });
+
+    expect(descriptions).toContain("長く続く動きでした");
+    expect(descriptions).toContain("速い動きが含まれていました");
+    expect(descriptions).not.toContain("ゆっくり続く動きでした");
+  });
+
+  it("does not infer slow movement when long movement is not fast", () => {
+    const descriptions = humanizeBodyFeatures({
+      frameCount: 10,
+      captureDurationMs: 3000,
+      activeDurationMs: 2400,
+      totalMovement: 1,
+      averageSpeed: 0.001,
+      peakSpeed: 0.005,
+      hasSustainedFastMovement: false,
+      spread: 0.5,
+      hasMeaningfulMovement: true,
+      activeJointCount: 1,
+      endingSpeedRatio: 0,
+      endingBehavior: "unknown",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "unknown",
+        participation: "unknown",
+      },
+    });
+
+    expect(descriptions).toContain("長く続く動きでした");
+    expect(descriptions).not.toContain("速い動きが含まれていました");
+    expect(descriptions).not.toContain("ゆっくりした動きでした");
+  });
+
+  it("describes movement extent separately from expansion and contraction", () => {
+    const broadFeatureFixture = {
+      frameCount: 3,
+      captureDurationMs: 200,
+      activeDurationMs: 200,
+      totalMovement: 2,
+      averageSpeed: 0.01,
+      peakSpeed: 0.02,
+      spread: 2,
+      hasMeaningfulMovement: true,
+      activeJointCount: 2,
+      endingSpeedRatio: 0,
+      endingBehavior: "unknown",
+      motionShape: {
+        expansion: "unknown",
+        dominantDirection: "unknown",
+        repetition: "unknown",
+        participation: "unknown",
+      },
+    } as const;
+    const broad = humanizeBodyFeatures(broadFeatureFixture);
+    const expanding = humanizeBodyFeatures({
+      ...broadFeatureFixture,
+      motionShape: { ...broadFeatureFixture.motionShape, expansion: "expanding" },
+    });
+    const contracting = humanizeBodyFeatures({
+      ...broadFeatureFixture,
+      spread: 0.5,
+      motionShape: { ...broadFeatureFixture.motionShape, expansion: "contracting" },
+    });
+
+    expect(broad).toContain("大きな範囲を動きました");
+    expect(broad).not.toContain("大きく広がりました");
+    expect(broad).not.toContain("腕や身体が外へ広がる動きでした");
+    expect(expanding).toContain("大きな範囲を動きました");
+    expect(expanding).toContain("腕や身体が外へ広がる動きでした");
+    expect(contracting).toContain("身体の中心へ縮まる動きでした");
+    expect(contracting).not.toContain("腕や身体が外へ広がる動きでした");
+  });
 });

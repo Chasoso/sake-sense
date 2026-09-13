@@ -30,6 +30,8 @@ Whole-body center movement participates conservatively in activity, coarse direc
 
 The existing EXP-003 features—capture/active duration, movement, speed, spread, active joints, and ending behavior—remain available. New motion-shape descriptions are presented separately from those aggregate features.
 
+Human-readable wording stays aligned with the observed feature: active duration is described as short or long, without implying slow or fast movement. Spread is described as movement extent, while expansion/contraction wording is reserved for the separate expansion signal. Speed wording is shown only when sustained-fast evidence supports it.
+
 ## Heuristic constants
 
 The new constants are `BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15`, `BODY_MOTION_DIRECTION_THRESHOLD = 0.2`, `BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25`, `BODY_MOTION_REVERSAL_THRESHOLD = 0.08`, and `BODY_BROAD_PARTICIPATION_RATIO = 0.5`. They are inspectable experimental UI heuristics, not scientific thresholds.
