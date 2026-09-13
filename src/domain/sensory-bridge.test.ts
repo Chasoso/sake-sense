@@ -7,6 +7,8 @@ import {
   getSelectableSensoryTermIds,
   presentSensoryBridgeProvider,
   serializeSensoryDictionaryContext,
+  serializeSensoryBridgeRequest,
+  createHttpSensoryBridgeProvider,
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
@@ -65,8 +67,9 @@ describe("EXP-005 sensory bridge", () => {
 
   it("builds provider-neutral safety instructions from the closed dictionary", () => {
     const instruction = buildSensoryBridgeInstruction({
+      modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     expect(instruction).toContain("味の測定・判定ではありません");
     expect(instruction).toContain("nojun");
@@ -111,6 +114,51 @@ describe("EXP-005 sensory bridge", () => {
 
   it("declares the fixture implementation source explicitly", () => {
     expect(createFixtureSensoryBridgeProvider().kind).toBe("fixture");
+  });
+
+  it("serializes only derived bridge fields for the production provider", () => {
+    const serialized = serializeSensoryBridgeRequest({
+      modality: "body",
+      input: buildSensoryBridgeInput(baseFeatures),
+      allowedTermIds: getSelectableSensoryTermIds(),
+    });
+    expect(serialized).not.toContain("landmark");
+    expect(serialized).not.toContain("video");
+    expect(serialized).not.toContain("audio");
+    expect(serialized).toContain('"duration":"lingering"');
+    expect(serialized).toContain('"allowedTermIds"');
+  });
+
+  it("uses the explicit AI provider for an HTTP endpoint", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input, init) => {
+      expect(init?.method).toBe("POST");
+      expect(String(init?.body)).toContain('"allowedTermIds"');
+      expect(String(init?.body)).not.toContain("definitionSummary");
+      expect(String(init?.body)).not.toContain("displayTerm");
+      expect(String(init?.body)).not.toContain("dimensions");
+      return new Response(
+        JSON.stringify({
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures: ["direction:lateral"],
+          reason: "ambiguous observable input",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+    try {
+      const provider = createHttpSensoryBridgeProvider("https://example.test/semantic-bridge");
+      expect(provider.kind).toBe("ai");
+      const response = await provider.interpret({
+        modality: "body",
+        input: buildSensoryBridgeInput(baseFeatures),
+        allowedTermIds: getSelectableSensoryTermIds(),
+      });
+      expect(validateSensoryBridgeResponse(response).ok).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("accepts zero candidates as a valid unmapped response", () => {
@@ -165,8 +213,9 @@ describe("EXP-005 sensory bridge", () => {
   it("keeps repeated lateral sway unmapped in the fixture path", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const response = await provider.interpret({
+      modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);
@@ -178,6 +227,7 @@ describe("EXP-005 sensory bridge", () => {
   it("maps only a grounded short abrupt fixture candidate", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const response = await provider.interpret({
+      modality: "body",
       input: buildSensoryBridgeInput({
         ...baseFeatures,
         activeDurationMs: 500,
@@ -185,7 +235,7 @@ describe("EXP-005 sensory bridge", () => {
         endingBehavior: "abrupt",
         motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
       }),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);

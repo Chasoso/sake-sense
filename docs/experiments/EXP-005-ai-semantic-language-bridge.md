@@ -16,11 +16,13 @@ Can a constrained semantic bridge make combinations of observable movement easie
 
 `BodyMovementFeatures` is converted by a pure function into provider-neutral `SensoryBridgeInput`. The input contains only interpreted observations: duration, ending, expansion, direction, repetition, participation, movement extent, and sustained-speed evidence. Raw frames, video, images, landmarks, and personal data are never included.
 
-The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. Candidate IDs are checked against the same mapped-only selectable set used to serialize the provider context before existing provenance-backed product matching runs. Each selectable context entry includes only its ID, display term, concise definition summary, and represented dimensions.
+The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. The browser sends only the mapped selectable IDs; the production Lambda resolves those IDs against the canonical repository dictionary and constructs the display term, concise definition summary, and represented dimensions for Bedrock. Candidate IDs are checked against the same mapped-only selectable set before existing provenance-backed product matching runs. Browser-provided dictionary text is never authoritative.
+
+Production AI prose is requested and validated as cautious, beginner-friendly Japanese. The backend replaces model-generated `unmappedFeatures` with stable `feature:value` identifiers derived from the validated Body or Voice input.
 
 ## Provider status
 
-This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. The current UI identifies the deterministic local fixture explicitly; it does not claim that an AI interpreted the movement. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A future real provider would receive the structured motion input and grounded mapped dictionary context. A production provider requires a separate product and architecture decision.
+Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. Local development and CI use the deterministic fixture. When `VITE_SENSORY_BRIDGE_API_URL` is configured for production, Body and Voice use the same API Gateway/Lambda/Bedrock semantic boundary with modality-specific derived input. Body sends categorical movement features; Voice sends only duration, average intensity, pause count, and ending behavior derived locally from microphone samples. Raw camera/audio data never leaves the browser. The browser and Lambda validators remain authoritative, and unavailable or invalid responses use a no-candidate fallback. No real provider is called by standard tests.
 
 ## Semantic boundary
 
@@ -32,7 +34,7 @@ The bridge does not detect taste, emotion, personality, preference, health, age,
 
 ## Automated verification
 
-Tests cover observable input construction, dictionary serialization, prompt safety language, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, and fallback behavior. Standard validation remains no-network.
+Tests cover observable input construction, Body and Voice request serialization without raw sensor fields, prompt safety language, production request validation, bounded Bedrock request construction, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, provider failure, and fallback behavior. The Lambda bundle is built with `npm run build:semantic-bridge` and deployed from a human-managed S3 artifact. Standard validation remains no-network.
 
 ## Human Experience Gate
 

@@ -12,11 +12,12 @@ import { humanizeSensoryDimension } from "./translation-trail";
 import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
 import {
   buildSensoryBridgeInput,
+  buildVoiceSensoryBridgeRequest,
   createFallbackSensoryBridgeResponse,
   createFixtureSensoryBridgeProvider,
-  serializeSensoryDictionaryContext,
+  getSelectableSensoryTermIds,
   validateSensoryBridgeResponse,
-  type SensoryBridgeInput,
+  type SensoryBridgeRequest,
   type SensoryBridgeProviderKind,
   type SensoryBridgeResponse,
   type SensoryBridgeProvider,
@@ -81,11 +82,19 @@ export type ExperimentResult = {
     | "voice-and-gesture"
     | "no-match";
   message: string;
-  sensoryBridge?: {
-    input: SensoryBridgeInput;
-    response: SensoryBridgeResponse;
-    provider: SensoryBridgeProviderKind;
-  };
+  sensoryBridge?:
+    | {
+        modality: "body";
+        input: Extract<SensoryBridgeRequest, { modality: "body" }>["input"];
+        response: SensoryBridgeResponse;
+        provider: SensoryBridgeProviderKind;
+      }
+    | {
+        modality: "voice";
+        input: Extract<SensoryBridgeRequest, { modality: "voice" }>["input"];
+        response: SensoryBridgeResponse;
+        provider: SensoryBridgeProviderKind;
+      };
 };
 
 const expressionMappings: Record<string, string[]> = {
@@ -272,8 +281,9 @@ export async function runBodySemanticExperiment(
   }
   const input = buildSensoryBridgeInput(bodyFeatures);
   const request = {
+    modality: "body" as const,
     input,
-    dictionaryContext: serializeSensoryDictionaryContext(),
+    allowedTermIds: getSelectableSensoryTermIds(),
   };
   let response: SensoryBridgeResponse;
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
@@ -317,7 +327,52 @@ export async function runBodySemanticExperiment(
           ? "AIは味を判定しているのではなく、観測した身体表現を日本酒語へ実験的に橋渡ししています。"
           : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
     sensoryBridge: {
+      modality: "body" as const,
       input,
+      response,
+      provider: providerStatus,
+    },
+  };
+}
+
+export async function runVoiceSemanticExperiment(
+  baseResult: ExperimentResult,
+  voiceFeatures: VoiceFeatures,
+  provider: SensoryBridgeProvider = createFixtureSensoryBridgeProvider(),
+): Promise<ExperimentResult> {
+  const request = buildVoiceSensoryBridgeRequest(voiceFeatures);
+  let response: SensoryBridgeResponse;
+  let providerStatus: SensoryBridgeProviderKind = provider.kind;
+  try {
+    const validation = validateSensoryBridgeResponse(await provider.interpret(request));
+    if (validation.ok) response = validation.value;
+    else {
+      response = createFallbackSensoryBridgeResponse(request.input, validation.error);
+      providerStatus = "fallback";
+    }
+  } catch {
+    response = createFallbackSensoryBridgeResponse(request.input);
+    providerStatus = "fallback";
+  }
+  const entryById = new Map(dictionaryData.entries.map((entry) => [entry.id, entry]));
+  const candidates = response.candidateTermIds.flatMap((id) => {
+    const entry = entryById.get(id);
+    return entry ? [{ entry, matchedBy: "voice" as const, explanation: response.reason }] : [];
+  });
+  return {
+    ...baseResult,
+    candidates,
+    sakeProducts: findSakeProductMatches(response.candidateTermIds),
+    interpretation: candidates.length ? "voice-only" : "no-match",
+    message:
+      providerStatus === "fixture"
+        ? "現在は実AIには接続せず、ローカルfixtureで声の特徴から言葉への橋渡しを再現しています。"
+        : providerStatus === "ai"
+          ? "AIは味を判定するのではなく、観測した声の特徴を言葉へ橋渡ししています。"
+          : "日本酒語への橋渡しを利用できなかったため、観測した声の特徴のみ表示しています。",
+    sensoryBridge: {
+      modality: "voice",
+      input: request.input,
       response,
       provider: providerStatus,
     },

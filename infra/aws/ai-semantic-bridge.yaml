@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Production semantic bridge API for Sake Sense.
+
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Description: Exact HTTPS origin of the deployed CloudFront frontend.
+    AllowedPattern: "^https://[^\\s]+$"
+  BedrockModelId:
+    Type: String
+    Default: global.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Bedrock global inference profile used for semantic interpretation.
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: S3 bucket containing the packaged semantic bridge Lambda artifact.
+  LambdaCodeS3Key:
+    Type: String
+    Description: S3 key for the packaged semantic bridge Lambda artifact.
+
+Resources:
+  SemanticBridgeApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowMethods:
+          - POST
+        AllowHeaders:
+          - content-type
+        MaxAge: 300
+
+  SemanticBridgeFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SemanticBridgeRuntime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Sid: InvokeSelectedBedrockProfile
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+
+  SemanticBridgeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-handler
+      Runtime: nodejs24.x
+      Handler: index.handler
+      Role: !GetAtt SemanticBridgeFunctionRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+
+  SemanticBridgeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref SemanticBridgeApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt SemanticBridgeFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  SemanticBridgeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref SemanticBridgeApi
+      RouteKey: POST /semantic-bridge
+      Target: !Sub integrations/${SemanticBridgeIntegration}
+
+  SemanticBridgeStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref SemanticBridgeApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 5
+        ThrottlingRateLimit: 1
+
+  SemanticBridgePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SemanticBridgeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${SemanticBridgeApi}/*/POST/semantic-bridge
+
+Outputs:
+  SemanticBridgeApiEndpoint:
+    Description: HTTPS endpoint for the production semantic bridge provider.
+    Value: !Sub https://${SemanticBridgeApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/semantic-bridge
+  SemanticBridgeApiId:
+    Description: API Gateway HTTP API identifier.
+    Value: !Ref SemanticBridgeApi

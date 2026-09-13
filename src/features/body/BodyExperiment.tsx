@@ -11,6 +11,10 @@ import {
 import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
 import { createBodyPoseLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
+import {
+  createFixtureSensoryBridgeProvider,
+  createHttpSensoryBridgeProvider,
+} from "../../domain/sensory-bridge";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
 
 type CaptureStatus =
@@ -223,7 +227,11 @@ export function BodyExperiment({
   const analyze = async () => {
     stopReplay();
     if (!features) return;
-    const next = await runBodySemanticExperiment(features);
+    const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
+    const provider = endpoint?.trim()
+      ? createHttpSensoryBridgeProvider(endpoint.trim())
+      : createFixtureSensoryBridgeProvider();
+    const next = await runBodySemanticExperiment(features, provider);
     if ("error" in next) setError(next.error);
     else setResult(next);
   };

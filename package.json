@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:semantic-bridge": "esbuild backend/semantic-bridge/src/handler.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=backend/semantic-bridge/dist/index.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -23,6 +24,7 @@
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1000.0",
     "@mediapipe/tasks-vision": "^1.0.1",
     "lucide-react": "^1.45.0",
     "react": "^19.1.1",
@@ -35,6 +37,7 @@
     "@vitejs/plugin-react": "^5.0.2",
     "@vitest/coverage-v8": "^4.1.11",
     "ajv": "^8.17.1",
+    "esbuild": "^0.28.2",
     "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.4.20",

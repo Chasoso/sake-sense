@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { runBodySemanticExperiment, runLocalExperiment } from "./experiment";
+import {
+  runBodySemanticExperiment,
+  runLocalExperiment,
+  runVoiceSemanticExperiment,
+} from "./experiment";
 import type { GesturePoint } from "./gesture";
 import type { VoiceFeatures } from "./voice";
 import type { BodyMovementFeatures } from "./body";
@@ -292,7 +296,8 @@ describe("EXP-001 deterministic pipeline", () => {
     expect("error" in result).toBe(false);
     if ("error" in result) return;
     expect(result.sensoryBridge?.provider).toBe("fixture");
-    expect(result.sensoryBridge?.input.spread).toBe("broad");
+    if (result.sensoryBridge?.modality !== "body") return;
+    expect(result.sensoryBridge.input.spread).toBe("broad");
     expect(result.sensoryBridge?.response.candidateTermIds).toEqual([]);
     expect(result.sakeProducts).toEqual([]);
     expect(result.representation.dimensions).toEqual([]);
@@ -382,5 +387,39 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.sensoryBridge?.provider).toBe("fallback");
     expect(result.candidates).toEqual([]);
     expect(result.sakeProducts).toEqual([]);
+  });
+
+  it("routes derived voice features through the same AI boundary without raw samples", async () => {
+    const voiceFeatures: VoiceFeatures = {
+      durationMs: 1200,
+      averageIntensity: 0.4,
+      pauseCount: 1,
+      endingBehavior: "fading",
+    };
+    const base = runLocalExperiment("", [], voiceFeatures);
+    expect("error" in base).toBe(false);
+    if ("error" in base) return;
+    let received: unknown;
+    const result = await runVoiceSemanticExperiment(base, voiceFeatures, {
+      kind: "ai",
+      interpret: async (request) => {
+        received = request;
+        return {
+          sensoryExpressions: ["余韻が残る感じ"],
+          candidateTermIds: ["atoaji"],
+          unmappedFeatures: [],
+          reason: "derived voice duration and ending",
+        };
+      },
+    });
+    expect(result.sensoryBridge?.modality).toBe("voice");
+    expect(result.sensoryBridge?.provider).toBe("ai");
+    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["atoaji"]);
+    expect(received).toMatchObject({ modality: "voice", allowedTermIds: expect.any(Array) });
+    expect(JSON.stringify(received)).not.toContain("displayTerm");
+    expect(JSON.stringify(received)).not.toContain("definitionSummary");
+    expect(JSON.stringify(received)).not.toContain("dimensions");
+    expect(JSON.stringify(received)).not.toContain("samples");
+    expect(JSON.stringify(received)).not.toContain("audio");
   });
 });
