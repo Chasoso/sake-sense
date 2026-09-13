@@ -28,7 +28,7 @@ The Lambda uses the Bedrock Runtime Converse API with `outputConfig.textFormat` 
 
 Codex does not deploy this stack or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action in the AWS account before continuing; do not silently select another model.
 
-Build the Lambda bundle locally. The bundle leaves `@aws-sdk/client-bedrock-runtime` external because the Node.js 24 Lambda runtime supplies AWS SDK v3:
+Build the Lambda bundle locally. The `@aws-sdk/client-bedrock-runtime` dependency is included in the single esbuild bundle, so deployment does not depend on the SDK version bundled with the Node.js 24 Lambda runtime:
 
 ```bash
 npm ci
