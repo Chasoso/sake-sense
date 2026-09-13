@@ -256,6 +256,10 @@ h4 {
   filter: drop-shadow(0 16px 18px rgb(43 43 43 / 10%));
 }
 
+.mobile-only-break {
+  display: none;
+}
+
 .start-screen__footer,
 .experience-screen__footer {
   color: var(--muted);
@@ -384,6 +388,14 @@ h4 {
   align-items: center;
   gap: 12px;
   margin-top: 20px;
+}
+
+.body-capture-card__fallback {
+  margin-top: 24px;
+}
+
+.body-replay-button {
+  margin-top: 16px;
 }
 
 .body-features {
@@ -743,8 +755,16 @@ input {
     min-height: 220px;
   }
 
+  .start-screen__visual::before {
+    width: min(100%, 360px);
+  }
+
   .start-screen__visual img {
-    width: min(72vw, 280px);
+    width: min(86vw, 350px);
+  }
+
+  .mobile-only-break {
+    display: inline;
   }
 
   .start-screen__copy h1,

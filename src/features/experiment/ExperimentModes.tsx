@@ -18,7 +18,13 @@ export function ExperimentModes() {
         <section className="start-screen__hero">
           <div className="start-screen__copy">
             <p className="eyebrow">Sake Sense</p>
-            <h1 id="start-title">この味、どう感じましたか？</h1>
+            <h1 id="start-title">
+              この味、どう
+              <span className="mobile-only-break">
+                <br />
+              </span>
+              感じましたか？
+            </h1>
             <p className="start-screen__lead">
               言葉にしなくても大丈夫です。感じたことを、身体や声で自由に表現してみましょう。
             </p>

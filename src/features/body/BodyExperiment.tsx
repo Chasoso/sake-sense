@@ -270,6 +270,16 @@ export function BodyExperiment({
           {status === "capturing" && <span>動いてください…</span>}
           {status === "captured" && <span>動きを取得しました</span>}
         </div>
+        {status === "captured" && (
+          <button
+            className="button button--secondary body-replay-button"
+            type="button"
+            onClick={replay}
+          >
+            <Play size={18} strokeWidth={1.8} aria-hidden="true" />
+            動きをもう一度見る
+          </button>
+        )}
         {(status === "denied" || status === "unavailable") && (
           <p className="form-error" role="alert">
             {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
@@ -310,15 +320,9 @@ export function BodyExperiment({
           )}
           {status === "capturing" && <span>身体表現を取得中…</span>}
           {status === "captured" && (
-            <>
-              <button className="button button--primary" type="button" onClick={analyze}>
-                この動きから言葉を探す
-              </button>
-              <button className="button button--secondary" type="button" onClick={replay}>
-                <Play size={18} strokeWidth={1.8} aria-hidden="true" />
-                動きをもう一度見る
-              </button>
-            </>
+            <button className="button button--primary" type="button" onClick={analyze}>
+              この動きから言葉を探す
+            </button>
           )}
           {(status === "captured" || status === "denied" || status === "unavailable") && (
             <button className="icon-text-button" type="button" onClick={retry}>
