@@ -12,6 +12,10 @@ Parameters:
     Default: production
     Description: GitHub Environment used by the production deployment workflow.
     AllowedPattern: "^[A-Za-z0-9_.-]+$"
+  GitHubOidcProviderArn:
+    Type: String
+    Description: Existing IAM OIDC provider ARN for https://token.actions.githubusercontent.com.
+    AllowedPattern: "^arn:[^:]+:iam::[0-9]{12}:oidc-provider/token\\.actions\\.githubusercontent\\.com$"
 
 Resources:
   WebsiteBucket:
@@ -87,7 +91,6 @@ Resources:
             ResponsePagePath: /index.html
         ViewerCertificate:
           CloudFrontDefaultCertificate: true
-          MinimumProtocolVersion: TLSv1.2_2021
 
   WebsiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -106,15 +109,6 @@ Resources:
               StringEquals:
                 AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
 
-  GitHubOidcProvider:
-    Type: AWS::IAM::OIDCProvider
-    Properties:
-      Url: https://token.actions.githubusercontent.com
-      ClientIdList:
-        - sts.amazonaws.com
-      ThumbprintList:
-        - 6938fd4d98bab03faadb97b34396831e3780aea1
-
   GitHubDeploymentRole:
     Type: AWS::IAM::Role
     Properties:
@@ -125,7 +119,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Ref GitHubOidcProvider
+              Federated: !Ref GitHubOidcProviderArn
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:

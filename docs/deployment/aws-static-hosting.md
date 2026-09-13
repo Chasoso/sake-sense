@@ -25,10 +25,9 @@ The stack creates:
 - a CloudFront distribution with an S3 Origin Access Control, HTTPS redirect, and the CloudFront default domain;
 - `/index.html` with a short/no-cache policy and hashed assets with the managed long-cache policy;
 - 403/404 responses mapped to `index.html` for the Vite SPA fallback without adding a routing library;
-- a GitHub Actions OIDC provider;
-- a deployment role scoped to this repository/environment, the generated bucket, and the generated distribution.
+- a GitHub Actions deployment role that trusts an existing account-level OIDC provider and is scoped to this repository/environment, the generated bucket, and the generated distribution.
 
-The stack outputs the bucket name, distribution ID, distribution domain name, and deployment role ARN. No fixed AWS account ID, region, bucket name, or role ARN is stored in the repository.
+The stack outputs the bucket name, distribution ID, distribution domain name, and deployment role ARN. CloudFront uses its default HTTPS certificate/domain; custom domains and ACM certificate policies are out of scope. No fixed AWS account ID, region, bucket name, or role ARN is stored in the repository.
 
 ## Human bootstrap
 
@@ -45,6 +44,7 @@ These steps require an AWS account owner or administrator and are intentionally 
      --parameter-overrides \
        GitHubRepository=Chasoso/sake-sense \
        GitHubEnvironmentName=production \
+       GitHubOidcProviderArn=<OIDC_PROVIDER_ARN> \
      --region <AWS_REGION>
    ```
 
@@ -59,7 +59,28 @@ These steps require an AWS account owner or administrator and are intentionally 
 6. Configure required reviewers or other environment protection appropriate for production.
 7. Verify that the workflow can only assume the role from the `production` environment for `Chasoso/sake-sense`.
 
-The OIDC provider and deployment role are created by the stack. This one-time bootstrap cannot be performed by the deployment workflow before the role exists.
+The OIDC provider is an account-shared bootstrap resource and is intentionally not created by this application stack. The deployment role is stack-owned and references the provider ARN supplied by `GitHubOidcProviderArn`. This separation avoids a stack collision when the AWS account already has the GitHub provider.
+
+### GitHub OIDC provider check
+
+Before deploying the stack, a human AWS operator must check whether the account already has the provider for `https://token.actions.githubusercontent.com`:
+
+```bash
+aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text
+aws iam get-open-id-connect-provider --open-id-connect-provider-arn <OIDC_PROVIDER_ARN>
+```
+
+The provider must have `sts.amazonaws.com` as an audience. If the provider does not exist, create it once with an account-owner-approved AWS CLI session:
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --region <AWS_REGION>
+```
+
+Use the returned provider ARN as `GitHubOidcProviderArn` in the CloudFormation command. Codex does not create or modify this account-level resource.
 
 ## Deployment
 
