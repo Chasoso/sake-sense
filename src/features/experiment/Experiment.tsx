@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Mic, RotateCcw } from "lucide-react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { humanizeBodyFeatures } from "../../domain/body";
 import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
@@ -17,7 +18,6 @@ import {
 import { clientToViewBoxPoint } from "./coordinate";
 import { presentEvidenceStatus } from "../../domain/sake-product-matching";
 import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
-import { presentSensoryBridgeProvider } from "../../domain/sensory-bridge";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -41,7 +41,7 @@ function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint 
   };
 }
 
-export function Experiment() {
+export function Experiment({ onBack }: { onBack?: () => void } = {}) {
   const [expression, setExpression] = useState("");
   const [strokes, setStrokes] = useState<GestureStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -256,25 +256,34 @@ export function Experiment() {
   };
 
   return (
-    <main className="experiment" aria-labelledby="experiment-title">
-      <header className="experiment__header">
-        <p className="experiment__eyebrow">EXP-002 · local experiment</p>
-        <h1 id="experiment-title">感覚を、ことばの入口へ。</h1>
-        <p>専門用語ではなく、あなたの感じた音や動きから始める 30〜60 秒の小さな実験です。</p>
+    <main className="experience-screen" aria-labelledby="experiment-title">
+      {onBack && (
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={onBack}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>戻る</span>
+          </button>
+          <span className="experience-screen__brand">Sake Sense</span>
+        </nav>
+      )}
+      <header className="experience-screen__header">
+        <h1 id="experiment-title">声で表現してみてください。</h1>
+        <p>短い声やことばで、感じたことを自由に表現してみましょう。</p>
       </header>
 
       <section className="experiment__grid" aria-label="感覚入力">
         <label className="input-card input-card--voice">
-          <span className="input-card__step">01 · voice-first expression</span>
+          <span className="input-card__step">声の表現</span>
           <strong>声で感じたことを話す</strong>
           <span className="input-card__hint">
             短い声の表現から始めます。音声は保存・uploadしません。
           </span>
           <button
-            className="primary-button"
+            className="button button--primary"
             type="button"
             onClick={voiceStatus === "recording" ? stopVoice : startVoice}
           >
+            <Mic size={19} strokeWidth={1.8} aria-hidden="true" />
             {voiceStatus === "recording" ? "音声入力を止める" : "音声入力を始める"}
           </button>
           <span className="input-card__hint">{voiceLabel}</span>
@@ -296,10 +305,10 @@ export function Experiment() {
           />
         </label>
 
-        <div className="input-card">
-          <span className="input-card__step">02 · free movement</span>
-          <strong>自由な動きで表現する</strong>
-          <span className="input-card__hint">1〜2秒ほど、形・速さ・方向を自由に動かします</span>
+        <div className="input-card input-card--gesture">
+          <span className="input-card__step">動きの表現</span>
+          <strong>指で自由に描く</strong>
+          <span className="input-card__hint">形や速さを、線で自由に表現します</span>
           <svg
             className="gesture-pad"
             viewBox="0 0 320 160"
@@ -338,10 +347,11 @@ export function Experiment() {
       </section>
 
       <div className="experiment__actions">
-        <button className="primary-button" type="button" onClick={analyze}>
-          ことばへの橋を見てみる
+        <button className="button button--primary" type="button" onClick={analyze}>
+          この表現から言葉を探す
         </button>
-        <button className="text-button" type="button" onClick={reset}>
+        <button className="icon-text-button" type="button" onClick={reset}>
+          <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
           リセット
         </button>
       </div>
@@ -353,12 +363,8 @@ export function Experiment() {
       )}
       {result && <Result result={result} onTryAgain={() => setResult(null)} />}
 
-      <footer className="experiment__footer">
-        <strong>実験中の表示です。</strong>
-        <span>
-          候補は断定ではありません。ノンバーバルな表現は、ことばの代わりではなく入口です。
-        </span>
-        <span>石川の酒文化との接続は、出典のある小さなデータから今後の実験で探ります。</span>
+      <footer className="experience-screen__footer">
+        <span>候補は断定ではありません。感じたことから、言葉への入口を探します。</span>
       </footer>
     </main>
   );
@@ -372,16 +378,25 @@ export function Result({
   onTryAgain: () => void;
 }) {
   const sensoryHints = humanizeRepresentation(result.representation);
+  const sensoryExpressions = result.sensoryBridge?.response.sensoryExpressions ?? [];
+  const bodyObservations = result.bodyFeatures
+    ? humanizeBodyFeatures(result.bodyFeatures).slice(0, 4)
+    : [];
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
-        <p className="experiment__eyebrow">03 · bridge, not verdict</p>
-        <h2 id="result-title">あなたの表現から見えた手がかり</h2>
-        <p>{result.message}</p>
+        <h2 id="result-title">
+          {result.bodyFeatures ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
+        </h2>
+        <p>
+          {result.candidates.length > 0
+            ? "感じたことから、日本酒の言葉への入口を探しました。"
+            : "観測した動きや表現をもとに、無理のない範囲で整理しました。"}
+        </p>
       </div>
       <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
-        <section className="translation-step">
-          <span className="translation-step__label">01 · あなたの表現</span>
+        <section className="translation-step translation-step--expression">
+          <span className="translation-step__label">あなたの表現</span>
           <strong>
             {result.expression ||
               (result.inputSource === "body" ? "身体表現" : "声（内容の文字起こしはしていません）")}
@@ -390,11 +405,11 @@ export function Result({
         <div className="translation-connector" aria-hidden="true">
           ↓
         </div>
-        <section className="translation-step">
-          <span className="translation-step__label">02 · 表現から見えた特徴</span>
-          {result.bodyFeatures && (
+        <section className="translation-step translation-step--observed">
+          <span className="translation-step__label">こんな動きでした</span>
+          {bodyObservations.length > 0 && (
             <ul className="body-feature-trail">
-              {humanizeBodyFeatures(result.bodyFeatures).map((feature) => (
+              {bodyObservations.map((feature) => (
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
@@ -404,7 +419,6 @@ export function Result({
               {sensoryHints.map((hint) => (
                 <li key={hint.internal}>
                   <strong>{hint.label}</strong>
-                  <span>{hint.internal}</span>
                 </li>
               ))}
             </ul>
@@ -418,13 +432,10 @@ export function Result({
               ↓
             </div>
             <section className="translation-step translation-step--bridge">
-              <span className="translation-step__label">
-                {presentSensoryBridgeProvider(result.sensoryBridge.provider).heading}
-              </span>
-              <p>{presentSensoryBridgeProvider(result.sensoryBridge.provider).explanation}</p>
-              {result.sensoryBridge.response.sensoryExpressions.length > 0 ? (
+              <span className="translation-step__label">この動きから見えた感覚</span>
+              {sensoryExpressions.length > 0 ? (
                 <ul className="translation-hints">
-                  {result.sensoryBridge.response.sensoryExpressions.map((expression) => (
+                  {sensoryExpressions.map((expression) => (
                     <li key={expression}>
                       <strong>{expression}</strong>
                     </li>
@@ -433,61 +444,42 @@ export function Result({
               ) : (
                 <p>無理なく対応する感覚表現はまだ見つかっていません。</p>
               )}
-              <p className="candidate__why">{result.sensoryBridge.response.reason}</p>
-              {result.sensoryBridge.response.unmappedFeatures.length > 0 && (
-                <p>
-                  一部の特徴は未対応のまま保持しています（
-                  {result.sensoryBridge.response.unmappedFeatures.join("、")}）。
-                </p>
-              )}
             </section>
           </>
         )}
-        <div className="translation-connector" aria-hidden="true">
-          ↓
-        </div>
-        <section className="translation-step">
-          <span className="translation-step__label">
-            {result.sensoryBridge ? "04" : "03"} · この特徴につながった日本酒の言葉
-          </span>
-          <div className="candidate-list">
-            {result.candidates.length > 0 ? (
-              result.candidates.map((candidate) => (
-                <article className="candidate" key={candidate.entry.id}>
-                  <div>
-                    <span className="candidate__match">
-                      {humanizeSignalSource(candidate.matchedBy)}
-                    </span>
-                    <h3>{candidate.entry.displayTerm}</h3>
-                  </div>
-                  <p>{candidate.entry.definitionSummary}</p>
-                  <p className="candidate__why">{candidate.explanation}</p>
-                </article>
-              ))
-            ) : (
-              <p className="empty-result">この辞書の範囲では、まだ候補に結びつきませんでした。</p>
-            )}
-          </div>
-        </section>
-        <div className="translation-connector" aria-hidden="true">
-          ↓
-        </div>
-        <section className="translation-step translation-step--products">
-          <span className="translation-step__label">
-            {result.sensoryBridge ? "05" : "04"} · 実際の石川の日本酒で確かめる候補
-          </span>
-          <p>上の候補語をterm参照で確認できる、出典付きのサンプルです。</p>
-        </section>
+        {result.candidates.length > 0 && (
+          <>
+            <div className="translation-connector" aria-hidden="true">
+              ↓
+            </div>
+            <section className="translation-step translation-step--candidate">
+              <span className="translation-step__label">日本酒の言葉で言うと</span>
+              <div className="candidate-list">
+                {result.candidates.map((candidate) => (
+                  <article className="candidate" key={candidate.entry.id}>
+                    <div>
+                      <span className="candidate__match">
+                        {humanizeSignalSource(candidate.matchedBy)}
+                      </span>
+                      <h3>{candidate.entry.displayTerm}</h3>
+                    </div>
+                    <p>{candidate.entry.definitionSummary}</p>
+                    <p className="candidate__why">{candidate.explanation}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
       </div>
-      <section className="sake-connection" aria-labelledby="sake-connection-title">
-        <div className="sake-connection__heading">
-          <span className="experiment__eyebrow">04 · real sake to explore</span>
-          <h3 id="sake-connection-title">この言葉を実際の石川の日本酒で確かめる候補</h3>
-          <p>
-            候補語と出典付きサンプルのterm参照が重なった商品を表示しています。おすすめや順位付けではありません。
-          </p>
-        </div>
-        {result.sakeProducts.length > 0 ? (
+      {result.sakeProducts.length > 0 && (
+        <section className="sake-connection" aria-labelledby="sake-connection-title">
+          <div className="sake-connection__heading">
+            <h3 id="sake-connection-title">この言葉を実際の石川の日本酒で確かめる候補</h3>
+            <p>
+              候補語と出典付きサンプルのterm参照が重なった商品を表示しています。おすすめや順位付けではありません。
+            </p>
+          </div>
           <div className="sake-product-list">
             {result.sakeProducts.map((match) => (
               <article className="sake-product" key={match.product.id}>
@@ -505,7 +497,7 @@ export function Result({
                     const evidence = presentEvidenceStatus(reference.mappingStatus);
                     return (
                       <li key={reference.termId}>
-                        <strong>{term ?? reference.termId}</strong>
+                        <strong>{term ?? "対応する日本酒の言葉"}</strong>
                         <span>{evidence.label}</span>
                         <p>{evidence.explanation}</p>
                         <p>{reference.rationale}</p>
@@ -529,17 +521,18 @@ export function Result({
               </article>
             ))}
           </div>
-        ) : (
-          <p className="empty-result">
-            今回の小さなサンプルには、この候補語を直接支える商品がありません。別の表現で試すか、辞書と出典を確認してください。
-          </p>
-        )}
-      </section>
+        </section>
+      )}
+      {result.candidates.length === 0 && (
+        <div className="result__unmapped" role="status">
+          <p>今回の動きからは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。</p>
+        </div>
+      )}
       <button className="text-button" type="button" onClick={onTryAgain}>
         別の感じで試してみる
       </button>
       <details className="debug-view">
-        <summary>開発者向けに計算過程を見る</summary>
+        <summary>開発者向け詳細</summary>
         <pre>
           {JSON.stringify(
             {
@@ -549,6 +542,7 @@ export function Result({
               body: result.bodyFeatures,
               gesture: result.gesture,
               representation: result.representation,
+              sensoryBridge: result.sensoryBridge,
               sakeProducts: result.sakeProducts,
             },
             null,
