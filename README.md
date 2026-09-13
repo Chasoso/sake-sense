@@ -10,7 +10,7 @@ Read [AGENTS.md](AGENTS.md) before starting work. The [development loop](docs/de
 
 ### Local setup
 
-Supported versions are Node.js 22.12 or newer and npm 10 or newer.
+Supported versions are Node.js 24 or newer and npm 10 or newer.
 
 ```bash
 npm ci
