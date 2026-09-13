@@ -1,4 +1,8 @@
-import { extractBodyMovementFeatures } from "../../domain/body";
+import {
+  BODY_BROAD_MOVEMENT_THRESHOLD,
+  BODY_SHORT_DURATION_THRESHOLD_MS,
+  extractBodyMovementFeatures,
+} from "../../domain/body";
 import { createMotionSignature } from "./signature";
 import { motionFixtures } from "./fixtures";
 import type { BodyMovementFeatures } from "../../domain/body";
@@ -14,12 +18,12 @@ export type MotionComparison = {
 
 function currentKey(features: BodyMovementFeatures): string {
   return [
-    features.activeDurationMs > 1800 ? "long" : "short",
+    features.activeDurationMs > BODY_SHORT_DURATION_THRESHOLD_MS ? "long" : "short",
     features.motionShape.dominantDirection,
     features.motionShape.repetition,
     features.motionShape.participation,
     features.endingBehavior,
-    features.spread >= 1.5 ? "broad" : "compact",
+    features.spread >= BODY_BROAD_MOVEMENT_THRESHOLD ? "broad" : "compact",
   ].join("|");
 }
 
