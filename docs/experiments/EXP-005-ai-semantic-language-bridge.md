@@ -16,7 +16,7 @@ Can a constrained semantic bridge make combinations of observable movement easie
 
 `BodyMovementFeatures` is converted by a pure function into provider-neutral `SensoryBridgeInput`. The input contains only interpreted observations: duration, ending, expansion, direction, repetition, participation, movement extent, and sustained-speed evidence. Raw frames, video, images, landmarks, and personal data are never included.
 
-The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. Candidate IDs are checked against the same mapped-only selectable set used to serialize the provider context before existing provenance-backed product matching runs. Each selectable context entry includes only its ID, display term, concise definition summary, and represented dimensions.
+The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. The browser sends only the mapped selectable IDs; the production Lambda resolves those IDs against the canonical repository dictionary and constructs the display term, concise definition summary, and represented dimensions for Bedrock. Candidate IDs are checked against the same mapped-only selectable set before existing provenance-backed product matching runs. Browser-provided dictionary text is never authoritative.
 
 ## Provider status
 

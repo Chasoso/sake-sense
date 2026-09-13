@@ -69,7 +69,7 @@ describe("EXP-005 sensory bridge", () => {
     const instruction = buildSensoryBridgeInstruction({
       modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     expect(instruction).toContain("味の測定・判定ではありません");
     expect(instruction).toContain("nojun");
@@ -120,20 +120,23 @@ describe("EXP-005 sensory bridge", () => {
     const serialized = serializeSensoryBridgeRequest({
       modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     expect(serialized).not.toContain("landmark");
     expect(serialized).not.toContain("video");
     expect(serialized).not.toContain("audio");
     expect(serialized).toContain('"duration":"lingering"');
-    expect(serialized).toContain('"id":"kire"');
+    expect(serialized).toContain('"allowedTermIds"');
   });
 
   it("uses the explicit AI provider for an HTTP endpoint", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (_input, init) => {
       expect(init?.method).toBe("POST");
-      expect(String(init?.body)).toContain('"dictionaryContext"');
+      expect(String(init?.body)).toContain('"allowedTermIds"');
+      expect(String(init?.body)).not.toContain("definitionSummary");
+      expect(String(init?.body)).not.toContain("displayTerm");
+      expect(String(init?.body)).not.toContain("dimensions");
       return new Response(
         JSON.stringify({
           sensoryExpressions: [],
@@ -150,7 +153,7 @@ describe("EXP-005 sensory bridge", () => {
       const response = await provider.interpret({
         modality: "body",
         input: buildSensoryBridgeInput(baseFeatures),
-        dictionaryContext: serializeSensoryDictionaryContext(),
+        allowedTermIds: getSelectableSensoryTermIds(),
       });
       expect(validateSensoryBridgeResponse(response).ok).toBe(true);
     } finally {
@@ -212,7 +215,7 @@ describe("EXP-005 sensory bridge", () => {
     const response = await provider.interpret({
       modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);
@@ -232,7 +235,7 @@ describe("EXP-005 sensory bridge", () => {
         endingBehavior: "abrupt",
         motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
       }),
-      dictionaryContext: serializeSensoryDictionaryContext(),
+      allowedTermIds: getSelectableSensoryTermIds(),
     });
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);

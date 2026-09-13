@@ -20,7 +20,7 @@ Local UX experimentation must not depend on AWS or another external service. The
 Issue #33 adds an explicitly configured production adapter without changing the provider-neutral domain contract:
 
 ```text
-Browser-derived SensoryBridgeInput + mapped dictionary context
+Browser-derived structured observations + mapped dictionary term IDs
   -> API Gateway HTTP API
   -> packaged Lambda request/output validation
   -> Bedrock Converse structured output
@@ -28,7 +28,7 @@ Browser-derived SensoryBridgeInput + mapped dictionary context
   -> curated dictionary and provenance-backed product matching
 ```
 
-Raw camera, audio, image, landmark, and pose-history data remain local. The AI path is selected only when `VITE_SENSORY_BRIDGE_API_URL` is present; local development and CI use the deterministic fixture by default. See [the production AI deployment guide](../deployment/aws-ai-semantic-bridge.md).
+Raw camera, audio, image, landmark, and pose-history data remain local. The Lambda owns canonical dictionary grounding and does not trust browser-supplied definitions or dimensions. The AI path is selected only when `VITE_SENSORY_BRIDGE_API_URL` is present; local development and CI use the deterministic fixture by default. See [the production AI deployment guide](../deployment/aws-ai-semantic-bridge.md).
 
 ## Intentionally deferred
 

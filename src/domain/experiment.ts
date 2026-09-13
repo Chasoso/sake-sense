@@ -15,7 +15,7 @@ import {
   buildVoiceSensoryBridgeRequest,
   createFallbackSensoryBridgeResponse,
   createFixtureSensoryBridgeProvider,
-  serializeSensoryDictionaryContext,
+  getSelectableSensoryTermIds,
   validateSensoryBridgeResponse,
   type SensoryBridgeRequest,
   type SensoryBridgeProviderKind,
@@ -283,7 +283,7 @@ export async function runBodySemanticExperiment(
   const request = {
     modality: "body" as const,
     input,
-    dictionaryContext: serializeSensoryDictionaryContext(),
+    allowedTermIds: getSelectableSensoryTermIds(),
   };
   let response: SensoryBridgeResponse;
   let providerStatus: SensoryBridgeProviderKind = provider.kind;

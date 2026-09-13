@@ -415,6 +415,10 @@ describe("EXP-001 deterministic pipeline", () => {
     expect(result.sensoryBridge?.modality).toBe("voice");
     expect(result.sensoryBridge?.provider).toBe("ai");
     expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["atoaji"]);
+    expect(received).toMatchObject({ modality: "voice", allowedTermIds: expect.any(Array) });
+    expect(JSON.stringify(received)).not.toContain("displayTerm");
+    expect(JSON.stringify(received)).not.toContain("definitionSummary");
+    expect(JSON.stringify(received)).not.toContain("dimensions");
     expect(JSON.stringify(received)).not.toContain("samples");
     expect(JSON.stringify(received)).not.toContain("audio");
   });

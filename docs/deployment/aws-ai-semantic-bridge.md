@@ -12,7 +12,7 @@ Browser-derived feature summary
   -> curated dictionary and provenance-backed sake matching
 ```
 
-Raw camera frames, images, MediaPipe landmarks, pose history, microphone audio, and speech transcription are never sent to AWS. The browser sends only the existing `SensoryBridgeInput` values and the concise mapped dictionary context (`id`, display term, definition summary, and dimensions).
+Raw camera frames, images, MediaPipe landmarks, pose history, microphone audio, and speech transcription are never sent to AWS. The browser sends only derived structured observations and mapped dictionary term IDs. The Lambda resolves those IDs against the repository-owned canonical dictionary before constructing Bedrock context; browser-supplied dictionary text is not trusted.
 
 ## Selected model
 
@@ -34,13 +34,13 @@ Build the Lambda bundle locally. The bundle leaves `@aws-sdk/client-bedrock-runt
 npm ci
 npm run build:semantic-bridge
 cd backend/semantic-bridge/dist
-zip -q index.cjs.zip index.cjs
+zip -q index.js.zip index.js
 ```
 
 Upload the bundle to a human-managed private artifact bucket using a commit-specific key:
 
 ```bash
-aws s3 cp index.cjs.zip \
+aws s3 cp index.js.zip \
   s3://<LAMBDA_ARTIFACT_BUCKET>/semantic-bridge/<GIT_SHA>.zip \
   --region ap-northeast-1
 ```
@@ -66,7 +66,7 @@ Set the following GitHub `production` Environment variable from the stack output
 
 - `VITE_SENSORY_BRIDGE_API_URL`: `SemanticBridgeApiEndpoint`
 
-The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default. The Voice path sends only locally derived `durationMs`, `averageIntensity`, `pauseCount`, and `endingBehavior`; microphone samples and audio buffers never leave the browser.
+The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default. The Voice path sends only locally derived `durationMs`, `averageIntensity`, `pauseCount`, and `endingBehavior`; microphone samples and audio buffers never leave the browser. The Lambda bundle is a single `index.js` file containing the pinned `@aws-sdk/client-bedrock-runtime` dependency; the Lambda runtime's bundled SDK is not relied upon.
 
 ## Safeguards and boundaries
 
@@ -76,7 +76,7 @@ The existing AWS deployment variables remain unchanged. The frontend explicitly 
 - Lambda timeout: 10 seconds; reserved concurrency defaults to 2
 - Request size limit: 12,000 bytes
 - Bedrock output limit: 256 tokens; low temperature
-- Candidate IDs are restricted to the mapped dictionary IDs supplied in the request and validated again in the browser.
+- Candidate IDs are restricted to mapped dictionary IDs from the canonical repository JSON. The browser supplies IDs only; Lambda reconstructs `displayTerm`, `definitionSummary`, and `dimensions` before building the Bedrock prompt, and the browser validates the response again.
 - Provider errors, timeouts, malformed JSON, and unknown IDs return a safe non-candidate response through the existing fallback path.
 - The endpoint is unauthenticated in this MVP. Throttling and conservative limits bound, but do not eliminate, public traffic cost risk.
 

@@ -1,4 +1,5 @@
 import { bodyInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
+import dictionaryData from "../../../src/domain/data/sensory-dictionary.v0.1.json" with { type: "json" };
 
 const bodyValues = {
   duration: ["short", "lingering", "unknown"],
@@ -64,29 +65,41 @@ function validateVoiceInput(input) {
   assert(voiceValues.endingBehavior.includes(input.endingBehavior), "invalid voice ending");
 }
 
-function validateDictionaryContext(context, allowedTermIds) {
-  assert(Array.isArray(context) && context.length <= 16, "invalid dictionary context");
-  const ids = new Set();
-  for (const entry of context) {
-    assert(
-      hasOnlyKeys(entry, ["id", "displayTerm", "definitionSummary", "dimensions"]),
-      "invalid dictionary context fields",
-    );
-    assert(
-      typeof entry.id === "string" && allowedTermIds.has(entry.id) && !ids.has(entry.id),
-      "invalid dictionary ID",
-    );
-    assert(
-      typeof entry.displayTerm === "string" && typeof entry.definitionSummary === "string",
-      "invalid dictionary context text",
-    );
-    assert(Array.isArray(entry.dimensions), "invalid dictionary dimensions");
-    ids.add(entry.id);
-  }
-  return ids;
+function canonicalEntriesById() {
+  return new Map(
+    dictionaryData.entries
+      .filter((entry) => entry.mappingStatus === "mapped")
+      .map((entry) => [
+        entry.id,
+        {
+          id: entry.id,
+          displayTerm: entry.displayTerm,
+          definitionSummary: entry.definitionSummary,
+          dimensions: entry.dimensions,
+        },
+      ]),
+  );
 }
 
-export function parseAndValidateRequest(raw, { maxBytes = 12_000, allowedTermIds }) {
+function validateAllowedTermIds(ids) {
+  assert(Array.isArray(ids) && ids.length <= 16, "invalid allowed term IDs");
+  assert(
+    ids.every((id) => typeof id === "string"),
+    "invalid allowed term ID",
+  );
+  assert(new Set(ids).size === ids.length, "duplicate allowed term ID");
+  const canonical = canonicalEntriesById();
+  assert(
+    ids.every((id) => canonical.has(id)),
+    "unknown or unmapped dictionary ID",
+  );
+  return {
+    ids,
+    context: ids.map((id) => canonical.get(id)),
+  };
+}
+
+export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
   assert(
     typeof raw === "string" && Buffer.byteLength(raw, "utf8") <= maxBytes,
     "request too large",
@@ -97,12 +110,20 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000, allowedTermIds
   } catch {
     throw new SemanticBridgeValidationError("malformed JSON");
   }
-  assert(hasOnlyKeys(value, ["modality", "input", "dictionaryContext"]), "invalid request fields");
+  assert(hasOnlyKeys(value, ["modality", "input", "allowedTermIds"]), "invalid request fields");
   assert(value.modality === "body" || value.modality === "voice", "invalid modality");
   if (value.modality === "body") validateBodyInput(value.input);
   else validateVoiceInput(value.input);
-  const allowedIds = validateDictionaryContext(value.dictionaryContext, allowedTermIds);
-  return { value, allowedIds };
+  const { ids, context } = validateAllowedTermIds(value.allowedTermIds);
+  return {
+    value: {
+      modality: value.modality,
+      input: value.input,
+      allowedTermIds: ids,
+      dictionaryContext: context,
+    },
+    allowedIds: new Set(ids),
+  };
 }
 
 export function validateModelResponse(value, allowedIds) {

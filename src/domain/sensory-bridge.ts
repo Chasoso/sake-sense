@@ -47,11 +47,11 @@ export type SensoryDictionaryContext = Array<{
 }>;
 
 export type SensoryBridgeRequest =
-  | { modality: "body"; input: SensoryBridgeInput; dictionaryContext: SensoryDictionaryContext }
+  | { modality: "body"; input: SensoryBridgeInput; allowedTermIds: string[] }
   | {
       modality: "voice";
       input: VoiceSensoryBridgeInput;
-      dictionaryContext: SensoryDictionaryContext;
+      allowedTermIds: string[];
     };
 
 export interface SensoryBridgeProvider {
@@ -63,7 +63,7 @@ export function serializeSensoryBridgeRequest(request: SensoryBridgeRequest): st
   return JSON.stringify({
     modality: request.modality,
     input: request.input,
-    dictionaryContext: request.dictionaryContext,
+    allowedTermIds: request.allowedTermIds,
   });
 }
 
@@ -144,7 +144,7 @@ export function buildVoiceSensoryBridgeRequest(
   return {
     modality: "voice",
     input: buildVoiceSensoryBridgeInput(features),
-    dictionaryContext: serializeSensoryDictionaryContext(),
+    allowedTermIds: getSelectableSensoryTermIds(),
   };
 }
 
@@ -161,6 +161,16 @@ export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
 
 export function getSelectableSensoryTermIds(): string[] {
   return serializeSensoryDictionaryContext().map((entry) => entry.id);
+}
+
+export function getSensoryDictionaryContextForIds(
+  ids: ReadonlyArray<string>,
+): SensoryDictionaryContext {
+  const entries = new Map(serializeSensoryDictionaryContext().map((entry) => [entry.id, entry]));
+  return ids.flatMap((id) => {
+    const entry = entries.get(id);
+    return entry ? [entry] : [];
+  });
 }
 
 export function presentSensoryBridgeProvider(
@@ -186,7 +196,7 @@ export function presentSensoryBridgeProvider(
 }
 
 export function buildSensoryBridgeInstruction(request: SensoryBridgeRequest): string {
-  const allowedContext = request.dictionaryContext
+  const allowedContext = getSensoryDictionaryContextForIds(request.allowedTermIds)
     .map(
       (entry) =>
         `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  dimensions: ${entry.dimensions.map(({ dimensionId, polarity }) => `${dimensionId}:${polarity}`).join(", ") || "none"}`,

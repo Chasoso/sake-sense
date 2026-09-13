@@ -18,6 +18,8 @@ export const responseKeys = [
   "reason",
 ];
 
+export const requestKeys = ["modality", "input", "allowedTermIds"];
+
 export const responseSchema = {
   type: "object",
   additionalProperties: false,

@@ -22,8 +22,7 @@ export function createHandler({
     const origin = env.ALLOWED_ORIGIN;
     try {
       const raw = event?.body || "";
-      const allowedTermIds = new Set((env.ALLOWED_TERM_IDS || "").split(",").filter(Boolean));
-      const { value, allowedIds } = parseAndValidateRequest(raw, { allowedTermIds });
+      const { value, allowedIds } = parseAndValidateRequest(raw);
       const modelResponse = await invoke(value, env);
       const response = validateModelResponse(modelResponse, allowedIds);
       logger.info?.(
