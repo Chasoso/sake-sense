@@ -109,6 +109,10 @@ describe("EXP-005 sensory bridge", () => {
     expect(presentSensoryBridgeProvider("ai").heading).toContain("AIによる");
   });
 
+  it("declares the fixture implementation source explicitly", () => {
+    expect(createFixtureSensoryBridgeProvider().kind).toBe("fixture");
+  });
+
   it("accepts zero candidates as a valid unmapped response", () => {
     const result = validateSensoryBridgeResponse({
       sensoryExpressions: ["ゆらぎながら続く感じ"],

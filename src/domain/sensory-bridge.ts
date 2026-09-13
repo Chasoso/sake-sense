@@ -25,6 +25,7 @@ export type SensoryBridgeResponse = {
 
 export type SensoryBridgeRawResponse = SensoryBridgeResponse | string;
 export type SensoryBridgeProviderKind = "fixture" | "fallback" | "ai";
+export type SensoryBridgeImplementationKind = Exclude<SensoryBridgeProviderKind, "fallback">;
 
 export type SensoryDictionaryContext = Array<{
   id: string;
@@ -39,6 +40,7 @@ export type SensoryBridgeRequest = {
 };
 
 export interface SensoryBridgeProvider {
+  kind: SensoryBridgeImplementationKind;
   interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse>;
 }
 
@@ -191,6 +193,7 @@ function featureList(input: SensoryBridgeInput): string[] {
 
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
+    kind: "fixture",
     async interpret({ input }: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
       const unmappedFeatures = featureList(input);
       if (input.duration === "unknown") {

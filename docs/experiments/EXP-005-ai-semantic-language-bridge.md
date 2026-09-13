@@ -20,7 +20,7 @@ The bridge response contains sensory expressions, validated dictionary candidate
 
 ## Provider status
 
-This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. The current UI identifies the deterministic local fixture explicitly; it does not claim that an AI interpreted the movement. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A future real provider would receive the structured motion input and grounded mapped dictionary context. A production provider requires a separate product and architecture decision.
+This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. The current UI identifies the deterministic local fixture explicitly; it does not claim that an AI interpreted the movement. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A future real provider would receive the structured motion input and grounded mapped dictionary context. A production provider requires a separate product and architecture decision.
 
 ## Semantic boundary
 

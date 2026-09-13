@@ -276,7 +276,7 @@ export async function runBodySemanticExperiment(
     dictionaryContext: serializeSensoryDictionaryContext(),
   };
   let response: SensoryBridgeResponse;
-  let providerStatus: "fixture" | "fallback" = "fixture";
+  let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
     if (validation.ok) response = validation.value;
@@ -313,7 +313,9 @@ export async function runBodySemanticExperiment(
     message:
       providerStatus === "fixture"
         ? "現在は実AIには接続せず、ローカルfixtureで観測から言葉への橋渡しを再現しています。"
-        : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
+        : providerStatus === "ai"
+          ? "AIは味を判定しているのではなく、観測した身体表現を日本酒語へ実験的に橋渡ししています。"
+          : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
     sensoryBridge: {
       input,
       response,
