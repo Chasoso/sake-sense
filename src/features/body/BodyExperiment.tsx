@@ -81,6 +81,12 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
 
+  const clearPoseCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    drawPose(canvas, null);
+  };
+
   const stopCapture = () => {
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
@@ -157,8 +163,9 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
 
   const startCapture = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
-    framesRef.current = [];
     stopReplay();
+    clearPoseCanvas();
+    framesRef.current = [];
     setCapturedFrames([]);
     setReplayStatus("idle");
     setFeatures(null);
@@ -172,6 +179,7 @@ export function BodyExperiment({ onFallback }: { onFallback: () => void }) {
   const retry = () => {
     stopCapture();
     stopReplay();
+    clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
     setReplayStatus("idle");
