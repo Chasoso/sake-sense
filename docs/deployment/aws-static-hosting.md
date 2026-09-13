@@ -63,7 +63,6 @@ These steps require an AWS account owner or administrator and are intentionally 
      --stack-name sake-sense-production \
      --capabilities CAPABILITY_NAMED_IAM \
      --parameter-overrides \
-       GitHubRepository=Chasoso/sake-sense \
        GitHubOwner=Chasoso \
        GitHubRepositoryName=sake-sense \
        GitHubOwnerId=128229844 \

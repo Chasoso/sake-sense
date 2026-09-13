@@ -2,11 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Private S3 and CloudFront static hosting foundation for Sake Sense.
 
 Parameters:
-  GitHubRepository:
-    Type: String
-    Default: Chasoso/sake-sense
-    Description: GitHub owner/repository allowed to deploy through OIDC.
-    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
   GitHubOwner:
     Type: String
     Default: Chasoso
