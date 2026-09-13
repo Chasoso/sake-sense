@@ -28,6 +28,23 @@ The Lambda uses the Bedrock Runtime Converse API with `outputConfig.textFormat` 
 
 Codex does not deploy this stack or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action in the AWS account before continuing; do not silently select another model.
 
+Build the Lambda bundle locally. The bundle leaves `@aws-sdk/client-bedrock-runtime` external because the Node.js 24 Lambda runtime supplies AWS SDK v3:
+
+```bash
+npm ci
+npm run build:semantic-bridge
+cd backend/semantic-bridge/dist
+zip -q index.cjs.zip index.cjs
+```
+
+Upload the bundle to a human-managed private artifact bucket using a commit-specific key:
+
+```bash
+aws s3 cp index.cjs.zip \
+  s3://<LAMBDA_ARTIFACT_BUCKET>/semantic-bridge/<GIT_SHA>.zip \
+  --region ap-northeast-1
+```
+
 Deploy the dedicated stack after the static hosting stack has produced the CloudFront domain:
 
 ```bash
@@ -38,14 +55,18 @@ aws cloudformation deploy \
   --parameter-overrides \
     AllowedOrigin=https://<CLOUDFRONT_DOMAIN> \
     BedrockModelId=global.anthropic.claude-haiku-4-5-20251001-v1:0 \
+    LambdaCodeS3Bucket=<LAMBDA_ARTIFACT_BUCKET> \
+    LambdaCodeS3Key=semantic-bridge/<GIT_SHA>.zip \
   --region ap-northeast-1
 ```
+
+`LambdaCodeS3Bucket` and `LambdaCodeS3Key` are required because the Lambda source is packaged outside CloudFormation. Do not use the website bucket unless its artifact retention and access policy are intentionally approved.
 
 Set the following GitHub `production` Environment variable from the stack output:
 
 - `VITE_SENSORY_BRIDGE_API_URL`: `SemanticBridgeApiEndpoint`
 
-The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default.
+The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default. The Voice path sends only locally derived `durationMs`, `averageIntensity`, `pauseCount`, and `endingBehavior`; microphone samples and audio buffers never leave the browser.
 
 ## Safeguards and boundaries
 
@@ -58,6 +79,8 @@ The existing AWS deployment variables remain unchanged. The frontend explicitly 
 - Candidate IDs are restricted to the mapped dictionary IDs supplied in the request and validated again in the browser.
 - Provider errors, timeouts, malformed JSON, and unknown IDs return a safe non-candidate response through the existing fallback path.
 - The endpoint is unauthenticated in this MVP. Throttling and conservative limits bound, but do not eliminate, public traffic cost risk.
+
+The Lambda role uses the three resources required by the documented Global Cross-Region Inference policy: the `ap-northeast-1` inference-profile ARN, the `ap-northeast-1` source-region foundation-model ARN, and the region/account-independent global foundation-model ARN. The policy grants only `bedrock:InvokeModel`. It does not use a broad `bedrock:*` action or an unconstrained resource.
 
 Bedrock costs are driven by input/output tokens and cross-region inference. Additional cost drivers are API Gateway requests, Lambda duration/requests, and CloudWatch logs. Idle serverless cost is minimal, but public traffic remains the principal uncontrolled risk.
 

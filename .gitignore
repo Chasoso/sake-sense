@@ -1,5 +1,6 @@
 node_modules/
 dist/
+backend/semantic-bridge/dist/
 coverage/
 *.tsbuildinfo
 .DS_Store

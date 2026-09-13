@@ -4,6 +4,7 @@ import {
   BODY_SHORT_DURATION_THRESHOLD_MS,
   type BodyMovementFeatures,
 } from "./body";
+import type { VoiceFeatures } from "./voice";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -15,6 +16,17 @@ export type SensoryBridgeInput = {
   spread: "compact" | "broad" | "unknown";
   speed: "sustained-fast" | "unknown";
 };
+
+export type VoiceSensoryBridgeInput = {
+  durationMs: number;
+  averageIntensity: number;
+  pauseCount: number;
+  endingBehavior: "maintained" | "fading" | "unknown";
+};
+
+export type SensoryBridgeObservableInput =
+  | { modality: "body"; features: SensoryBridgeInput }
+  | { modality: "voice"; features: VoiceSensoryBridgeInput };
 
 export type SensoryBridgeResponse = {
   sensoryExpressions: string[];
@@ -34,10 +46,13 @@ export type SensoryDictionaryContext = Array<{
   dimensions: Array<{ dimensionId: string; polarity: string }>;
 }>;
 
-export type SensoryBridgeRequest = {
-  input: SensoryBridgeInput;
-  dictionaryContext: SensoryDictionaryContext;
-};
+export type SensoryBridgeRequest =
+  | { modality: "body"; input: SensoryBridgeInput; dictionaryContext: SensoryDictionaryContext }
+  | {
+      modality: "voice";
+      input: VoiceSensoryBridgeInput;
+      dictionaryContext: SensoryDictionaryContext;
+    };
 
 export interface SensoryBridgeProvider {
   kind: SensoryBridgeImplementationKind;
@@ -46,6 +61,7 @@ export interface SensoryBridgeProvider {
 
 export function serializeSensoryBridgeRequest(request: SensoryBridgeRequest): string {
   return JSON.stringify({
+    modality: request.modality,
     input: request.input,
     dictionaryContext: request.dictionaryContext,
   });
@@ -110,6 +126,25 @@ export function buildSensoryBridgeInput(features: BodyMovementFeatures): Sensory
         ? "broad"
         : "compact",
     speed: features.hasSustainedFastMovement === true ? "sustained-fast" : "unknown",
+  };
+}
+
+export function buildVoiceSensoryBridgeInput(features: VoiceFeatures): VoiceSensoryBridgeInput {
+  return {
+    durationMs: Math.max(Math.round(features.durationMs), 0),
+    averageIntensity: Math.min(Math.max(features.averageIntensity, 0), 1),
+    pauseCount: Math.max(Math.round(features.pauseCount), 0),
+    endingBehavior: features.endingBehavior,
+  };
+}
+
+export function buildVoiceSensoryBridgeRequest(
+  features: VoiceFeatures,
+): Extract<SensoryBridgeRequest, { modality: "voice" }> {
+  return {
+    modality: "voice",
+    input: buildVoiceSensoryBridgeInput(features),
+    dictionaryContext: serializeSensoryDictionaryContext(),
   };
 }
 
@@ -217,7 +252,7 @@ export function validateSensoryBridgeResponse(
   };
 }
 
-function featureList(input: SensoryBridgeInput): string[] {
+function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): string[] {
   return Object.entries(input)
     .filter(([, value]) => value !== "unknown")
     .map(([key, value]) => `${key}:${value}`);
@@ -226,7 +261,36 @@ function featureList(input: SensoryBridgeInput): string[] {
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
-    async interpret({ input }: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
+    async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
+      if (request.modality === "voice") {
+        const { durationMs, endingBehavior } = request.input;
+        const unmappedFeatures = Object.entries(request.input)
+          .filter(([, value]) => value !== 0 && value !== "unknown")
+          .map(([key, value]) => `${key}:${value}`);
+        if (durationMs <= 0) {
+          return {
+            sensoryExpressions: [],
+            candidateTermIds: [],
+            unmappedFeatures,
+            reason: "voice feature evidence was insufficient",
+          };
+        }
+        if (endingBehavior === "fading" && durationMs > 700) {
+          return {
+            sensoryExpressions: ["余韻が残る感じ"],
+            candidateTermIds: ["atoaji"],
+            unmappedFeatures,
+            reason: "voice duration and fading were observed",
+          };
+        }
+        return {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures,
+          reason: "voice observations remain unmapped in the local fixture",
+        };
+      }
+      const { input } = request;
       const unmappedFeatures = featureList(input);
       if (input.duration === "unknown") {
         return {
@@ -274,7 +338,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
 }
 
 export function createFallbackSensoryBridgeResponse(
-  input: SensoryBridgeInput,
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
   reason = "橋渡しを利用できないため、観測した動きだけを表示します。",
 ): SensoryBridgeResponse {
   return {

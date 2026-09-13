@@ -67,6 +67,7 @@ describe("EXP-005 sensory bridge", () => {
 
   it("builds provider-neutral safety instructions from the closed dictionary", () => {
     const instruction = buildSensoryBridgeInstruction({
+      modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
       dictionaryContext: serializeSensoryDictionaryContext(),
     });
@@ -117,6 +118,7 @@ describe("EXP-005 sensory bridge", () => {
 
   it("serializes only derived bridge fields for the production provider", () => {
     const serialized = serializeSensoryBridgeRequest({
+      modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
       dictionaryContext: serializeSensoryDictionaryContext(),
     });
@@ -146,6 +148,7 @@ describe("EXP-005 sensory bridge", () => {
       const provider = createHttpSensoryBridgeProvider("https://example.test/semantic-bridge");
       expect(provider.kind).toBe("ai");
       const response = await provider.interpret({
+        modality: "body",
         input: buildSensoryBridgeInput(baseFeatures),
         dictionaryContext: serializeSensoryDictionaryContext(),
       });
@@ -207,6 +210,7 @@ describe("EXP-005 sensory bridge", () => {
   it("keeps repeated lateral sway unmapped in the fixture path", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const response = await provider.interpret({
+      modality: "body",
       input: buildSensoryBridgeInput(baseFeatures),
       dictionaryContext: serializeSensoryDictionaryContext(),
     });
@@ -220,6 +224,7 @@ describe("EXP-005 sensory bridge", () => {
   it("maps only a grounded short abrupt fixture candidate", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const response = await provider.interpret({
+      modality: "body",
       input: buildSensoryBridgeInput({
         ...baseFeatures,
         activeDurationMs: 500,

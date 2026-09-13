@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Mic, RotateCcw } from "lucide-react";
-import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
+import {
+  runLocalExperiment,
+  runVoiceSemanticExperiment,
+  type ExperimentResult,
+} from "../../domain/experiment";
 import { humanizeBodyFeatures } from "../../domain/body";
 import {
   createGesturePath,
@@ -23,6 +27,10 @@ import {
 import { clientToViewBoxPoint } from "./coordinate";
 import { presentEvidenceStatus } from "../../domain/sake-product-matching";
 import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
+import {
+  createFixtureSensoryBridgeProvider,
+  createHttpSensoryBridgeProvider,
+} from "../../domain/sensory-bridge";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -234,14 +242,22 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
     (voiceFeatures?.durationMs ?? 0) > 0 ||
     (gestureFeatures.pointCount >= 2 && gestureFeatures.pathLength > 0);
 
-  const analyze = () => {
+  const analyze = async () => {
     const next = runLocalExperiment(expression, strokes, voiceFeatures);
     if ("error" in next) {
       setError(next.error);
       setResult(null);
     } else {
       setError("");
-      setResult(next);
+      if (voiceFeatures?.durationMs) {
+        const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
+        const provider = endpoint?.trim()
+          ? createHttpSensoryBridgeProvider(endpoint.trim())
+          : createFixtureSensoryBridgeProvider();
+        setResult(await runVoiceSemanticExperiment(next, voiceFeatures, provider));
+      } else {
+        setResult(next);
+      }
     }
   };
 

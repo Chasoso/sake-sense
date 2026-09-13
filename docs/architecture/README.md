@@ -22,7 +22,7 @@ Issue #33 adds an explicitly configured production adapter without changing the 
 ```text
 Browser-derived SensoryBridgeInput + mapped dictionary context
   -> API Gateway HTTP API
-  -> Lambda request/output validation
+  -> packaged Lambda request/output validation
   -> Bedrock Converse structured output
   -> browser validator
   -> curated dictionary and provenance-backed product matching
@@ -32,4 +32,4 @@ Raw camera, audio, image, landmark, and pose-history data remain local. The AI p
 
 ## Intentionally deferred
 
-Authentication, databases, raw multimodal input, speech-to-text, recommendation ranking, and persistent user history remain out of scope for the production semantic bridge MVP.
+The Body path is `camera -> local MediaPipe -> derived Body features -> backend`. The Voice path is `microphone -> local feature extraction -> derived Voice features -> backend`. Authentication, databases, raw multimodal input, speech-to-text, recommendation ranking, and persistent user history remain out of scope for the production semantic bridge MVP.

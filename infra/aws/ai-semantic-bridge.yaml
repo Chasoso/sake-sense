@@ -15,6 +15,12 @@ Parameters:
     Default: 2
     MinValue: 1
     MaxValue: 10
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: S3 bucket containing the packaged semantic bridge Lambda artifact.
+  LambdaCodeS3Key:
+    Type: String
+    Description: S3 key for the packaged semantic bridge Lambda artifact.
 
 Resources:
   SemanticBridgeApi:
@@ -58,8 +64,9 @@ Resources:
                 Action:
                   - bedrock:InvokeModel
                 Resource:
-                  - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
-                  - !Sub arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
 
   SemanticBridgeFunction:
     Type: AWS::Lambda::Function
@@ -77,107 +84,8 @@ Resources:
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           ALLOWED_TERM_IDS: tanrei,nojun,nameraka,marui,kire,sanmi,atoaji
       Code:
-        ZipFile: |
-          const { BedrockRuntimeClient, ConverseCommand } = require("@aws-sdk/client-bedrock-runtime");
-
-          const inputKeys = new Set(["duration", "ending", "expansion", "direction", "repetition", "participation", "spread", "speed"]);
-          const contextKeys = new Set(["id", "displayTerm", "definitionSummary", "dimensions"]);
-          const allowedValues = {
-            duration: new Set(["short", "lingering", "unknown"]),
-            ending: new Set(["abrupt", "gradual", "continued", "unknown"]),
-            expansion: new Set(["expanding", "contracting", "unknown"]),
-            direction: new Set(["upward", "downward", "lateral", "unknown"]),
-            repetition: new Set(["single", "repeated", "unknown"]),
-            participation: new Set(["localized", "broad", "unknown"]),
-            spread: new Set(["compact", "broad", "unknown"]),
-            speed: new Set(["sustained-fast", "unknown"]),
-          };
-          const responseSchema = {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              sensoryExpressions: { type: "array", items: { type: "string" } },
-              candidateTermIds: { type: "array", items: { type: "string" } },
-              unmappedFeatures: { type: "array", items: { type: "string" } },
-              reason: { type: "string" },
-            },
-            required: ["sensoryExpressions", "candidateTermIds", "unmappedFeatures", "reason"],
-          };
-          const systemInstruction = [
-            "You translate derived observable body or voice features into a cautious beginner-friendly sensory expression.",
-            "The input is not a taste measurement. Do not infer emotion, personality, preference, demographics, intoxication, health, or objective quality.",
-            "Do not recommend, rank, or claim scientific certainty. Use only supplied dictionary candidate IDs; zero candidates is valid.",
-            "Keep ambiguity in unmappedFeatures and output only the required JSON schema.",
-          ].join(" ");
-
-          function isRecord(value) {
-            return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-          }
-          function exactKeys(value, keys) {
-            return isRecord(value) && Object.keys(value).every((key) => keys.has(key));
-          }
-          function bad(message) {
-            const error = new Error(message);
-            error.statusCode = 400;
-            throw error;
-          }
-          function validateRequest(value) {
-            if (!exactKeys(value, new Set(["input", "dictionaryContext"]))) bad("invalid request fields");
-            if (!exactKeys(value.input, inputKeys)) bad("invalid observable input");
-            for (const key of inputKeys) {
-              if (typeof value.input[key] !== "string" || !allowedValues[key].has(value.input[key])) bad("invalid observable value");
-            }
-            if (!Array.isArray(value.dictionaryContext) || value.dictionaryContext.length > 16) bad("invalid dictionary context");
-            const knownIds = new Set((process.env.ALLOWED_TERM_IDS || "").split(","));
-            const ids = new Set();
-            for (const entry of value.dictionaryContext) {
-              if (!exactKeys(entry, contextKeys) || typeof entry.id !== "string" || ids.has(entry.id) || !knownIds.has(entry.id)) bad("invalid dictionary context");
-              if (typeof entry.displayTerm !== "string" || typeof entry.definitionSummary !== "string" || !Array.isArray(entry.dimensions)) bad("invalid dictionary context");
-              ids.add(entry.id);
-            }
-            return value;
-          }
-          function parseResponse(value, allowedIds) {
-            if (!isRecord(value) || Object.keys(value).some((key) => !["sensoryExpressions", "candidateTermIds", "unmappedFeatures", "reason"].includes(key))) bad("invalid model response");
-            for (const key of ["sensoryExpressions", "candidateTermIds", "unmappedFeatures"]) {
-              if (!Array.isArray(value[key]) || value[key].some((item) => typeof item !== "string")) bad("invalid model response");
-            }
-            if (typeof value.reason !== "string" || !value.reason.trim()) bad("invalid model response");
-            if (new Set(value.candidateTermIds).size !== value.candidateTermIds.length || value.candidateTermIds.some((id) => !allowedIds.has(id))) bad("invalid candidate ID");
-            return value;
-          }
-          function response(statusCode, body, origin) {
-            return {
-              statusCode,
-              headers: { "content-type": "application/json", "access-control-allow-origin": origin },
-              body: JSON.stringify(body),
-            };
-          }
-          exports.handler = async (event) => {
-            const origin = process.env.ALLOWED_ORIGIN;
-            try {
-              const raw = event?.body || "";
-              if (Buffer.byteLength(raw, "utf8") > 12000) return response(413, { error: "request too large" }, origin);
-              const request = validateRequest(JSON.parse(raw));
-              const allowedIds = new Set(request.dictionaryContext.map((entry) => entry.id));
-              const client = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
-              const command = new ConverseCommand({
-                modelId: process.env.BEDROCK_MODEL_ID,
-                system: [{ text: systemInstruction }],
-                messages: [{ role: "user", content: [{ text: JSON.stringify(request) }] }],
-                inferenceConfig: { maxTokens: 256, temperature: 0.2 },
-                outputConfig: { textFormat: { type: "json_schema", structure: { jsonSchema: { name: "sensory_bridge_response", description: "Validated semantic bridge response", schema: JSON.stringify(responseSchema) } } } },
-              });
-              const result = await client.send(command);
-              const text = result.output?.message?.content?.find((item) => item.text)?.text;
-              if (!text) throw new Error("empty model response");
-              return response(200, parseResponse(JSON.parse(text), allowedIds), origin);
-            } catch (error) {
-              const status = error?.statusCode === 400 ? 400 : 502;
-              console.error(JSON.stringify({ category: status === 400 ? "invalid_request" : "provider_failure" }));
-              return response(status, { error: status === 400 ? "invalid request" : "semantic bridge unavailable" }, origin);
-            }
-          };
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
 
   SemanticBridgeIntegration:
     Type: AWS::ApiGatewayV2::Integration

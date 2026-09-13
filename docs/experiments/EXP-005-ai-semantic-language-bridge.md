@@ -20,7 +20,7 @@ The bridge response contains sensory expressions, validated dictionary candidate
 
 ## Provider status
 
-Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. Local development and CI use the deterministic fixture. When `VITE_SENSORY_BRIDGE_API_URL` is configured for production, the browser sends only the structured motion input and grounded mapped dictionary context to the dedicated API Gateway/Lambda/Bedrock adapter. The browser and Lambda validators remain authoritative, and unavailable or invalid responses use a no-candidate fallback. No real provider is called by standard tests.
+Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. Local development and CI use the deterministic fixture. When `VITE_SENSORY_BRIDGE_API_URL` is configured for production, Body and Voice use the same API Gateway/Lambda/Bedrock semantic boundary with modality-specific derived input. Body sends categorical movement features; Voice sends only duration, average intensity, pause count, and ending behavior derived locally from microphone samples. Raw camera/audio data never leaves the browser. The browser and Lambda validators remain authoritative, and unavailable or invalid responses use a no-candidate fallback. No real provider is called by standard tests.
 
 ## Semantic boundary
 
@@ -32,7 +32,7 @@ The bridge does not detect taste, emotion, personality, preference, health, age,
 
 ## Automated verification
 
-Tests cover observable input construction, dictionary serialization, prompt safety language, production request serialization without raw sensor fields, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, and fallback behavior. Standard validation remains no-network.
+Tests cover observable input construction, Body and Voice request serialization without raw sensor fields, prompt safety language, production request validation, bounded Bedrock request construction, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture sway behavior, short abrupt mapping, provider failure, and fallback behavior. The Lambda bundle is built with `npm run build:semantic-bridge` and deployed from a human-managed S3 artifact. Standard validation remains no-network.
 
 ## Human Experience Gate
 
