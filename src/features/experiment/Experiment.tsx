@@ -215,10 +215,15 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
       : voiceStatus === "captured"
         ? "声の特徴を取得しました。録音は保存していません。"
         : voiceStatus === "denied"
-          ? "マイクが許可されませんでした。短い言葉でも入力できます。"
+          ? "マイクが許可されませんでした。指の動きでも表現できます。"
           : voiceStatus === "unavailable"
-            ? "このブラウザではマイクを使えません。短い言葉でも入力できます。"
+            ? "このブラウザではマイクを使えません。指の動きでも表現できます。"
             : "声の内容は送信・保存せず、声の出し方の特徴だけを使います。";
+
+  const gestureSummary =
+    voiceStatus === "denied" || voiceStatus === "unavailable"
+      ? "指の動きで表現する"
+      : "もっと表現したい場合";
 
   const analyze = () => {
     const next = runLocalExperiment(expression, strokes, voiceFeatures);
@@ -296,7 +301,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
             </div>
           )}
           <div className="voice-text-fallback">
-            <span className="input-card__step">言葉でも残したい場合</span>
+            <span className="input-card__step">言葉を添えたい場合</span>
             <input
               value={expression}
               onChange={(event) => setExpression(event.target.value)}
@@ -309,7 +314,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
       </section>
 
       <details className="optional-input">
-        <summary>もっと表現したい場合</summary>
+        <summary>{gestureSummary}</summary>
         <div className="input-card input-card--gesture">
           <h2>指の動きも加えられます</h2>
           <span className="input-card__hint">形や速さを、線で自由に表現します。</span>
@@ -381,6 +386,7 @@ export function Result({
   result: ExperimentResult;
   onTryAgain: () => void;
 }) {
+  const isBodyResult = Boolean(result.bodyFeatures);
   const sensoryHints = humanizeRepresentation(result.representation);
   const sensoryExpressions = result.sensoryBridge?.response.sensoryExpressions ?? [];
   const bodyObservations = result.bodyFeatures
@@ -410,7 +416,9 @@ export function Result({
           ↓
         </div>
         <section className="translation-step translation-step--observed">
-          <span className="translation-step__label">こんな動きでした</span>
+          <span className="translation-step__label">
+            {isBodyResult ? "こんな動きでした" : "こんな表現でした"}
+          </span>
           {bodyObservations.length > 0 && (
             <ul className="body-feature-trail">
               {bodyObservations.map((feature) => (
@@ -436,7 +444,9 @@ export function Result({
               ↓
             </div>
             <section className="translation-step translation-step--bridge">
-              <span className="translation-step__label">この動きから見えた感覚</span>
+              <span className="translation-step__label">
+                {isBodyResult ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
+              </span>
               {sensoryExpressions.length > 0 ? (
                 <ul className="translation-hints">
                   {sensoryExpressions.map((expression) => (
@@ -529,7 +539,11 @@ export function Result({
       )}
       {result.candidates.length === 0 && (
         <div className="result__unmapped" role="status">
-          <p>今回の動きからは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。</p>
+          <p>
+            {isBodyResult
+              ? "今回の動きからは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。"
+              : "今回の表現からは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。"}
+          </p>
         </div>
       )}
       <button className="text-button" type="button" onClick={onTryAgain}>
@@ -541,7 +555,7 @@ export function Result({
           {JSON.stringify(
             {
               inputSource: result.inputSource,
-              transcription: result.expression || null,
+              expression: result.expression || null,
               voice: result.voiceFeatures,
               body: result.bodyFeatures,
               gesture: result.gesture,
