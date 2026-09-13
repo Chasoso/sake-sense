@@ -4,6 +4,8 @@ import {
   buildSensoryBridgeInstruction,
   createFallbackSensoryBridgeResponse,
   createFixtureSensoryBridgeProvider,
+  getSelectableSensoryTermIds,
+  presentSensoryBridgeProvider,
   serializeSensoryDictionaryContext,
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
@@ -53,6 +55,12 @@ describe("EXP-005 sensory bridge", () => {
     expect(new Set(context.map((entry) => entry.id)).size).toBe(context.length);
     expect(context.every((entry) => !("provenance" in entry))).toBe(true);
     expect(context.find((entry) => entry.id === "nojun")?.displayTerm).toBe("濃醇");
+    expect(context.find((entry) => entry.id === "kire")).toMatchObject({
+      displayTerm: "切れが良い",
+      definitionSummary: "あと味の切れがよいという評価語。",
+      dimensions: [{ dimensionId: "duration", polarity: "short" }],
+    });
+    expect(context.find((entry) => entry.id === "umami")).toBeUndefined();
   });
 
   it("builds provider-neutral safety instructions from the closed dictionary", () => {
@@ -62,7 +70,43 @@ describe("EXP-005 sensory bridge", () => {
     });
     expect(instruction).toContain("味の測定・判定ではありません");
     expect(instruction).toContain("nojun");
+    expect(instruction).toContain("kire");
+    expect(instruction).toContain("切れが良い");
+    expect(instruction).toContain("あと味の切れがよいという評価語。");
+    expect(instruction).toContain("duration:short");
+    expect(instruction).toContain("atoaji");
+    expect(instruction).toContain("飲み込んだ後に残る味わいを表す語。");
     expect(instruction).toContain("商品推薦");
+  });
+
+  it("keeps provider selectable IDs identical to validator IDs", () => {
+    const contextIds = serializeSensoryDictionaryContext().map((entry) => entry.id);
+    expect(contextIds).toEqual(getSelectableSensoryTermIds());
+    for (const id of contextIds) {
+      const result = validateSensoryBridgeResponse({
+        sensoryExpressions: [],
+        candidateTermIds: [id],
+        unmappedFeatures: [],
+        reason: "検証用の理由",
+      });
+      expect(result.ok).toBe(true);
+    }
+    expect(
+      validateSensoryBridgeResponse({
+        sensoryExpressions: [],
+        candidateTermIds: ["umami"],
+        unmappedFeatures: [],
+        reason: "検証用の理由",
+      }),
+    ).toEqual(expect.objectContaining({ ok: false }));
+  });
+
+  it("presents fixture, fallback, and future AI providers distinctly", () => {
+    expect(presentSensoryBridgeProvider("fixture").heading).toContain("ローカル実験");
+    expect(presentSensoryBridgeProvider("fixture").explanation).not.toContain("AIは");
+    expect(presentSensoryBridgeProvider("fallback").explanation).toContain("観測した動きのみ");
+    expect(presentSensoryBridgeProvider("fallback").explanation).not.toContain("AIは");
+    expect(presentSensoryBridgeProvider("ai").heading).toContain("AIによる");
   });
 
   it("accepts zero candidates as a valid unmapped response", () => {

@@ -24,6 +24,7 @@ export type SensoryBridgeResponse = {
 };
 
 export type SensoryBridgeRawResponse = SensoryBridgeResponse | string;
+export type SensoryBridgeProviderKind = "fixture" | "fallback" | "ai";
 
 export type SensoryDictionaryContext = Array<{
   id: string;
@@ -44,6 +45,11 @@ export interface SensoryBridgeProvider {
 export type SensoryBridgeValidation =
   | { ok: true; value: SensoryBridgeResponse }
   | { ok: false; error: string };
+
+export type SensoryBridgeProviderPresentation = {
+  heading: string;
+  explanation: string;
+};
 
 const responseKeys = new Set([
   "sensoryExpressions",
@@ -74,21 +80,54 @@ export function buildSensoryBridgeInput(features: BodyMovementFeatures): Sensory
 }
 
 export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
-  return dictionaryData.entries.map((entry) => ({
-    id: entry.id,
-    displayTerm: entry.displayTerm,
-    definitionSummary: entry.definitionSummary,
-    dimensions: entry.dimensions,
-  }));
+  return dictionaryData.entries
+    .filter((entry) => entry.mappingStatus === "mapped")
+    .map((entry) => ({
+      id: entry.id,
+      displayTerm: entry.displayTerm,
+      definitionSummary: entry.definitionSummary,
+      dimensions: entry.dimensions,
+    }));
+}
+
+export function getSelectableSensoryTermIds(): string[] {
+  return serializeSensoryDictionaryContext().map((entry) => entry.id);
+}
+
+export function presentSensoryBridgeProvider(
+  provider: SensoryBridgeProviderKind,
+): SensoryBridgeProviderPresentation {
+  if (provider === "fixture") {
+    return {
+      heading: "03 · 感覚表現の橋渡し（ローカル実験）",
+      explanation:
+        "現在は実AIには接続せず、同じ入出力契約を確認するローカルfixtureで橋渡しを再現しています。",
+    };
+  }
+  if (provider === "fallback") {
+    return {
+      heading: "03 · 感覚表現の橋渡し（観測のみ）",
+      explanation: "感覚表現の橋渡しを利用できなかったため、観測した動きのみ表示しています。",
+    };
+  }
+  return {
+    heading: "03 · AIによる感覚表現の橋渡し",
+    explanation: "AIは味を判定しているのではなく、観測した身体表現を言葉へ橋渡ししています。",
+  };
 }
 
 export function buildSensoryBridgeInstruction(request: SensoryBridgeRequest): string {
-  const allowed = request.dictionaryContext.map((entry) => entry.id).join(", ");
+  const allowedContext = request.dictionaryContext
+    .map(
+      (entry) =>
+        `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  dimensions: ${entry.dimensions.map(({ dimensionId, polarity }) => `${dimensionId}:${polarity}`).join(", ") || "none"}`,
+    )
+    .join("\n");
   return [
     "身体表現の観測を、可能性のある感覚表現へ橋渡ししてください。これは味の測定・判定ではありません。",
     "提供された辞書IDだけを候補にし、候補がなければ空配列を返してください。商品推薦、順位、好み、感情、人格、健康、酩酊の推測は禁止です。",
     "根拠の弱い特徴はunmappedFeaturesへ残し、観測事実と実験的解釈をreasonで区別してください。科学的確実性を主張しないでください。",
-    `許可された辞書ID: ${allowed}`,
+    "選択可能な日本酒語候補（この一覧以外のIDは禁止）:\n" + allowedContext,
     `観測入力: ${JSON.stringify(request.input)}`,
   ].join("\n");
 }
@@ -126,11 +165,7 @@ export function validateSensoryBridgeResponse(
     return { ok: false, error: "橋渡し応答の必須項目が不正です。" };
   }
   const candidateTermIds = record.candidateTermIds as string[];
-  const allowedIds = new Set(
-    dictionaryData.entries
-      .filter((entry) => entry.mappingStatus === "mapped")
-      .map((entry) => entry.id),
-  );
+  const allowedIds = new Set(getSelectableSensoryTermIds());
   if (
     new Set(candidateTermIds).size !== candidateTermIds.length ||
     candidateTermIds.some((id) => !allowedIds.has(id))

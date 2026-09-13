@@ -16,11 +16,11 @@ Can a constrained semantic bridge make combinations of observable movement easie
 
 `BodyMovementFeatures` is converted by a pure function into provider-neutral `SensoryBridgeInput`. The input contains only interpreted observations: duration, ending, expansion, direction, repetition, participation, movement extent, and sustained-speed evidence. Raw frames, video, images, landmarks, and personal data are never included.
 
-The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. Candidate IDs are checked against the current curated dictionary before existing provenance-backed product matching runs.
+The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. Candidate IDs are checked against the same mapped-only selectable set used to serialize the provider context before existing provenance-backed product matching runs. Each selectable context entry includes only its ID, display term, concise definition summary, and represented dimensions.
 
 ## Provider status
 
-This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A production provider requires a separate product and architecture decision.
+This implementation intentionally adds no external provider, SDK, API key, network call, or cloud runtime. The current UI identifies the deterministic local fixture explicitly; it does not claim that an AI interpreted the movement. A deterministic fixture provider demonstrates the contract locally; unavailable or invalid responses use a no-candidate fallback. A future real provider would receive the structured motion input and grounded mapped dictionary context. A production provider requires a separate product and architecture decision.
 
 ## Semantic boundary
 

@@ -17,6 +17,7 @@ import {
 import { clientToViewBoxPoint } from "./coordinate";
 import { presentEvidenceStatus } from "../../domain/sake-product-matching";
 import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
+import { presentSensoryBridgeProvider } from "../../domain/sensory-bridge";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -417,11 +418,10 @@ export function Result({
               ↓
             </div>
             <section className="translation-step translation-step--bridge">
-              <span className="translation-step__label">03 · AIによる感覚表現の橋渡し</span>
-              <p>AIは味を判定しているのではなく、観測した身体表現を言葉へ橋渡ししています。</p>
-              <p>
-                この実験ではネットワークを使わず、同じ契約を確認するローカルfixtureを使っています。
-              </p>
+              <span className="translation-step__label">
+                {presentSensoryBridgeProvider(result.sensoryBridge.provider).heading}
+              </span>
+              <p>{presentSensoryBridgeProvider(result.sensoryBridge.provider).explanation}</p>
               {result.sensoryBridge.response.sensoryExpressions.length > 0 ? (
                 <ul className="translation-hints">
                   {result.sensoryBridge.response.sensoryExpressions.map((expression) => (

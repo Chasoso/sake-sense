@@ -17,6 +17,7 @@ import {
   serializeSensoryDictionaryContext,
   validateSensoryBridgeResponse,
   type SensoryBridgeInput,
+  type SensoryBridgeProviderKind,
   type SensoryBridgeResponse,
   type SensoryBridgeProvider,
 } from "./sensory-bridge";
@@ -83,7 +84,7 @@ export type ExperimentResult = {
   sensoryBridge?: {
     input: SensoryBridgeInput;
     response: SensoryBridgeResponse;
-    provider: "fixture" | "fallback";
+    provider: SensoryBridgeProviderKind;
   };
 };
 
@@ -309,9 +310,10 @@ export async function runBodySemanticExperiment(
     candidates,
     sakeProducts: findSakeProductMatches(response.candidateTermIds),
     interpretation: candidates.length ? "gesture-only" : "no-match",
-    message: response.candidateTermIds.length
-      ? "AIは味を判定しているのではなく、観測した身体表現を日本酒語へ実験的に橋渡ししています。"
-      : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
+    message:
+      providerStatus === "fixture"
+        ? "現在は実AIには接続せず、ローカルfixtureで観測から言葉への橋渡しを再現しています。"
+        : "日本酒語への無理のない対応はまだ見つかっていません。これは失敗ではなく、観測と解釈を分けた結果です。",
     sensoryBridge: {
       input,
       response,
