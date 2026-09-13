@@ -73,7 +73,7 @@ The existing AWS deployment variables remain unchanged. The frontend explicitly 
 - API Gateway route: `POST /semantic-bridge`
 - CORS: one configured CloudFront origin; no wildcard
 - Throttling target: 1 request/second, burst 5
-- Lambda timeout: 10 seconds; reserved concurrency defaults to 2
+- Lambda timeout: 10 seconds
 - Request size limit: 12,000 bytes
 - Bedrock output limit: 256 tokens; low temperature
 - Candidate IDs are restricted to mapped dictionary IDs from the canonical repository JSON. The browser supplies IDs only; Lambda reconstructs `displayTerm`, `definitionSummary`, and `dimensions` before building the Bedrock prompt, and the browser validates the response again.
