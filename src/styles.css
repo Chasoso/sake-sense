@@ -130,6 +130,13 @@ h4 {
   color: #9b4138;
 }
 
+.input-guidance {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
 .eyebrow,
 .start-screen__eyebrow {
   margin: 0;

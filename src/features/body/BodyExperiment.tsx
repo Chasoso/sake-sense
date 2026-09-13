@@ -228,7 +228,20 @@ export function BodyExperiment({
     else setResult(next);
   };
 
-  if (result) return <Result result={result} onTryAgain={retry} />;
+  if (result) {
+    return (
+      <main className="experience-screen" aria-labelledby="result-title">
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={onBack}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>入力へ戻る</span>
+          </button>
+          <span className="experience-screen__brand">Sake Sense</span>
+        </nav>
+        <Result result={result} onTryAgain={retry} />
+      </main>
+    );
+  }
 
   return (
     <main className="experience-screen" aria-labelledby="body-experiment-title">

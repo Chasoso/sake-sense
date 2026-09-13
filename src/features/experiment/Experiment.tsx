@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Mic, RotateCcw } from "lucide-react";
 import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
 import { humanizeBodyFeatures } from "../../domain/body";
-import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
+import {
+  createGesturePath,
+  extractGestureFeatures,
+  type GesturePoint,
+  type GestureStroke,
+} from "../../domain/gesture";
 import {
   appendWaveHistory,
   advanceWavePhase,
@@ -224,6 +229,10 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
     voiceStatus === "denied" || voiceStatus === "unavailable"
       ? "指の動きで表現する"
       : "もっと表現したい場合";
+  const gestureFeatures = extractGestureFeatures(strokes);
+  const canAnalyze =
+    (voiceFeatures?.durationMs ?? 0) > 0 ||
+    (gestureFeatures.pointCount >= 2 && gestureFeatures.pathLength > 0);
 
   const analyze = () => {
     const next = runLocalExperiment(expression, strokes, voiceFeatures);
@@ -259,6 +268,26 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
     setVoiceFeatures(null);
     setVoiceStatus("idle");
   };
+
+  const returnToStart = () => {
+    reset();
+    onBack?.();
+  };
+
+  if (result) {
+    return (
+      <main className="experience-screen" aria-labelledby="result-title">
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={returnToStart}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>入力へ戻る</span>
+          </button>
+          <span className="experience-screen__brand">Sake Sense</span>
+        </nav>
+        <Result result={result} onTryAgain={reset} />
+      </main>
+    );
+  }
 
   return (
     <main className="experience-screen" aria-labelledby="experiment-title">
@@ -356,7 +385,12 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
       </details>
 
       <div className="experiment__actions">
-        <button className="button button--primary" type="button" onClick={analyze}>
+        <button
+          className="button button--primary"
+          type="button"
+          onClick={analyze}
+          disabled={!canAnalyze}
+        >
           この表現から言葉を探す
         </button>
         <button className="icon-text-button" type="button" onClick={reset}>
@@ -370,7 +404,13 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
           {error}
         </p>
       )}
-      {result && <Result result={result} onTryAgain={() => setResult(null)} />}
+      {!canAnalyze && (
+        <p className="input-guidance">
+          {voiceStatus === "denied" || voiceStatus === "unavailable"
+            ? "声または指の動きで表現してください。"
+            : "声を入力すると、言葉を探せます。"}
+        </p>
+      )}
 
       <footer className="experience-screen__footer">
         <span>候補は断定ではありません。感じたことから、言葉への入口を探します。</span>
@@ -386,16 +426,22 @@ export function Result({
   result: ExperimentResult;
   onTryAgain: () => void;
 }) {
+  const resultTitleRef = useRef<HTMLHeadingElement>(null);
   const isBodyResult = Boolean(result.bodyFeatures);
   const sensoryHints = humanizeRepresentation(result.representation);
   const sensoryExpressions = result.sensoryBridge?.response.sensoryExpressions ?? [];
   const bodyObservations = result.bodyFeatures
     ? humanizeBodyFeatures(result.bodyFeatures).slice(0, 4)
     : [];
+
+  useEffect(() => {
+    resultTitleRef.current?.focus();
+  }, []);
+
   return (
     <section className="result" aria-labelledby="result-title">
       <div className="result__heading">
-        <h2 id="result-title">
+        <h2 id="result-title" ref={resultTitleRef} tabIndex={-1}>
           {result.bodyFeatures ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
         </h2>
         <p>
@@ -408,7 +454,10 @@ export function Result({
         {!isBodyResult && (
           <section className="translation-step translation-step--expression">
             <span className="translation-step__label">あなたの表現</span>
-            <strong>{result.expression || "声（内容の文字起こしはしていません）"}</strong>
+            <strong>
+              {result.expression ||
+                (result.inputSource === "voice" ? "声で表現しました" : "表現しました")}
+            </strong>
           </section>
         )}
         {(bodyObservations.length > 0 || sensoryHints.length > 0) && (
@@ -461,12 +510,18 @@ export function Result({
                   <article className="candidate" key={candidate.entry.id}>
                     <div>
                       <span className="candidate__match">
-                        {humanizeSignalSource(candidate.matchedBy)}
+                        {candidate.matchedBy === "voice"
+                          ? "この表現とつながった言葉"
+                          : humanizeSignalSource(candidate.matchedBy)}
                       </span>
                       <h3>{candidate.entry.displayTerm}</h3>
                     </div>
                     <p>{candidate.entry.definitionSummary}</p>
-                    <p className="candidate__why">{candidate.explanation}</p>
+                    <p className="candidate__why">
+                      {candidate.matchedBy === "voice"
+                        ? "声の特徴から、この言葉と実験的につながりました。"
+                        : candidate.explanation}
+                    </p>
                   </article>
                 ))}
               </div>
