@@ -234,7 +234,7 @@ export function BodyExperiment({
         <nav className="experience-screen__nav" aria-label="画面の移動">
           <button className="icon-text-button" type="button" onClick={onBack}>
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-            <span>入力へ戻る</span>
+            <span>最初に戻る</span>
           </button>
           <span className="experience-screen__brand">Sake Sense</span>
         </nav>

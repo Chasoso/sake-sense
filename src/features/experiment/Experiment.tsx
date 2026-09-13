@@ -280,7 +280,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
         <nav className="experience-screen__nav" aria-label="画面の移動">
           <button className="icon-text-button" type="button" onClick={returnToStart}>
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-            <span>入力へ戻る</span>
+            <span>最初に戻る</span>
           </button>
           <span className="experience-screen__brand">Sake Sense</span>
         </nav>
@@ -407,7 +407,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
       {!canAnalyze && (
         <p className="input-guidance">
           {voiceStatus === "denied" || voiceStatus === "unavailable"
-            ? "声または指の動きで表現してください。"
+            ? "指の動きで表現してください。"
             : "声を入力すると、言葉を探せます。"}
         </p>
       )}
