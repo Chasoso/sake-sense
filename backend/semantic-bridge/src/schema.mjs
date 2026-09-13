@@ -34,7 +34,11 @@ export const responseSchema = {
 
 export const systemInstruction = [
   "Translate derived observable body or voice features into a cautious beginner-friendly sensory expression.",
+  "Write every user-facing sensoryExpressions item and reason in natural Japanese only; never return English feature labels or technical dumps.",
+  "Synthesize a small number of concise sensory expressions instead of translating each internal feature literally. Zero expressions is valid when evidence is weak.",
   "The input is not a taste measurement. Do not infer emotion, personality, preference, demographics, intoxication, health, or objective quality.",
-  "Do not recommend, rank, or claim scientific certainty. Use only supplied dictionary candidate IDs; zero candidates is valid.",
+  "Keep the reason concise, cautious, and experimental. Do not make authoritative taste claims or recommendation/ranking language.",
+  "Use only supplied dictionary candidate IDs; zero candidates is valid.",
+  "Do not force a sake term from repeated lateral sway or slow/expanding motion when the dictionary grounding is weak; prefer zero candidates.",
   "Keep ambiguity in unmappedFeatures and output only the required JSON schema.",
 ].join(" ");

@@ -25,7 +25,7 @@ export function createHandler({
       const raw = event?.body || "";
       const { value, allowedIds } = parseAndValidateRequest(raw);
       const modelResponse = await invoke(value, env);
-      const response = validateModelResponse(modelResponse, allowedIds);
+      const response = validateModelResponse(modelResponse, allowedIds, value.input);
       logger.info?.(
         JSON.stringify({
           category: "success",

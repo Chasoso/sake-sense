@@ -35,7 +35,7 @@ const emptyResponse = {
   sensoryExpressions: [],
   candidateTermIds: [],
   unmappedFeatures: [],
-  reason: "ambiguous",
+  reason: "観測だけでは候補を無理なく絞り込めませんでした。",
 };
 
 function testHandler(invoke = vi.fn(async () => emptyResponse)) {
@@ -102,8 +102,46 @@ describe("production semantic bridge Lambda", () => {
     const handler = testHandler(invoke);
     const request = JSON.parse(bodyRequest);
     request.allowedTermIds = ["kire"];
-    expect((await handler({ body: JSON.stringify(request) })).statusCode).toBe(200);
+    const response = await handler({ body: JSON.stringify(request) });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).unmappedFeatures).toEqual([
+      "duration:short",
+      "ending:abrupt",
+      "expansion:unknown",
+      "direction:unknown",
+      "repetition:single",
+      "participation:localized",
+      "spread:compact",
+      "speed:unknown",
+    ]);
     expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns cautious Japanese output for a grounded short abrupt case", async () => {
+    const handler = testHandler(
+      vi.fn(async () => ({
+        sensoryExpressions: ["すっと切れるような印象"],
+        candidateTermIds: ["kire"],
+        unmappedFeatures: ["model-generated text is ignored"],
+        reason: "短い動きと急な終わりが観測されたため、切れのよさへ実験的につないでいます。",
+      })),
+    );
+    const response = await handler({ body: bodyRequest });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({ candidateTermIds: ["kire"] });
+    expect(JSON.parse(response.body).unmappedFeatures[0]).toBe("duration:short");
+  });
+
+  it("keeps voice unmapped features deterministic", async () => {
+    const handler = testHandler(vi.fn(async () => emptyResponse));
+    const response = await handler({ body: voiceRequest });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).unmappedFeatures).toEqual([
+      "durationMs:1200",
+      "averageIntensity:0.4",
+      "pauseCount:1",
+      "endingBehavior:fading",
+    ]);
   });
 
   it("rejects browser-supplied dictionary metadata", async () => {
@@ -158,6 +196,12 @@ describe("production semantic bridge Lambda", () => {
         candidateTermIds: ["unknown"],
         unmappedFeatures: [],
         reason: "invalid",
+      },
+      {
+        sensoryExpressions: ["short duration"],
+        candidateTermIds: [],
+        unmappedFeatures: [],
+        reason: "The input has short duration.",
       },
     ];
     for (const modelResponse of invalidResponses) {

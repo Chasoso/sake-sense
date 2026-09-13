@@ -18,6 +18,8 @@ Can a constrained semantic bridge make combinations of observable movement easie
 
 The bridge response contains sensory expressions, validated dictionary candidate IDs, unmapped features, and a concise reason. The browser sends only the mapped selectable IDs; the production Lambda resolves those IDs against the canonical repository dictionary and constructs the display term, concise definition summary, and represented dimensions for Bedrock. Candidate IDs are checked against the same mapped-only selectable set before existing provenance-backed product matching runs. Browser-provided dictionary text is never authoritative.
 
+Production AI prose is requested and validated as cautious, beginner-friendly Japanese. The backend replaces model-generated `unmappedFeatures` with stable `feature:value` identifiers derived from the validated Body or Voice input.
+
 ## Provider status
 
 Provider implementations explicitly declare `fixture` or `ai`; successful execution preserves that source kind, while `fallback` is a runtime outcome rather than a provider implementation. Local development and CI use the deterministic fixture. When `VITE_SENSORY_BRIDGE_API_URL` is configured for production, Body and Voice use the same API Gateway/Lambda/Bedrock semantic boundary with modality-specific derived input. Body sends categorical movement features; Voice sends only duration, average intensity, pause count, and ending behavior derived locally from microphone samples. Raw camera/audio data never leaves the browser. The browser and Lambda validators remain authoritative, and unavailable or invalid responses use a no-candidate fallback. No real provider is called by standard tests.

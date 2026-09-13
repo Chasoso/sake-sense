@@ -107,6 +107,14 @@ function validateAllowedTermIds(ids) {
   };
 }
 
+function canonicalUnmappedFeatures(input) {
+  return Object.entries(input).map(([name, value]) => `${name}:${value}`);
+}
+
+function hasJapaneseText(value) {
+  return /[ぁ-んァ-ン一-龯々〆ヵ]/u.test(value);
+}
+
 export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
   assert(
     typeof raw === "string" && Buffer.byteLength(raw, "utf8") <= maxBytes,
@@ -134,7 +142,7 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
   };
 }
 
-export function validateModelResponse(value, allowedIds) {
+export function validateModelResponse(value, allowedIds, input) {
   assert(
     isRecord(value) && Object.keys(value).every((key) => responseKeys.includes(key)),
     "invalid model response fields",
@@ -153,6 +161,12 @@ export function validateModelResponse(value, allowedIds) {
     SemanticBridgeProviderValidationError,
   );
   assert(
+    value.sensoryExpressions.every((expression) => hasJapaneseText(expression)) &&
+      hasJapaneseText(value.reason),
+    "model response must use Japanese user-facing text",
+    SemanticBridgeProviderValidationError,
+  );
+  assert(
     new Set(value.candidateTermIds).size === value.candidateTermIds.length,
     "duplicate candidate ID",
     SemanticBridgeProviderValidationError,
@@ -162,5 +176,8 @@ export function validateModelResponse(value, allowedIds) {
     "unknown candidate ID",
     SemanticBridgeProviderValidationError,
   );
-  return value;
+  return {
+    ...value,
+    unmappedFeatures: canonicalUnmappedFeatures(input),
+  };
 }
