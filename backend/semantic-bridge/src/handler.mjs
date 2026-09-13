@@ -14,6 +14,36 @@ function apiResponse(statusCode, body, origin) {
   };
 }
 
+function safeProviderErrorMetadata(error) {
+  const metadata = { category: "provider_failure", errorName: "UnknownError" };
+  try {
+    if (error && typeof error === "object") {
+      if (typeof error.name === "string" && error.name.trim()) {
+        metadata.errorName = error.name;
+      }
+      const sdkMetadata = error.$metadata;
+      if (
+        sdkMetadata &&
+        typeof sdkMetadata === "object" &&
+        Number.isInteger(sdkMetadata.httpStatusCode)
+      ) {
+        metadata.httpStatusCode = sdkMetadata.httpStatusCode;
+      }
+      if (
+        sdkMetadata &&
+        typeof sdkMetadata === "object" &&
+        typeof sdkMetadata.requestId === "string" &&
+        sdkMetadata.requestId.trim()
+      ) {
+        metadata.requestId = sdkMetadata.requestId;
+      }
+    }
+  } catch {
+    return metadata;
+  }
+  return metadata;
+}
+
 export function createHandler({
   env = process.env,
   invoke = invokeBedrock,
@@ -39,13 +69,13 @@ export function createHandler({
       const isProviderValidationFailure = error instanceof SemanticBridgeProviderValidationError;
       const statusCode = isRequestValidationFailure ? 400 : 502;
       logger.error?.(
-        JSON.stringify({
-          category: isRequestValidationFailure
-            ? "request_validation_failure"
+        JSON.stringify(
+          isRequestValidationFailure
+            ? { category: "request_validation_failure" }
             : isProviderValidationFailure
-              ? "provider_validation_failure"
-              : "provider_failure",
-        }),
+              ? { category: "provider_validation_failure" }
+              : safeProviderErrorMetadata(error),
+        ),
       );
       return apiResponse(
         statusCode,

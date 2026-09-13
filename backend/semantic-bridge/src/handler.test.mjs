@@ -242,6 +242,53 @@ describe("production semantic bridge Lambda", () => {
     const response = await failing({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
     expect(response.body).not.toContain("secret provider detail");
-    expect(logger.error).toHaveBeenCalledWith(JSON.stringify({ category: "provider_failure" }));
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify({ category: "provider_failure", errorName: "Error" }),
+    );
+    expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
+    expect(logger.error.mock.calls[0][0]).not.toContain("stack");
+  });
+
+  it("logs safe AWS SDK provider metadata without exposing the error", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const awsError = new Error("secret provider detail");
+    awsError.name = "ValidationException";
+    awsError.$metadata = { httpStatusCode: 400, requestId: "request-123" };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(async () => {
+        throw awsError;
+      }),
+      logger,
+    });
+    const response = await handler({ body: bodyRequest });
+    expect(response.statusCode).toBe(502);
+    expect(response.body).toBe('{"error":"semantic bridge unavailable"}');
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify({
+        category: "provider_failure",
+        errorName: "ValidationException",
+        httpStatusCode: 400,
+        requestId: "request-123",
+      }),
+    );
+    expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
+  });
+
+  it("uses a safe name for unknown thrown values", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(async () => {
+        throw "secret provider detail";
+      }),
+      logger,
+    });
+    const response = await handler({ body: bodyRequest });
+    expect(response.statusCode).toBe(502);
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify({ category: "provider_failure", errorName: "UnknownError" }),
+    );
+    expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
   });
 });
