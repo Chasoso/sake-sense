@@ -33,12 +33,10 @@ A development-only diagnostic path also exposes the exact internal analysis used
 
 On the 12 main synthetic fixtures, after meaningful quantization:
 
-| Representation | Unique fixture keys | Interpretation |
-| --- | ---: | --- |
-| Production coarse contract | 8 / 12 | Several intended distinctions collide after categorical serialization. |
-| Full current `BodyMovementFeatures` | 12 / 12 | Synthetic numeric features retain the fixture distinctions. |
-| Extended descriptors | 12 / 12 | Adds trajectory, dynamics, rhythm, body-usage, and ending descriptors. |
-| `MotionSignature v0` | 12 / 12 | Adds the same compact descriptor groups plus temporal phases. |
+- Production coarse contract: 8 / 12 unique fixture keys. Several intended distinctions collide after categorical serialization.
+- Full current `BodyMovementFeatures`: 12 / 12. Synthetic numeric features retain the fixture distinctions.
+- Extended descriptors: 12 / 12. Adds trajectory, dynamics, rhythm, body-usage, and ending descriptors.
+- `MotionSignature v0`: 12 / 12. Adds the same compact descriptor groups plus temporal phases.
 
 The synthetic 12/12 result did **not** establish real-capture semantic correctness. This became the central finding of the Human Experience Gate.
 
@@ -107,10 +105,8 @@ The relationship below reproduced across upper-body-only captures:
 
 Representative captures included approximately:
 
-| Capture | Current median | Observable-only median | Upper-body-only median |
-| --- | ---: | ---: | ---: |
-| A | 0.0850 | 0.0419 | 0.0089 |
-| B | 0.0982 | 0.0607 | 0.0154 |
+- Capture A: current `0.0850`, observable-only `0.0419`, upper-body-only `0.0089`.
+- Capture B: current `0.0982`, observable-only `0.0607`, upper-body-only `0.0154`.
 
 The current fast threshold is `0.01`. Removing off-screen / irrelevant joints therefore materially reduces the speed estimate, but upper-body-only values can still cross the current threshold. Visibility filtering alone is therefore not a complete production fix; the speed definition itself should be redesigned to be representative and frame-rate robust.
 
