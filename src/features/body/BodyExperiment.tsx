@@ -16,6 +16,10 @@ import {
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
+import {
+  createRealCaptureDiagnostics,
+  type MotionExperimentDiagnostic,
+} from "../../experiments/motion-representation/real-capture-diagnostics";
 
 type CaptureStatus =
   | "idle"
@@ -79,6 +83,7 @@ export function BodyExperiment({
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
+  const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
   const [replayStatus, setReplayStatus] = useState<ReplayStatus>("idle");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,6 +94,8 @@ export function BodyExperiment({
   const replayStartedAtRef = useRef(0);
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
+  const sampleAttemptsRef = useRef(0);
+  const invalidFrameCountRef = useRef(0);
 
   const clearPoseCanvas = () => {
     const canvas = canvasRef.current;
@@ -150,17 +157,27 @@ export function BodyExperiment({
     const landmarker = landmarkerRef.current;
     if (!video || !landmarker) return;
     const elapsed = timestamp - startedAtRef.current;
+    sampleAttemptsRef.current += 1;
     const detection = landmarker.detectForVideo(video, timestamp);
     const landmarks = detection.landmarks[0];
     if (landmarks) {
       const bodyLandmarks = toBodyLandmarks(landmarks);
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
       drawPose(canvasRef.current!, bodyLandmarks);
-    }
+    } else invalidFrameCountRef.current += 1;
     if (elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
       setCapturedFrames(capturedFrames);
+      if (import.meta.env.DEV) {
+        setMotionDiagnostic(
+          createRealCaptureDiagnostics(
+            capturedFrames,
+            sampleAttemptsRef.current,
+            invalidFrameCountRef.current,
+          ),
+        );
+      }
       setReplayStatus(capturedFrames.length ? "ready" : "idle");
       setFeatures(captured);
       setStatus("captured");
@@ -176,6 +193,9 @@ export function BodyExperiment({
     clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
+    setMotionDiagnostic(null);
+    sampleAttemptsRef.current = 0;
+    invalidFrameCountRef.current = 0;
     setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
@@ -191,6 +211,7 @@ export function BodyExperiment({
     clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
+    setMotionDiagnostic(null);
     setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
@@ -312,6 +333,13 @@ export function BodyExperiment({
               これらは観測した動きの特徴です。味そのものを判定したものではありません。
             </p>
           </section>
+        )}
+        {import.meta.env.DEV && motionDiagnostic && (
+          <details className="debug-view" open={false}>
+            <summary>Motion representation diagnostics (development only)</summary>
+            <p>Derived metadata only; raw frames and landmark arrays are intentionally excluded.</p>
+            <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
+          </details>
         )}
         <div className="body-capture-card__actions">
           {status === "idle" && (

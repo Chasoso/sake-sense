@@ -61,6 +61,14 @@ The experiment derives normalized trajectory shape/complexity/extent, mean and p
 
 The repeatable report is available through `compareMotionRepresentations()` and `renderComparisonMarkdown()` in `src/experiments/motion-representation/report.ts`. It includes unique counts, collision pairs, known-unobservable fixture count, and recovered observable distinctions.
 
+## Real capture diagnostic path
+
+In development builds, `BodyExperiment` sends the same local `capturedFrames` history to `createRealCaptureDiagnostics()`. The diagnostic branches are:
+
+`captured BodyPoseFrame[] -> { BodyMovementFeatures, SensoryBridgeInput, ExtendedMotionDescriptors, MotionSignature }`
+
+The dev-only panel also reports frame count/duration/estimated FPS, valid/invalid sample counts, cumulative movement per named or indexed joint, active joints at the current threshold, top-joint contribution, region activity, mean/median/p90 segment speed, the current fast threshold, and relative joint/center direction evidence. It contains no landmark arrays, images, video, audio, prompt, or network payload.
+
 ## Test gesture set and comparison
 
 The fixture set covers large/small lateral sweeps, fingertip-only movement, wrist oscillation, circular and shrinking-circle paths, rapid outward expansion, slow expansion/return, fine tremor, a pause, fast-to-slow motion, and left/right asymmetry. The current-vs-signature collision summary is asserted by the experiment test and is regenerated from the fixtures rather than hand-entered.
@@ -84,6 +92,25 @@ The fixture uses 13 frames over approximately three seconds and eight representa
 Pose is sufficient for coarse shoulder/elbow/wrist trajectory, timing, and asymmetry experiments. It is not sufficient for fingertip movement, finger opening/closing, or reliable wrist rotation. MediaPipe Hands should remain a separate experiment if those distinctions matter; it is not added to production here.
 
 **Decision: `revise` pending human review.** The evidence supports a narrower conclusion: the production coarse contract loses six observable fixture pair distinctions, while the full current `BodyMovementFeatures` already retains those distinctions for this synthetic set. The extended descriptors and Motion Signature add useful path/phase diagnostics, but have not demonstrated additional discrimination beyond the full current extractor here. They correctly do not recover the unobservable fingertip case. This does not justify changing the production contract: thresholds are heuristic, the fixture set is synthetic, and real capture quality and intended human differences have not been evaluated. A follow-up should validate selected descriptors against recorded-but-local human examples before any production adoption.
+
+## Real Capture Human Experience Gate
+
+The first real-device review found a meaningful synthetic-to-real discrepancy. Reported examples included approximately 109–113 frames over three seconds, `activeJointCount: 33`, broad participation, and sustained-fast evidence even for small motion. A large lateral motion was reported as upward/contracting; small lateral motion was unknown/expanding. Circle and straight out-and-back were both repeated/expanding/broad at the production coarse layer. These are human-observed results, not new synthetic claims.
+
+**Gate status: FAIL / more evidence required.** The mismatch means the synthetic 12/12 full-current result is insufficient to establish semantic correctness. Likely causes to investigate include MediaPipe jitter accumulation at higher frame density, low-visibility joints contributing to movement, all-landmark aggregation, camera-relative posture drift, normalization, and current thresholds. This experiment does not tune those thresholds or adopt Motion Signature for production.
+
+Use the following template when collecting dev-only diagnostic JSON from real capture:
+
+| Gesture                | Expected distinction           | Current features | Production coarse | Extended descriptors | Motion Signature    | Pass/fail | Notes |
+| ---------------------- | ------------------------------ | ---------------- | ----------------- | -------------------- | ------------------- | --------- | ----- |
+| large lateral movement | lateral / broad                | paste summary    | paste coarse      | paste summary        | paste phases/shape  |           |       |
+| small lateral movement | lateral / localized or unknown | paste summary    | paste coarse      | paste summary        | paste phases/shape  |           |       |
+| circle                 | circular path                  | paste summary    | paste coarse      | paste shape          | paste shape/phases  |           |       |
+| straight out-and-back  | out-and-back path              | paste summary    | paste coarse      | paste shape          | paste shape/phases  |           |       |
+| gradual slowdown       | gradual ending                 | paste summary    | paste coarse      | paste ending         | paste ending/phases |           |       |
+| movement with pause    | active/pause/active            | paste summary    | paste coarse      | paste rhythm         | paste phases        |           |       |
+
+Production adoption remains pending until real-capture evidence is collected and reviewed by a human.
 
 ## Privacy, performance, and sensor boundary
 
