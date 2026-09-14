@@ -1,5 +1,6 @@
 import {
   BODY_FAST_SPEED_THRESHOLD,
+  BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
   BODY_MINIMUM_FAST_DURATION_MS,
   BODY_MINIMUM_FAST_SEGMENTS,
   BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
@@ -27,12 +28,41 @@ export type CaptureDiagnosticMetadata = {
 export type JointMovementDiagnostic = {
   cumulativeMovement: NumericMap;
   activeJointsByCurrentThreshold: string[];
-  topMovingJoints: Array<{ joint: string; movement: number; contributionRatio: number }>;
+  observability: Record<
+    string,
+    {
+      sampleCount: number;
+      visibleSampleCount: number;
+      visibilityRatio: number;
+      meanVisibility: number;
+      medianVisibility: number;
+      minimumVisibility: number;
+      p10Visibility: number;
+      movement: number;
+      observable: boolean;
+      currentlyActive: boolean;
+      visibleDurationMs: number;
+      movementPerVisibleSecond: number;
+      movementPerVisibleSample: number;
+    }
+  >;
+  topMovingJoints: Array<{
+    joint: string;
+    movement: number;
+    contributionRatio: number;
+    visibilityRatio: number;
+    observable: boolean;
+    currentlyActive: boolean;
+  }>;
 };
 
 export type RegionActivityDiagnostic = Record<
   "leftArm" | "rightArm" | "torso" | "lowerBody",
   {
+    constituentJoints: string[];
+    observableJointCount: number;
+    totalJointCount: number;
+    observableRatio: number;
     cumulativeMovement: number;
     activeSegmentCount: number;
     activityThreshold: number;
@@ -51,6 +81,15 @@ export type SpeedDiagnostic = {
   minimumFastSegments: number;
   minimumFastDurationMs: number;
   hasSustainedFastMovement: boolean;
+};
+
+export type ObservabilityExperimentDiagnostic = {
+  diagnosticVisibilityThreshold: number;
+  observableJointCount: number;
+  observableActiveJointCount: number;
+  observableRegions: string[];
+  activeObservableRegions: string[];
+  participationIfUnobservedIgnored: BodyMovementFeatures["motionShape"]["participation"];
 };
 
 export type DirectionDiagnostic = {
@@ -89,6 +128,12 @@ export type MotionExperimentDiagnostic = {
   regionActivity: RegionActivityDiagnostic;
   speed: SpeedDiagnostic;
   directionDebug: DirectionDiagnostic;
+  observabilityExperiment: ObservabilityExperimentDiagnostic;
+  speedObservabilityComparison: {
+    currentMedian: number;
+    observableOnlyMedian: number;
+    upperBodyOnlyMedian: number;
+  };
   shapeDebug: {
     expansion: Pick<
       BodyMovementAnalysis["shape"],
@@ -161,11 +206,34 @@ function buildJointDiagnostic(analysis: BodyMovementAnalysis): JointMovementDiag
     .sort((left, right) => right.movement - left.movement);
   return {
     cumulativeMovement,
+    observability: Object.fromEntries(
+      analysis.jointObservability.map((observability, index) => [
+        nameForJoint(index),
+        {
+          sampleCount: observability.sampleCount,
+          visibleSampleCount: observability.visibleSampleCount,
+          visibilityRatio: observability.visibilityRatio,
+          meanVisibility: observability.meanVisibility,
+          medianVisibility: observability.medianVisibility,
+          minimumVisibility: observability.minimumVisibility,
+          p10Visibility: observability.p10Visibility,
+          movement: observability.currentMovement,
+          observable: observability.observable,
+          currentlyActive: observability.currentlyActive,
+          visibleDurationMs: observability.visibleDurationMs,
+          movementPerVisibleSecond: observability.movementPerVisibleSecond,
+          movementPerVisibleSample: observability.movementPerVisibleSample,
+        },
+      ]),
+    ),
     activeJointsByCurrentThreshold: analysis.activeJointIndices.map(nameForJoint),
     topMovingJoints: ordered.slice(0, 8).map(({ index, movement }) => ({
       joint: nameForJoint(index),
       movement,
       contributionRatio: total > 0 ? movement / total : 0,
+      visibilityRatio: analysis.jointObservability[index]?.visibilityRatio ?? 0,
+      observable: analysis.jointObservability[index]?.observable ?? false,
+      currentlyActive: analysis.jointObservability[index]?.currentlyActive ?? false,
     })),
   };
 }
@@ -175,7 +243,12 @@ function buildRegionDiagnostic(analysis: BodyMovementAnalysis): RegionActivityDi
   REGION_NAMES.forEach((region, index) => {
     const movements = analysis.regionSegmentMovements[index] ?? [];
     const activeSegmentCount = analysis.regionActiveSegmentCounts[index] ?? 0;
+    const observability = analysis.regionObservability[index];
     result[region] = {
+      constituentJoints: observability.jointIndices.map(nameForJoint),
+      observableJointCount: observability.observableJointCount,
+      totalJointCount: observability.totalJointCount,
+      observableRatio: observability.observableRatio,
       cumulativeMovement: movements.reduce((sum, movement) => sum + movement, 0),
       activeSegmentCount,
       activityThreshold: BODY_REGION_ACTIVITY_THRESHOLD,
@@ -258,6 +331,24 @@ export function createRealCaptureDiagnostics(
     regionActivity: buildRegionDiagnostic(analysis),
     speed: buildSpeedDiagnostic(analysis),
     directionDebug: buildDirectionDiagnostic(analysis),
+    observabilityExperiment: {
+      diagnosticVisibilityThreshold: BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
+      observableJointCount: analysis.observabilityExperiment.observableJointCount,
+      observableActiveJointCount: analysis.observabilityExperiment.observableActiveJointCount,
+      observableRegions: analysis.observabilityExperiment.observableRegions.map(
+        (index) => REGION_NAMES[index],
+      ),
+      activeObservableRegions: analysis.observabilityExperiment.activeObservableRegions.map(
+        (index) => REGION_NAMES[index],
+      ),
+      participationIfUnobservedIgnored:
+        analysis.observabilityExperiment.participationIfUnobservedIgnored,
+    },
+    speedObservabilityComparison: {
+      currentMedian: analysis.speedObservability.currentMedian,
+      observableOnlyMedian: analysis.speedObservability.observableOnlyMedian,
+      upperBodyOnlyMedian: analysis.speedObservability.upperBodyOnlyMedian,
+    },
     shapeDebug: {
       expansion: {
         radialStart: analysis.shape.radialStart,

@@ -55,4 +55,32 @@ describe("real capture motion diagnostics", () => {
     expect(diagnostic.speed.hasSustainedFastMovement).toBe(analysis.hasSustainedFastMovement);
     expect(diagnostic.current.endingBehavior).toBe(analysis.endingBehavior);
   });
+
+  it("separates low-visibility lower-body movement from the production decision", () => {
+    const frames = motionFixtures[0].frames.map((frame, frameIndex) => ({
+      ...frame,
+      landmarks: frame.landmarks.map((landmark, jointIndex) =>
+        jointIndex >= 25 && jointIndex <= 28
+          ? {
+              ...landmark,
+              x: 0.2 * Math.sin(frameIndex * 1.7 + jointIndex),
+              visibility: 0.05,
+            }
+          : { ...landmark, visibility: 0.95 },
+      ),
+    }));
+    const diagnostic = createRealCaptureDiagnostics(frames);
+    const lowerBody = diagnostic.regionActivity.lowerBody;
+
+    expect(lowerBody.observableJointCount).toBe(0);
+    expect(lowerBody.observableRatio).toBe(0);
+    expect(lowerBody.activeSegmentCount).toBeGreaterThan(0);
+    expect(diagnostic.observabilityExperiment.observableJointCount).toBeGreaterThan(0);
+    expect(diagnostic.observabilityExperiment.activeObservableRegions).not.toContain("lowerBody");
+    expect(diagnostic.speedObservabilityComparison.currentMedian).toBeGreaterThan(
+      diagnostic.speedObservabilityComparison.observableOnlyMedian,
+    );
+    expect(diagnostic.jointMovement.observability.leftKnee.observable).toBe(false);
+    expect(diagnostic.jointMovement.observability.leftKnee.currentlyActive).toBe(true);
+  });
 });

@@ -67,7 +67,7 @@ In development builds, `BodyExperiment` sends the same local `capturedFrames` hi
 
 `captured BodyPoseFrame[] -> { BodyMovementFeatures, SensoryBridgeInput, ExtendedMotionDescriptors, MotionSignature }`
 
-The current and diagnostic branches now share `analyzeBodyMovement()` from `src/domain/body.ts`. `extractBodyMovementFeatures()` returns the analysis result, while the dev-only diagnostic projects the same normalized-frame, joint, region, speed, ending, and motion-shape evidence into safe scalar/category fields. It no longer independently approximates production decisions. Extended descriptors and `MotionSignature` still analyze the same captured frames as separate experiment representations. The panel reports frame count/duration/estimated FPS, valid/invalid sample counts, current-threshold active joints, region activity, mean/median/p90 segment speed, fast-motion evidence, ending evidence, and production direction projections. It contains no landmark arrays, images, video, audio, prompt, or network payload.
+The current and diagnostic branches now share `analyzeBodyMovement()` from `src/domain/body.ts`. `extractBodyMovementFeatures()` returns the analysis result, while the dev-only diagnostic projects the same normalized-frame, joint, region, speed, ending, and motion-shape evidence into safe scalar/category fields. It no longer independently approximates production decisions. Extended descriptors and `MotionSignature` still analyze the same captured frames as separate experiment representations. The panel reports frame count/duration/estimated FPS, valid/invalid sample counts, current-threshold active joints, region activity, mean/median/p90 segment speed, fast-motion evidence, ending evidence, and production direction projections. It also reports diagnostic-only visibility statistics and what-if observable-only/upper-body speed and participation comparisons. The visibility guide is intentionally separate from production filtering; it does not change current feature extraction. It contains no landmark arrays, images, video, audio, prompt, or network payload.
 
 ## Test gesture set and comparison
 
@@ -99,6 +99,8 @@ The first real-device review found a meaningful synthetic-to-real discrepancy. R
 
 **Gate status: FAIL / more evidence required.** The mismatch means the synthetic 12/12 full-current result is insufficient to establish semantic correctness. Likely causes to investigate include MediaPipe jitter accumulation at higher frame density, low-visibility joints contributing to movement, all-landmark aggregation, camera-relative posture drift, normalization, and current thresholds. This experiment does not tune those thresholds or adopt Motion Signature for production.
 
+The real-device capture was framed primarily on the upper body, yet the lower-body region was still reported as active. This strengthens the hypothesis that off-screen or low-visibility landmark estimates may contribute movement noise, but it is not yet proof: the new diagnostics must compare visibility, current activity, observable-only participation, and all-joint versus upper-body speed on additional captures. The diagnostic visibility threshold is an investigation aid only; it is not a production recommendation.
+
 Use the following template when collecting dev-only diagnostic JSON from real capture:
 
 | Gesture                | Expected distinction           | Current features | Production coarse | Extended descriptors | Motion Signature    | Pass/fail | Notes |
@@ -111,6 +113,8 @@ Use the following template when collecting dev-only diagnostic JSON from real ca
 | movement with pause    | active/pause/active            | paste summary    | paste coarse      | paste rhythm         | paste phases        |           |       |
 
 Production adoption remains pending until real-capture evidence is collected and reviewed by a human.
+
+For the next capture review, compare current `activeJointCount` / participation / speed with observable joint count, observable active joints, observable regions, participation with unobserved regions ignored, and observable-only / upper-body-only speed. If the current result is broad/fast while the observability-aware result is localized/moderate, off-screen noise becomes a stronger hypothesis. This is a decision criterion, not a conclusion from the current fixture.
 
 ## Privacy, performance, and sensor boundary
 
