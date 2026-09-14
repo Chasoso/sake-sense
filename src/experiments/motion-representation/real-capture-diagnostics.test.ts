@@ -75,6 +75,8 @@ describe("real capture motion diagnostics", () => {
     expect(lowerBody.observableJointCount).toBe(0);
     expect(lowerBody.observableRatio).toBe(0);
     expect(lowerBody.activeSegmentCount).toBeGreaterThan(0);
+    expect(lowerBody.observableOnlyActiveSegmentCount).toBe(0);
+    expect(lowerBody.observableOnly.meetsMeaningfulActiveCriteria).toBe(false);
     expect(diagnostic.observabilityExperiment.observableJointCount).toBeGreaterThan(0);
     expect(diagnostic.observabilityExperiment.activeObservableRegions).not.toContain("lowerBody");
     expect(diagnostic.speedObservabilityComparison.currentMedian).toBeGreaterThan(
@@ -82,5 +84,28 @@ describe("real capture motion diagnostics", () => {
     );
     expect(diagnostic.jointMovement.observability.leftKnee.observable).toBe(false);
     expect(diagnostic.jointMovement.observability.leftKnee.currentlyActive).toBe(true);
+  });
+
+  it("separates visible shoulders from noisy low-visibility hips", () => {
+    const frames = motionFixtures[2].frames.map((frame, frameIndex) => ({
+      ...frame,
+      landmarks: frame.landmarks.map((landmark, jointIndex) =>
+        jointIndex === 23 || jointIndex === 24
+          ? {
+              ...landmark,
+              x: landmark.x + 0.2 * Math.sin(frameIndex * 1.5 + jointIndex),
+              visibility: 0.05,
+            }
+          : { ...landmark, visibility: 0.95 },
+      ),
+    }));
+    const diagnostic = createRealCaptureDiagnostics(frames);
+    const torso = diagnostic.regionActivity.torso;
+
+    expect(torso.observableRatio).toBe(0.5);
+    expect(torso.current.activeSegmentCount).toBeGreaterThan(0);
+    expect(torso.observableOnly.activeSegmentCount).toBe(0);
+    expect(torso.observableOnly.meetsMeaningfulActiveCriteria).toBe(false);
+    expect(diagnostic.observabilityExperiment.minimumVisibleRatio).toBe(0.35);
   });
 });

@@ -1,6 +1,7 @@
 import {
   BODY_FAST_SPEED_THRESHOLD,
   BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
+  BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO,
   BODY_MINIMUM_FAST_DURATION_MS,
   BODY_MINIMUM_FAST_SEGMENTS,
   BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
@@ -68,6 +69,22 @@ export type RegionActivityDiagnostic = Record<
     activityThreshold: number;
     meetsMeaningfulActiveCriteria: boolean;
     activityRatio: number;
+    observableOnlyCumulativeMovement: number;
+    observableOnlyActiveSegmentCount: number;
+    observableOnlyActivityRatio: number;
+    observableOnlyMeetsMeaningfulActiveCriteria: boolean;
+    current: {
+      cumulativeMovement: number;
+      activeSegmentCount: number;
+      activityRatio: number;
+      meetsMeaningfulActiveCriteria: boolean;
+    };
+    observableOnly: {
+      cumulativeMovement: number;
+      activeSegmentCount: number;
+      activityRatio: number;
+      meetsMeaningfulActiveCriteria: boolean;
+    };
   }
 >;
 
@@ -85,6 +102,7 @@ export type SpeedDiagnostic = {
 
 export type ObservabilityExperimentDiagnostic = {
   diagnosticVisibilityThreshold: number;
+  minimumVisibleRatio: number;
   observableJointCount: number;
   observableActiveJointCount: number;
   observableRegions: string[];
@@ -254,6 +272,23 @@ function buildRegionDiagnostic(analysis: BodyMovementAnalysis): RegionActivityDi
       activityThreshold: BODY_REGION_ACTIVITY_THRESHOLD,
       meetsMeaningfulActiveCriteria: activeSegmentCount >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
       activityRatio: movements.length ? activeSegmentCount / movements.length : 0,
+      observableOnlyCumulativeMovement: observability.observableOnlyCumulativeMovement,
+      observableOnlyActiveSegmentCount: observability.observableOnlyActiveSegmentCount,
+      observableOnlyActivityRatio: observability.observableOnlyActivityRatio,
+      observableOnlyMeetsMeaningfulActiveCriteria:
+        observability.observableOnlyMeetsMeaningfulActiveCriteria,
+      current: {
+        cumulativeMovement: observability.currentCumulativeMovement,
+        activeSegmentCount: observability.currentActiveSegmentCount,
+        activityRatio: observability.currentActivityRatio,
+        meetsMeaningfulActiveCriteria: observability.currentlyCountsAsActiveRegion,
+      },
+      observableOnly: {
+        cumulativeMovement: observability.observableOnlyCumulativeMovement,
+        activeSegmentCount: observability.observableOnlyActiveSegmentCount,
+        activityRatio: observability.observableOnlyActivityRatio,
+        meetsMeaningfulActiveCriteria: observability.observableOnlyMeetsMeaningfulActiveCriteria,
+      },
     };
   });
   return result;
@@ -333,6 +368,7 @@ export function createRealCaptureDiagnostics(
     directionDebug: buildDirectionDiagnostic(analysis),
     observabilityExperiment: {
       diagnosticVisibilityThreshold: BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
+      minimumVisibleRatio: BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO,
       observableJointCount: analysis.observabilityExperiment.observableJointCount,
       observableActiveJointCount: analysis.observabilityExperiment.observableActiveJointCount,
       observableRegions: analysis.observabilityExperiment.observableRegions.map(

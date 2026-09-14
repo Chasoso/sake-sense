@@ -142,6 +142,10 @@ export type BodyRegionObservability = {
   currentActiveSegmentCount: number;
   currentActivityRatio: number;
   currentlyCountsAsActiveRegion: boolean;
+  observableOnlyCumulativeMovement: number;
+  observableOnlyActiveSegmentCount: number;
+  observableOnlyActivityRatio: number;
+  observableOnlyMeetsMeaningfulActiveCriteria: boolean;
 };
 
 export type BodyObservabilityExperiment = {
@@ -218,6 +222,8 @@ export const BODY_JOINT_JITTER_THRESHOLD = 0.015;
 export const BODY_ACTIVE_JOINT_THRESHOLD = 0.08;
 /** Diagnostic-only observability guide; production movement does not filter on visibility. */
 export const BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD = 0.35;
+/** Diagnostic-only minimum share of visible samples; not production filtering. */
+export const BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO = 0.35;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -397,7 +403,7 @@ function buildObservabilityAnalysis(
         p10Visibility: percentile(visibilities, 0.1),
         currentMovement: movement,
         currentlyActive: movement >= BODY_ACTIVE_JOINT_THRESHOLD,
-        observable: visibilityRatio >= BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
+        observable: visibilityRatio >= BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO,
         visibleDurationMs,
         movementPerVisibleSecond: visibleDurationMs > 0 ? movement / (visibleDurationMs / 1000) : 0,
         movementPerVisibleSample: visibleSampleCount ? movement / visibleSampleCount : 0,
@@ -412,6 +418,25 @@ function buildObservabilityAnalysis(
       );
       const movements = regionSegmentMovements[regionIndex] ?? [];
       const activeSegmentCount = regionActiveSegmentCounts[regionIndex] ?? 0;
+      const observableOnlyMovements = normalized.slice(1).map((frame, segmentIndex) => {
+        const previous = normalized[segmentIndex];
+        return jointIndices.reduce((sum, jointIndex) => {
+          const before = previous.landmarks[jointIndex];
+          const after = frame.landmarks[jointIndex];
+          if (
+            !before ||
+            !after ||
+            before.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD ||
+            after.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD
+          ) {
+            return sum;
+          }
+          return sum + distance(before, after);
+        }, 0);
+      });
+      const observableOnlyActiveSegmentCount = observableOnlyMovements.filter(
+        (movement) => movement >= BODY_REGION_ACTIVITY_THRESHOLD,
+      ).length;
       return {
         jointIndices: [...jointIndices],
         observableJointIndices,
@@ -424,6 +449,16 @@ function buildObservabilityAnalysis(
         currentActiveSegmentCount: activeSegmentCount,
         currentActivityRatio: movements.length ? activeSegmentCount / movements.length : 0,
         currentlyCountsAsActiveRegion: activeSegmentCount >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
+        observableOnlyCumulativeMovement: observableOnlyMovements.reduce(
+          (sum, movement) => sum + movement,
+          0,
+        ),
+        observableOnlyActiveSegmentCount,
+        observableOnlyActivityRatio: observableOnlyMovements.length
+          ? observableOnlyActiveSegmentCount / observableOnlyMovements.length
+          : 0,
+        observableOnlyMeetsMeaningfulActiveCriteria:
+          observableOnlyActiveSegmentCount >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
       };
     },
   );
@@ -431,7 +466,7 @@ function buildObservabilityAnalysis(
     .map((region, index) => (region.observableJointCount > 0 ? index : -1))
     .filter((index) => index >= 0);
   const activeObservableRegions = observableRegions.filter(
-    (index) => regionObservability[index].currentlyCountsAsActiveRegion,
+    (index) => regionObservability[index].observableOnlyMeetsMeaningfulActiveCriteria,
   );
   const participationIfUnobservedIgnored: BodyMotionShape["participation"] =
     observableRegions.length === 0
