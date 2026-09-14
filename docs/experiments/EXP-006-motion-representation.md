@@ -1,10 +1,9 @@
 # EXP-006 - Subtle body motion representation
 
 - **Related issue:** [Issue #42](https://github.com/Chasoso/sake-sense/issues/42)
-- **Follow-up:** [Issue #44](https://github.com/Chasoso/sake-sense/issues/44)
 - **Date:** 2026-09-14
 - **Owner of decision:** Human
-- **Result:** completed — production redesign required
+- **Result:** pending
 
 ## Architecture note: current information flow
 
@@ -27,11 +26,11 @@ An experiment-only harness under `src/experiments/motion-representation/` compar
 3. deterministic extended trajectory, dynamics, rhythm, body-usage, and ending descriptors;
 4. a compact normalized `MotionSignature` with simple temporal phases.
 
-The harness uses synthetic, landmark-like pose sequences and reuses the existing extractor for the baseline. It is not imported by the semantic bridge.
+The harness uses synthetic, landmark-like pose sequences and reuses the existing extractor for the baseline. It is not imported by the capture UI or semantic bridge.
 
 ## Current status
 
-Automated comparison and stability checks are provided by the experiment tests. The comparison separates four levels:
+Automated comparison and stability checks are provided by the experiment tests. The comparison now separates four levels:
 
 | Representation                      | Unique fixture keys | Interpretation                                                                                    |
 | ----------------------------------- | ------------------: | ------------------------------------------------------------------------------------------------- |
@@ -50,15 +49,15 @@ The production AI receives the categorical `SensoryBridgeInput` built by `buildS
 
 ### B. Full current `BodyMovementFeatures`
 
-The full current extractor retains frame/capture/active duration, movement totals, mean/peak speed, sustained-fast evidence, spread, meaningful-activity flag, active-joint count, ending ratio/behavior, and the complete current motion-shape categories. Numeric values are quantized at meaningful engineering tolerances, so small jitter is not automatically a new identity. On the synthetic fixture set it separates every fixture, even though the production coarse contract does not.
+The full current extractor retains frame/capture/active duration, movement totals, mean/peak speed, sustained-fast evidence, spread, meaningful-activity flag, active-joint count, ending ratio/behavior, and the complete current motion-shape categories. Numeric values are quantized at meaningful engineering tolerances, so small jitter is not automatically a new identity. On this fixture set it separates every fixture, even though the production coarse contract does not.
 
 ### C. Extended descriptors
 
-The experiment derives normalized trajectory shape/complexity/extent, mean and peak speed, speed variation, acceleration tendency, smoothness, repetition/pause/interval measures, amplitude trend, dominant joints, left/right asymmetry, participation extent, and ending decay. Numeric values are normalized by shoulder geometry and capture-relative timestamps.
+The experiment derives normalized trajectory shape/complexity/extent, mean and peak speed, speed variation, acceleration tendency, smoothness, repetition/pause/interval measures, amplitude trend, dominant joints, left/right asymmetry, participation extent, and ending decay. Numeric values are normalized by the first-frame shoulder width and shoulder-centered coordinates. Time is represented relative to the capture timestamps.
 
 ### D. `MotionSignature v0`
 
-`MotionSignature` is a compact derived object containing the extended descriptor groups and at most four deterministic temporal phases. It contains no raw landmark arrays. The phase splitter is deliberately heuristic.
+`MotionSignature` is a compact derived object containing the extended descriptor groups and at most four deterministic temporal phases. It contains no raw landmark arrays. The phase splitter uses low-speed pauses as boundaries, otherwise preserves a small number of activity regimes; it is deliberately heuristic and can miss overlapping or very subtle phases.
 
 The repeatable report is available through `compareMotionRepresentations()` and `renderComparisonMarkdown()` in `src/experiments/motion-representation/report.ts`. It includes unique counts, collision pairs, known-unobservable fixture count, and recovered observable distinctions.
 
@@ -68,84 +67,69 @@ In development builds, `BodyExperiment` sends the same local `capturedFrames` hi
 
 `captured BodyPoseFrame[] -> { BodyMovementFeatures, SensoryBridgeInput, ExtendedMotionDescriptors, MotionSignature }`
 
-The current and diagnostic branches share `analyzeBodyMovement()` from `src/domain/body.ts`. `extractBodyMovementFeatures()` returns the analysis result, while the dev-only diagnostic projects the same normalized-frame, joint, region, speed, ending, and motion-shape evidence into safe scalar/category fields. It also reports diagnostic-only visibility statistics and current-vs-observable-only region and speed comparisons. Raw landmark arrays are not exported.
+The current and diagnostic branches now share `analyzeBodyMovement()` from `src/domain/body.ts`. `extractBodyMovementFeatures()` returns the analysis result, while the dev-only diagnostic projects the same normalized-frame, joint, region, speed, ending, and motion-shape evidence into safe scalar/category fields. It no longer independently approximates production decisions. Extended descriptors and `MotionSignature` still analyze the same captured frames as separate experiment representations. The panel reports frame count/duration/estimated FPS, valid/invalid sample counts, current-threshold active joints, region activity, mean/median/p90 segment speed, fast-motion evidence, ending evidence, and production direction projections. It also reports diagnostic-only visibility statistics and what-if observable-only/upper-body speed and participation comparisons. Region observability and region activity are kept separate: `current` is production-equivalent, while `observableOnly` filters each segment to joints visible at both endpoints. `participationIfUnobservedIgnored` uses the visibility-filtered region activity, not production region activity. Neither diagnostic threshold changes current production participation. It contains no landmark arrays, images, video, audio, prompt, or network payload.
 
 ## Test gesture set and comparison
 
-The fixture set covers large/small lateral sweeps, fingertip-only movement, wrist oscillation, circular and shrinking-circle paths, rapid outward expansion, slow expansion/return, fine tremor, a pause, fast-to-slow motion, and left/right asymmetry.
+The fixture set covers large/small lateral sweeps, fingertip-only movement, wrist oscillation, circular and shrinking-circle paths, rapid outward expansion, slow expansion/return, fine tremor, a pause, fast-to-slow motion, and left/right asymmetry. The current-vs-signature collision summary is asserted by the experiment test and is regenerated from the fixtures rather than hand-entered.
 
 The fingertip-only fixture is a limitation case, not a tiny wrist movement: all Pose wrist landmarks remain static. Pose therefore produces the same representation as a still hand, as it should; Motion Signature does not invent a distinction absent from the sensor input.
 
-Path-shape fixtures distinguish straight one-way, straight out-and-back, ellipse/circle-like closure, an open curved arc, and lateral oscillation. Circular classification requires closed geometry, non-trivial enclosed-area/turn evidence, and consistent angular progression; start/end closure alone is insufficient.
+Path-shape fixtures distinguish straight one-way, straight out-and-back, ellipse/circle-like closure, an open curved arc, and lateral oscillation. Circular classification requires closed geometry, non-trivial enclosed-area/turn evidence, and consistent angular progression; start/end closure alone is insufficient. The out-and-back fixture is therefore not circular.
 
-Temporal segmentation groups contiguous low-speed segments into one pause region in the synthetic fixture and preserves the post-pause active phase. Real capture later showed that this heuristic over-detects pauses and should not be promoted to production yet.
+Temporal segmentation groups contiguous low-speed segments into one pause region and preserves the post-pause active phase. The pause fixture is represented as `active -> pause -> active`; the phase cap merges a short non-essential phase rather than truncating the beginning or ending.
 
-Ending descriptors distinguish gradual deceleration, an abrupt stop after a fast final active segment, and continued movement at capture end.
+Ending descriptors distinguish gradual deceleration, an abrupt stop after a fast final active segment, and continued movement at capture end. An inactive tail alone is not labeled gradual: progressive slowdown before the tail is required.
 
 ## Noise and performance
 
-Position shift, body-scale changes, timing based on capture-relative timestamps, and small landmark jitter are tested. Shoulder-relative normalization preserves path categories under translation/scale in the fixture test and keeps the circular path stable under small perturbation.
+Position shift, body-scale changes, timing based on capture-relative timestamps, and small landmark jitter are tested. Shoulder-relative normalization preserves path categories under translation/scale in the fixture test and keeps the circular path stable under small perturbation. This is a trade-off: aggressive normalization can remove absolute posture information that might be meaningful in another hypothesis.
 
-The synthetic fixture uses 13 frames over approximately three seconds, while real-device capture produced roughly 36–39 FPS over the same duration. That density difference was important: real capture exposed accumulation and observability problems hidden by the synthetic set.
+The fixture uses 13 frames over approximately three seconds and eight representative joints. Descriptor work is O(frames × joints), with no unbounded history beyond the existing local capture. The signature is a small JSON object of scalar/category values and phases, suitable for local smartphone computation in principle. Actual iPhone-class responsiveness and human discrimination remain unmeasured and require the Human Experience Gate.
 
 ## Sensor findings and recommendation
 
-Pose is sufficient for coarse shoulder/elbow/wrist trajectory and asymmetry experiments. It is not sufficient for fingertip movement, finger opening/closing, or reliable wrist rotation. MediaPipe Hands should remain a separate experiment if those distinctions become necessary; it is not added to production here.
+Pose is sufficient for coarse shoulder/elbow/wrist trajectory, timing, and asymmetry experiments. It is not sufficient for fingertip movement, finger opening/closing, or reliable wrist rotation. MediaPipe Hands should remain a separate experiment if those distinctions matter; it is not added to production here.
 
-**Decision: experiment complete; production redesign required.** The synthetic comparison showed where the coarse contract loses distinctions, while repeated real-device tests showed that the full current extractor is not a reliable production representation for subtle Body interpretation. Selected trajectory descriptors are promising, but `MotionSignature v0` as a whole is not recommended. Production redesign moves to Issue #44.
+**Decision: `revise` pending human review.** The evidence supports a narrower conclusion: the production coarse contract loses six observable fixture pair distinctions, while the full current `BodyMovementFeatures` already retains those distinctions for this synthetic set. The extended descriptors and Motion Signature add useful path/phase diagnostics, but have not demonstrated additional discrimination beyond the full current extractor here. They correctly do not recover the unobservable fingertip case. This does not justify changing the production contract: thresholds are heuristic, the fixture set is synthetic, and real capture quality and intended human differences have not been evaluated. A follow-up should validate selected descriptors against recorded-but-local human examples before any production adoption.
 
 ## Real Capture Human Experience Gate
 
-Repeated real-device review found a stable synthetic-to-real discrepancy. Upper-body-only captures still produced `activeJointCount: 33`, broad participation, sustained-fast evidence, and high lower-body activity even though the lower body was not visible.
+The first real-device review found a meaningful synthetic-to-real discrepancy. Reported examples included approximately 109–113 frames over three seconds, `activeJointCount: 33`, broad participation, and sustained-fast evidence even for small motion. A large lateral motion was reported as upward/contracting; small lateral motion was unknown/expanding. Circle and straight out-and-back were both repeated/expanding/broad at the production coarse layer. These are human-observed results, not new synthetic claims.
 
-Visibility-aware diagnostics showed that hips, knees, ankles, and feet could have near-zero visibility while the current extractor still accumulated movement and marked them active. Observable-only lower-body activity dropped to zero in repeated upper-body-only captures. This strongly supports off-screen landmark estimation jitter as a real source of current movement inflation.
+**Gate status: FAIL / more evidence required.** The mismatch means the synthetic 12/12 full-current result is insufficient to establish semantic correctness. Likely causes to investigate include MediaPipe jitter accumulation at higher frame density, low-visibility joints contributing to movement, all-landmark aggregation, camera-relative posture drift, normalization, and current thresholds. This experiment does not tune those thresholds or adopt Motion Signature for production.
 
-Speed showed the same pattern across repeated captures: `current median > observable-only median > upper-body-only median`. Representative measurements were approximately `0.0850 > 0.0419 > 0.0089` and `0.0982 > 0.0607 > 0.0154`. Visibility filtering materially reduces speed, but does not by itself define the correct production speed metric.
+The real-device capture was framed primarily on the upper body, yet the lower-body region was still reported as active. This strengthens the hypothesis that off-screen or low-visibility landmark estimates may contribute movement noise, but it is not yet proof: the new diagnostics must compare visibility, current activity, observable-only participation, and all-joint versus upper-body speed on additional captures. The diagnostic visibility threshold is an investigation aid only; it is not a production recommendation.
 
-The current `activeJointCount` also remains problematic after visibility is considered because nearly all observable joints can cross the cumulative threshold over a dense three-second capture. Production should therefore use a semantically meaningful joint subset rather than all 33 Pose landmarks.
+Use the following template when collecting dev-only diagnostic JSON from real capture:
 
-Visibility-aware participation removes the off-screen lower-body region, but can still remain broad because incidental shoulder activity makes the torso count as active. Production participation should represent meaningful contribution, such as torso contribution relative to arm/wrist motion.
+| Gesture                | Expected distinction           | Current features | Production coarse | Extended descriptors | Motion Signature    | Pass/fail | Notes |
+| ---------------------- | ------------------------------ | ---------------- | ----------------- | -------------------- | ------------------- | --------- | ----- |
+| large lateral movement | lateral / broad                | paste summary    | paste coarse      | paste summary        | paste phases/shape  |           |       |
+| small lateral movement | lateral / localized or unknown | paste summary    | paste coarse      | paste summary        | paste phases/shape  |           |       |
+| circle                 | circular path                  | paste summary    | paste coarse      | paste shape          | paste shape/phases  |           |       |
+| straight out-and-back  | out-and-back path              | paste summary    | paste coarse      | paste shape          | paste shape/phases  |           |       |
+| gradual slowdown       | gradual ending                 | paste summary    | paste coarse      | paste ending         | paste ending/phases |           |       |
+| movement with pause    | active/pause/active            | paste summary    | paste coarse      | paste rhythm         | paste phases        |           |       |
 
-Current direction repeatedly becomes unavailable when hips are outside the frame (`orientation = null`, `selectedSource = none`, `dominantDirection = unknown`). Upper-body-only input therefore needs a wrist/arm trajectory fallback.
+Production adoption remains pending until real-capture evidence is collected and reviewed by a human.
 
-Extended descriptors remained useful for wrist-centered `pathShape`, `dominantDirection`, `spatialExtent`, `dominantJoints`, and left/right symmetry/asymmetry. These are the strongest candidates to carry into Issue #44.
-
-`MotionSignature v0` is not recommended as a whole. Its trajectory portion is useful, but rhythm / phase behavior over-detects pauses in real continuous motion and is not ready for production.
-
-## Final Human Experience Gate
-
-- [x] Review the generated fixture comparison and collision findings.
-- [x] Compare repeated upper-body-only real captures with production-equivalent diagnostics.
-- [x] Confirm off-screen / low-visibility landmark contamination is reproducible.
-- [x] Identify selected richer descriptors worth carrying forward.
-- [x] Confirm the raw camera / landmark privacy boundary remains unchanged.
-
-Final assessment:
-
-- **Experiment objective:** PASS.
-- **Current production representation:** FAIL for the tested subtle real-capture use case.
-- **Motion Signature v0 as a whole:** FAIL for production adoption.
-- **Selected extended trajectory descriptors:** PROMISING.
-- **Privacy boundary:** PASS.
-
-This result means production follow-up is required, not that more diagnostic scope should be added to Issue #42.
+For the next capture review, compare current `activeJointCount` / participation / speed with observable joint count, observable active joints, observable regions, participation with unobserved regions ignored, and observable-only / upper-body-only speed. If the current result is broad/fast while the observability-aware result is localized/moderate, off-screen noise becomes a stronger hypothesis. This is a decision criterion, not a conclusion from the current fixture.
 
 ## Privacy, performance, and sensor boundary
 
-All normalization and descriptor work remains browser-local and uses derived data only. No camera frame, video, raw landmark history, or hand landmark is uploaded.
+All normalization and descriptor work is browser-local in principle and uses derived data only. No camera frame, video, raw landmark history, or hand landmark is uploaded. The implementation is intentionally pure and deterministic so it can be run in CI without a camera, AWS, or Bedrock.
 
-Pose landmarks can describe shoulder, elbow, and wrist movement, but cannot reliably observe fingertip articulation, finger opening/closing, or fine wrist rotation. MediaPipe Hands remains a follow-up option if those distinctions become necessary.
+Pose landmarks can describe shoulder, elbow, and wrist movement, but cannot reliably observe fingertip articulation, finger opening/closing, or fine wrist rotation. MediaPipe Hands is not added to production by this experiment; it remains a follow-up option if the comparison shows that Pose is insufficient.
 
-## Recommended production direction
+## Human Experience Gate
 
-Issue #44 should redesign Body representation around observable upper-body motion.
+- [ ] Review the generated fixture comparison and collision findings.
+- [ ] Decide whether the richer representation preserves differences that people intend to express.
+- [ ] Confirm that any future production representation remains understandable and privacy-safe.
 
-Core candidates are shoulders, elbows, and wrists. Hips should be used only when sufficiently observable. Production trajectory candidates are wrist-centered path shape, direction, spatial extent, dominant/representative joints, and symmetry/asymmetry.
-
-All-landmark accumulated speed should be replaced with a frame-rate-robust representative metric. Participation should measure meaningful contribution rather than only active-region count. Direction should support an upper-body-only fallback when hip-derived orientation is unavailable.
+No production semantic contract, prompt, AWS path, or Body capture behavior is changed by EXP-006.
 
 ## Follow-up
 
-Production redesign is tracked in #44: **Redesign production Body representation around observable upper-body motion**.
-
-Issue #42 should close when PR #43 is merged. No production semantic contract, prompt, AWS path, or Body network privacy boundary is changed by EXP-006.
+After human review, create a separate implementation Issue for any selected production descriptor. Do not send `MotionSignature` to the production semantic bridge as part of this experiment.
