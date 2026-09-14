@@ -16,7 +16,7 @@ type NormalizedBodyPoseFrame = BodyPoseFrame & {
   bodyCenter: { x: number; y: number };
 };
 
-type BodyOrientation = {
+export type BodyOrientation = {
   horizontal: { x: number; y: number };
   up: { x: number; y: number };
 };
@@ -42,6 +42,127 @@ export type BodyMovementFeatures = {
   endingSpeedRatio: number;
   endingBehavior: "abrupt" | "gradual" | "continued" | "unknown";
   motionShape: BodyMotionShape;
+};
+
+export type BodyMotionShapeAnalysis = {
+  activeFrameCount: number;
+  movingJoints: number[];
+  representativeJoint: number | null;
+  representativePath: number;
+  centerPath: number;
+  representativePathSource: "joint" | "center";
+  representativeStart: { x: number; y: number } | null;
+  representativeEnd: { x: number; y: number } | null;
+  centerStart: { x: number; y: number } | null;
+  centerEnd: { x: number; y: number } | null;
+  radialStart: number;
+  radialEnd: number;
+  radialChange: number;
+  expansionThreshold: number;
+  expansion: BodyMotionShape["expansion"];
+  directionDisplacement: { x: number; y: number };
+  centerDisplacement: { x: number; y: number };
+  relativeProjection: { horizontal: number; vertical: number } | null;
+  centerProjection: { horizontal: number; vertical: number } | null;
+  relativeMagnitude: number;
+  centerMagnitude: number;
+  selectedSource: "relative" | "center" | "none";
+  selectedProjection: { horizontal: number; vertical: number } | null;
+  dominantDirection: BodyMotionShape["dominantDirection"];
+  repetitionAxis: "x" | "y" | null;
+  xRange: number;
+  yRange: number;
+  reversalCount: number;
+  repetitionThreshold: number;
+  repetition: BodyMotionShape["repetition"];
+  activeRegionCount: number;
+  regionCount: number;
+  broadParticipationRatio: number;
+  participation: BodyMotionShape["participation"];
+};
+
+export type BodyMovementAnalysis = {
+  features: BodyMovementFeatures;
+  validFrameCount: number;
+  normalizedFrameCount: number;
+  stableScale: number;
+  origin: { x: number; y: number };
+  orientation: BodyOrientation | null;
+  segmentMovements: number[];
+  segmentSpeeds: number[];
+  segmentDurations: number[];
+  centerSegmentMovements: number[];
+  jointMovement: number[];
+  activeJointThreshold: number;
+  activeJointIndices: number[];
+  regionSegmentMovements: number[][];
+  regionActiveSegmentCounts: number[];
+  activeIndexes: number[];
+  lastActiveIndex: number | null;
+  finalSequence: number[];
+  fastThreshold: number;
+  minimumFastSegments: number;
+  minimumFastDurationMs: number;
+  fastSegmentCount: number;
+  fastDurationMs: number;
+  hasSustainedFastMovement: boolean;
+  endingSpeedRatio: number;
+  inactiveTailDuration: number;
+  endingBehavior: BodyMovementFeatures["endingBehavior"];
+  shape: BodyMotionShapeAnalysis;
+  jointObservability: BodyJointObservability[];
+  regionObservability: BodyRegionObservability[];
+  observabilityExperiment: BodyObservabilityExperiment;
+  speedObservability: BodySpeedObservability;
+};
+
+export type BodyJointObservability = {
+  sampleCount: number;
+  visibleSampleCount: number;
+  visibilityRatio: number;
+  meanVisibility: number;
+  medianVisibility: number;
+  minimumVisibility: number;
+  p10Visibility: number;
+  currentMovement: number;
+  currentlyActive: boolean;
+  observable: boolean;
+  visibleDurationMs: number;
+  movementPerVisibleSecond: number;
+  movementPerVisibleSample: number;
+};
+
+export type BodyRegionObservability = {
+  jointIndices: number[];
+  observableJointIndices: number[];
+  observableJointCount: number;
+  totalJointCount: number;
+  observableRatio: number;
+  currentCumulativeMovement: number;
+  currentActiveSegmentCount: number;
+  currentActivityRatio: number;
+  currentlyCountsAsActiveRegion: boolean;
+  observableOnlyCumulativeMovement: number;
+  observableOnlyActiveSegmentCount: number;
+  observableOnlyActivityRatio: number;
+  observableOnlyMeetsMeaningfulActiveCriteria: boolean;
+};
+
+export type BodyObservabilityExperiment = {
+  observableJointCount: number;
+  observableActiveJointCount: number;
+  observableRegions: number[];
+  activeObservableRegions: number[];
+  participationIfUnobservedIgnored: BodyMotionShape["participation"];
+};
+
+export type BodySpeedObservability = {
+  currentSegmentSpeeds: number[];
+  observableOnlySegmentSpeeds: number[];
+  upperBodyOnlySegmentSpeeds: number[];
+  currentMedian: number;
+  observableOnlyMedian: number;
+  upperBodyOnlyMedian: number;
 };
 
 export function humanizeBodyFeatures(features: BodyMovementFeatures): string[] {
@@ -98,6 +219,11 @@ export const BODY_MOTION_REVERSAL_THRESHOLD = 0.08;
 export const BODY_BROAD_PARTICIPATION_RATIO = 0.5;
 export const BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD = 0.04;
 export const BODY_JOINT_JITTER_THRESHOLD = 0.015;
+export const BODY_ACTIVE_JOINT_THRESHOLD = 0.08;
+/** Diagnostic-only observability guide; production movement does not filter on visibility. */
+export const BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD = 0.35;
+/** Diagnostic-only minimum share of visible samples; not production filtering. */
+export const BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO = 0.35;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -222,6 +348,183 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function percentile(values: number[], percentileValue: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentileValue))];
+}
+
+function buildObservabilityAnalysis(
+  normalized: NormalizedBodyPoseFrame[],
+  jointMovement: number[],
+  regionSegmentMovements: number[][],
+  regionActiveSegmentCounts: number[],
+  segmentSpeeds: number[],
+): Pick<
+  BodyMovementAnalysis,
+  "jointObservability" | "regionObservability" | "observabilityExperiment" | "speedObservability"
+> {
+  const sampleCount = normalized.length;
+  const jointCount = Math.max(
+    normalized.reduce((maximum, frame) => Math.max(maximum, frame.landmarks.length), 0),
+    jointMovement.length,
+  );
+  const jointObservability: BodyJointObservability[] = Array.from(
+    { length: jointCount },
+    (_, jointIndex) => {
+      const visibilities = normalized.map((frame) => frame.landmarks[jointIndex]?.visibility ?? 0);
+      const visibleSampleCount = visibilities.filter(
+        (visibility) => visibility >= BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD,
+      ).length;
+      let visibleDurationMs = 0;
+      for (let index = 1; index < normalized.length; index += 1) {
+        const previous = normalized[index - 1].landmarks[jointIndex];
+        const current = normalized[index].landmarks[jointIndex];
+        if (
+          previous &&
+          current &&
+          previous.visibility! >= BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD &&
+          current.visibility! >= BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD
+        ) {
+          visibleDurationMs += Math.max(normalized[index].t - normalized[index - 1].t, 0);
+        }
+      }
+      const movement = jointMovement[jointIndex] ?? 0;
+      const visibilityRatio = sampleCount ? visibleSampleCount / sampleCount : 0;
+      return {
+        sampleCount,
+        visibleSampleCount,
+        visibilityRatio,
+        meanVisibility: visibilities.length
+          ? visibilities.reduce((sum, value) => sum + value, 0) / visibilities.length
+          : 0,
+        medianVisibility: median(visibilities),
+        minimumVisibility: visibilities.length ? Math.min(...visibilities) : 0,
+        p10Visibility: percentile(visibilities, 0.1),
+        currentMovement: movement,
+        currentlyActive: movement >= BODY_ACTIVE_JOINT_THRESHOLD,
+        observable: visibilityRatio >= BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO,
+        visibleDurationMs,
+        movementPerVisibleSecond: visibleDurationMs > 0 ? movement / (visibleDurationMs / 1000) : 0,
+        movementPerVisibleSample: visibleSampleCount ? movement / visibleSampleCount : 0,
+      };
+    },
+  );
+
+  const regionObservability: BodyRegionObservability[] = MOTION_REGIONS.map(
+    (jointIndices, regionIndex) => {
+      const observableJointIndices = jointIndices.filter(
+        (jointIndex) => jointObservability[jointIndex]?.observable,
+      );
+      const movements = regionSegmentMovements[regionIndex] ?? [];
+      const activeSegmentCount = regionActiveSegmentCounts[regionIndex] ?? 0;
+      const observableOnlyMovements = normalized.slice(1).map((frame, segmentIndex) => {
+        const previous = normalized[segmentIndex];
+        return jointIndices.reduce((sum, jointIndex) => {
+          const before = previous.landmarks[jointIndex];
+          const after = frame.landmarks[jointIndex];
+          if (
+            !before ||
+            !after ||
+            before.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD ||
+            after.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD
+          ) {
+            return sum;
+          }
+          return sum + distance(before, after);
+        }, 0);
+      });
+      const observableOnlyActiveSegmentCount = observableOnlyMovements.filter(
+        (movement) => movement >= BODY_REGION_ACTIVITY_THRESHOLD,
+      ).length;
+      return {
+        jointIndices: [...jointIndices],
+        observableJointIndices,
+        observableJointCount: observableJointIndices.length,
+        totalJointCount: jointIndices.length,
+        observableRatio: jointIndices.length
+          ? observableJointIndices.length / jointIndices.length
+          : 0,
+        currentCumulativeMovement: movements.reduce((sum, movement) => sum + movement, 0),
+        currentActiveSegmentCount: activeSegmentCount,
+        currentActivityRatio: movements.length ? activeSegmentCount / movements.length : 0,
+        currentlyCountsAsActiveRegion: activeSegmentCount >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
+        observableOnlyCumulativeMovement: observableOnlyMovements.reduce(
+          (sum, movement) => sum + movement,
+          0,
+        ),
+        observableOnlyActiveSegmentCount,
+        observableOnlyActivityRatio: observableOnlyMovements.length
+          ? observableOnlyActiveSegmentCount / observableOnlyMovements.length
+          : 0,
+        observableOnlyMeetsMeaningfulActiveCriteria:
+          observableOnlyActiveSegmentCount >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
+      };
+    },
+  );
+  const observableRegions = regionObservability
+    .map((region, index) => (region.observableJointCount > 0 ? index : -1))
+    .filter((index) => index >= 0);
+  const activeObservableRegions = observableRegions.filter(
+    (index) => regionObservability[index].observableOnlyMeetsMeaningfulActiveCriteria,
+  );
+  const participationIfUnobservedIgnored: BodyMotionShape["participation"] =
+    observableRegions.length === 0
+      ? "unknown"
+      : activeObservableRegions.length / observableRegions.length >= BODY_BROAD_PARTICIPATION_RATIO
+        ? "broad"
+        : "localized";
+
+  const observableOnlySegmentSpeeds: number[] = [];
+  const upperBodyOnlySegmentSpeeds: number[] = [];
+  for (let index = 1; index < normalized.length; index += 1) {
+    const previous = normalized[index - 1];
+    const current = normalized[index];
+    const duration = Math.max(current.t - previous.t, 0);
+    if (!duration) continue;
+    const segmentSpeed = (indices: number[]) =>
+      indices.reduce((sum, jointIndex) => {
+        const before = previous.landmarks[jointIndex];
+        const after = current.landmarks[jointIndex];
+        if (
+          !before ||
+          !after ||
+          before.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD ||
+          after.visibility! < BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD
+        )
+          return sum;
+        return sum + distance(before, after);
+      }, 0) / duration;
+    observableOnlySegmentSpeeds.push(
+      segmentSpeed(
+        jointObservability.flatMap((joint, jointIndex) => (joint.observable ? [jointIndex] : [])),
+      ),
+    );
+    upperBodyOnlySegmentSpeeds.push(segmentSpeed(UPPER_BODY_JOINTS));
+  }
+  return {
+    jointObservability,
+    regionObservability,
+    observabilityExperiment: {
+      observableJointCount: jointObservability.filter((joint) => joint.observable).length,
+      observableActiveJointCount: jointObservability.filter(
+        (joint) => joint.observable && joint.currentlyActive,
+      ).length,
+      observableRegions,
+      activeObservableRegions,
+      participationIfUnobservedIgnored,
+    },
+    speedObservability: {
+      currentSegmentSpeeds: [...segmentSpeeds],
+      observableOnlySegmentSpeeds,
+      upperBodyOnlySegmentSpeeds,
+      currentMedian: median(segmentSpeeds),
+      observableOnlyMedian: median(observableOnlySegmentSpeeds),
+      upperBodyOnlyMedian: median(upperBodyOnlySegmentSpeeds),
+    },
+  };
+}
+
 const MOTION_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 const ARM_JOINTS = [13, 15, 14, 16];
 const MOTION_REGIONS = [
@@ -230,6 +533,7 @@ const MOTION_REGIONS = [
   [11, 12, 23, 24],
   [25, 26, 27, 28],
 ];
+const UPPER_BODY_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24];
 
 function unknownMotionShape(): BodyMotionShape {
   return {
@@ -253,7 +557,43 @@ function extractMotionShape(
   jointMovement: number[],
   regionActiveSegmentCounts: number[],
   orientation: BodyOrientation | null,
-): BodyMotionShape {
+): { shape: BodyMotionShape; analysis: BodyMotionShapeAnalysis } {
+  const emptyAnalysis = (): BodyMotionShapeAnalysis => ({
+    activeFrameCount: 0,
+    movingJoints: [],
+    representativeJoint: null,
+    representativePath: 0,
+    centerPath: 0,
+    representativePathSource: "center",
+    representativeStart: null,
+    representativeEnd: null,
+    centerStart: null,
+    centerEnd: null,
+    radialStart: 0,
+    radialEnd: 0,
+    radialChange: 0,
+    expansionThreshold: BODY_MOTION_SHAPE_CHANGE_THRESHOLD,
+    expansion: "unknown",
+    directionDisplacement: { x: 0, y: 0 },
+    centerDisplacement: { x: 0, y: 0 },
+    relativeProjection: null,
+    centerProjection: null,
+    relativeMagnitude: 0,
+    centerMagnitude: 0,
+    selectedSource: "none",
+    selectedProjection: null,
+    dominantDirection: "unknown",
+    repetitionAxis: null,
+    xRange: 0,
+    yRange: 0,
+    reversalCount: 0,
+    repetitionThreshold: BODY_MOTION_REVERSAL_THRESHOLD,
+    repetition: "unknown",
+    activeRegionCount: 0,
+    regionCount: MOTION_REGIONS.length,
+    broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
+    participation: "unknown",
+  });
   const activeFrameIndexes = new Set<number>();
   segmentMovements.forEach((movement, index) => {
     if (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD) {
@@ -262,12 +602,14 @@ function extractMotionShape(
     }
   });
   const activeFrames = [...activeFrameIndexes].sort((left, right) => left - right);
-  if (activeFrames.length < 2) return unknownMotionShape();
+  if (activeFrames.length < 2) {
+    return { shape: unknownMotionShape(), analysis: emptyAnalysis() };
+  }
 
   const firstFrame = normalized[activeFrames[0]];
   const lastFrame = normalized[activeFrames.at(-1)!];
   const radialChange = meanRadialDistance(lastFrame) - meanRadialDistance(firstFrame);
-  const expansion =
+  const expansion: BodyMotionShape["expansion"] =
     radialChange >= BODY_MOTION_SHAPE_CHANGE_THRESHOLD
       ? "expanding"
       : radialChange <= -BODY_MOTION_SHAPE_CHANGE_THRESHOLD
@@ -322,7 +664,7 @@ function extractMotionShape(
           : null;
   const horizontalMagnitude = selectedProjection ? Math.abs(selectedProjection.horizontal) : 0;
   const verticalMagnitude = selectedProjection ? Math.abs(selectedProjection.vertical) : 0;
-  const dominantDirection =
+  const dominantDirection: BodyMotionShape["dominantDirection"] =
     !selectedProjection ||
     Math.max(horizontalMagnitude, verticalMagnitude) < BODY_MOTION_DIRECTION_THRESHOLD
       ? "unknown"
@@ -348,6 +690,7 @@ function extractMotionShape(
       representativePath = path;
     }
   });
+  const jointPath = representativePath;
   const centerTrajectory = activeFrames.map((frameIndex) => normalized[frameIndex].bodyCenter);
   let trajectory =
     representativeJoint === undefined
@@ -382,7 +725,7 @@ function extractMotionShape(
   for (let index = 1; index < signs.length; index += 1) {
     if (signs[index] !== signs[index - 1]) reversals += 1;
   }
-  const repetition =
+  const repetition: BodyMotionShape["repetition"] =
     representativePath < BODY_MOTION_DIRECTION_THRESHOLD
       ? "unknown"
       : reversals >= 2
@@ -392,17 +735,64 @@ function extractMotionShape(
   const activeRegions = regionActiveSegmentCounts.filter(
     (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
   ).length;
-  const participation =
+  const participation: BodyMotionShape["participation"] =
     activeRegions === 0
       ? "unknown"
       : activeRegions / MOTION_REGIONS.length >= BODY_BROAD_PARTICIPATION_RATIO
         ? "broad"
         : "localized";
 
-  return { expansion, dominantDirection, repetition, participation };
+  const representativeStart = trajectory[0] ?? null;
+  const representativeEnd = trajectory.at(-1) ?? null;
+  const centerStartPoint = centerTrajectory[0] ?? null;
+  const centerEndPoint = centerTrajectory.at(-1) ?? null;
+  const analysis: BodyMotionShapeAnalysis = {
+    activeFrameCount: activeFrames.length,
+    movingJoints,
+    representativeJoint: representativeJoint ?? null,
+    representativePath,
+    centerPath,
+    representativePathSource: centerPath > jointPath ? "center" : "joint",
+    representativeStart,
+    representativeEnd,
+    centerStart: centerStartPoint,
+    centerEnd: centerEndPoint,
+    radialStart: meanRadialDistance(firstFrame),
+    radialEnd: meanRadialDistance(lastFrame),
+    radialChange,
+    expansionThreshold: BODY_MOTION_SHAPE_CHANGE_THRESHOLD,
+    expansion,
+    directionDisplacement,
+    centerDisplacement,
+    relativeProjection,
+    centerProjection,
+    relativeMagnitude,
+    centerMagnitude,
+    selectedSource: selectedProjection
+      ? selectedProjection === relativeProjection
+        ? "relative"
+        : "center"
+      : "none",
+    selectedProjection,
+    dominantDirection,
+    repetitionAxis: trajectory.length ? axis : null,
+    xRange,
+    yRange,
+    reversalCount: reversals,
+    repetitionThreshold: BODY_MOTION_REVERSAL_THRESHOLD,
+    repetition,
+    activeRegionCount: activeRegions,
+    regionCount: MOTION_REGIONS.length,
+    broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
+    participation,
+  };
+  return {
+    shape: { expansion, dominantDirection, repetition, participation },
+    analysis,
+  };
 }
 
-export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMovementFeatures {
+export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalysis {
   const validFrames = frames.filter((frame) => shoulderGeometry(frame) !== null);
   const orientation = getBodyOrientation(validFrames);
   const geometries = validFrames.map((frame) => shoulderGeometry(frame)!);
@@ -414,7 +804,7 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
       .filter((frame): frame is NormalizedBodyPoseFrame => frame !== null),
   );
   if (normalized.length < 2) {
-    return {
+    const features: BodyMovementFeatures = {
       frameCount: normalized.length,
       captureDurationMs: 0,
       activeDurationMs: 0,
@@ -427,6 +817,72 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
       endingSpeedRatio: 0,
       endingBehavior: "unknown",
       motionShape: unknownMotionShape(),
+    };
+    return {
+      features,
+      validFrameCount: validFrames.length,
+      normalizedFrameCount: normalized.length,
+      stableScale,
+      origin,
+      orientation,
+      segmentMovements: [],
+      segmentSpeeds: [],
+      segmentDurations: [],
+      centerSegmentMovements: [],
+      jointMovement: [],
+      activeJointThreshold: BODY_ACTIVE_JOINT_THRESHOLD,
+      activeJointIndices: [],
+      regionSegmentMovements: MOTION_REGIONS.map(() => []),
+      regionActiveSegmentCounts: [],
+      activeIndexes: [],
+      lastActiveIndex: null,
+      finalSequence: [],
+      fastThreshold: BODY_FAST_SPEED_THRESHOLD,
+      minimumFastSegments: BODY_MINIMUM_FAST_SEGMENTS,
+      minimumFastDurationMs: BODY_MINIMUM_FAST_DURATION_MS,
+      fastSegmentCount: 0,
+      fastDurationMs: 0,
+      hasSustainedFastMovement: false,
+      endingSpeedRatio: 0,
+      inactiveTailDuration: 0,
+      endingBehavior: "unknown",
+      shape: {
+        activeFrameCount: 0,
+        movingJoints: [],
+        representativeJoint: null,
+        representativePath: 0,
+        centerPath: 0,
+        representativePathSource: "center",
+        representativeStart: null,
+        representativeEnd: null,
+        centerStart: null,
+        centerEnd: null,
+        radialStart: 0,
+        radialEnd: 0,
+        radialChange: 0,
+        expansionThreshold: BODY_MOTION_SHAPE_CHANGE_THRESHOLD,
+        expansion: "unknown",
+        directionDisplacement: { x: 0, y: 0 },
+        centerDisplacement: { x: 0, y: 0 },
+        relativeProjection: null,
+        centerProjection: null,
+        relativeMagnitude: 0,
+        centerMagnitude: 0,
+        selectedSource: "none",
+        selectedProjection: null,
+        dominantDirection: "unknown",
+        repetitionAxis: null,
+        xRange: 0,
+        yRange: 0,
+        reversalCount: 0,
+        repetitionThreshold: BODY_MOTION_REVERSAL_THRESHOLD,
+        repetition: "unknown",
+        activeRegionCount: 0,
+        regionCount: MOTION_REGIONS.length,
+        broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
+        participation: "unknown",
+      },
+      ...buildObservabilityAnalysis(normalized, [], [], [], []),
     };
   }
 
@@ -568,29 +1024,113 @@ export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMoveme
     longestFastSegments >= BODY_MINIMUM_FAST_SEGMENTS &&
     longestFastDuration >= BODY_MINIMUM_FAST_DURATION_MS;
 
-  return {
+  const activeJointIndices = jointMovement
+    .map((movement, index) => (movement >= BODY_ACTIVE_JOINT_THRESHOLD ? index : -1))
+    .filter((index) => index >= 0);
+  const shapeResult = hasMeaningfulMovement
+    ? extractMotionShape(
+        normalized,
+        segmentMovements,
+        jointMovement,
+        regionActiveSegmentCounts,
+        orientation,
+      )
+    : {
+        shape: unknownMotionShape(),
+        analysis: {
+          activeFrameCount: 0,
+          movingJoints: [],
+          representativeJoint: null,
+          representativePath: 0,
+          centerPath: 0,
+          representativePathSource: "center" as const,
+          representativeStart: null,
+          representativeEnd: null,
+          centerStart: null,
+          centerEnd: null,
+          radialStart: 0,
+          radialEnd: 0,
+          radialChange: 0,
+          expansionThreshold: BODY_MOTION_SHAPE_CHANGE_THRESHOLD,
+          expansion: "unknown" as const,
+          directionDisplacement: { x: 0, y: 0 },
+          centerDisplacement: { x: 0, y: 0 },
+          relativeProjection: null,
+          centerProjection: null,
+          relativeMagnitude: 0,
+          centerMagnitude: 0,
+          selectedSource: "none" as const,
+          selectedProjection: null,
+          dominantDirection: "unknown" as const,
+          repetitionAxis: null,
+          xRange: 0,
+          yRange: 0,
+          reversalCount: 0,
+          repetitionThreshold: BODY_MOTION_REVERSAL_THRESHOLD,
+          repetition: "unknown" as const,
+          activeRegionCount: 0,
+          regionCount: MOTION_REGIONS.length,
+          broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
+          participation: "unknown" as const,
+        },
+      };
+  const features: BodyMovementFeatures = {
     frameCount: normalized.length,
     totalMovement: segmentMovements.reduce((sum, movement) => sum + movement, 0),
     averageSpeed: activeDurationMs > 0 ? activeMovement / activeDurationMs : 0,
     peakSpeed: segmentSpeeds.length ? Math.max(...segmentSpeeds) : 0,
     hasSustainedFastMovement,
-    activeJointCount: jointMovement.filter((movement) => movement >= 0.08).length,
+    activeJointCount: activeJointIndices.length,
     endingSpeedRatio,
     endingBehavior,
     captureDurationMs,
     activeDurationMs,
     spread: movementSpread,
     hasMeaningfulMovement,
-    motionShape: hasMeaningfulMovement
-      ? extractMotionShape(
-          normalized,
-          segmentMovements,
-          jointMovement,
-          regionActiveSegmentCounts,
-          orientation,
-        )
-      : unknownMotionShape(),
+    motionShape: shapeResult.shape,
   };
+  const observability = buildObservabilityAnalysis(
+    normalized,
+    jointMovement,
+    regionSegmentMovements,
+    regionActiveSegmentCounts,
+    segmentSpeeds,
+  );
+  return {
+    features,
+    validFrameCount: validFrames.length,
+    normalizedFrameCount: normalized.length,
+    stableScale,
+    origin,
+    orientation,
+    segmentMovements,
+    segmentSpeeds,
+    segmentDurations,
+    centerSegmentMovements,
+    jointMovement,
+    activeJointThreshold: BODY_ACTIVE_JOINT_THRESHOLD,
+    activeJointIndices,
+    regionSegmentMovements,
+    regionActiveSegmentCounts,
+    activeIndexes,
+    lastActiveIndex: lastActiveIndex ?? null,
+    finalSequence,
+    fastThreshold: BODY_FAST_SPEED_THRESHOLD,
+    minimumFastSegments: BODY_MINIMUM_FAST_SEGMENTS,
+    minimumFastDurationMs: BODY_MINIMUM_FAST_DURATION_MS,
+    fastSegmentCount: longestFastSegments,
+    fastDurationMs: longestFastDuration,
+    hasSustainedFastMovement,
+    endingSpeedRatio,
+    inactiveTailDuration,
+    endingBehavior,
+    shape: shapeResult.analysis,
+    ...observability,
+  };
+}
+
+export function extractBodyMovementFeatures(frames: BodyPoseFrame[]): BodyMovementFeatures {
+  return analyzeBodyMovement(frames).features;
 }
 
 export function bodyToRepresentation(features: BodyMovementFeatures): GestureRepresentation {
