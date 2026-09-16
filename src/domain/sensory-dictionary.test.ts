@@ -1,40 +1,58 @@
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
 import dictionary from "./data/sensory-dictionary.v0.1.json";
-import { findDimensionMappingErrors } from "./dictionary-validation";
+import { findDictionaryErrors } from "./dictionary-validation";
 import schema from "../../schemas/sensory-dictionary.schema.json";
 
-describe("sensory dictionary v0.1", () => {
-  it("matches the versioned schema and references known dimensions", () => {
+describe("MVP sensory dictionary", () => {
+  it("matches the schema and keeps stable unique IDs", () => {
     const validate = new Ajv({ allErrors: true, formats: { uri: true, date: true } }).compile(
       schema,
     );
-
     expect(validate(dictionary), JSON.stringify(validate.errors)).toBe(true);
-
-    expect(findDimensionMappingErrors(dictionary)).toEqual([]);
+    expect(findDictionaryErrors(dictionary)).toEqual([]);
   });
 
-  it("rejects a polarity that is not allowed by its dimension", () => {
-    const invalid = structuredClone(dictionary);
-    invalid.entries[0].dimensions[0].polarity = "round";
-
-    expect(findDimensionMappingErrors(invalid)).toEqual([
-      "Invalid polarity round for weight in tanrei",
-    ]);
+  it("uses the reviewed selectable and reference-only sets", () => {
+    expect(
+      dictionary.entries
+        .filter((entry) => entry.vocabularyStatus === "selectable")
+        .map((entry) => entry.id),
+    ).toEqual(["atoaji", "kire", "nameraka", "marui"]);
+    expect(
+      dictionary.entries
+        .filter((entry) => entry.vocabularyStatus === "reference-only")
+        .map((entry) => entry.id),
+    ).toEqual(["sanmi", "umami", "amami", "tanrei", "nojun"]);
   });
 
-  it("continues to reject duplicate entry IDs", () => {
-    const invalid = structuredClone(dictionary);
-    invalid.entries.push(invalid.entries[0]);
-
-    expect(findDimensionMappingErrors(invalid)).toContain("Duplicate dictionary entry ID: tanrei");
+  it("keeps the source-aligned distinctions and aftertaste relation", () => {
+    const byId = new Map(dictionary.entries.map((entry) => [entry.id, entry]));
+    expect(byId.get("kire")).toMatchObject({
+      displayTerm: "きれ",
+      parentTermId: "atoaji",
+      sourceCategory: "aftertaste",
+    });
+    expect(byId.get("marui")?.sourceCategory).toBe("mouthfeel-stimulus");
+    expect(byId.get("nameraka")?.sourceCategory).toBe("mouthfeel-texture");
+    expect(byId.get("amami")?.vocabularyStatus).toBe("reference-only");
   });
 
-  it("keeps an intentionally unmapped entry valid", () => {
-    const umami = dictionary.entries.find((entry) => entry.id === "umami");
-
-    expect(umami?.mappingStatus).toBe("unmapped");
-    expect(umami?.dimensions).toEqual([]);
+  it("rejects invalid statuses, duplicate IDs, and unknown parents", () => {
+    const invalidStatus = structuredClone(dictionary);
+    invalidStatus.entries[0].vocabularyStatus = "mapped";
+    const validate = new Ajv({ allErrors: true, formats: { uri: true, date: true } }).compile(
+      schema,
+    );
+    expect(validate(invalidStatus)).toBe(false);
+    const invalidRelations = structuredClone(dictionary);
+    invalidRelations.entries.push(invalidRelations.entries[0]);
+    invalidRelations.entries[1].parentTermId = "missing";
+    expect(findDictionaryErrors(invalidRelations)).toEqual(
+      expect.arrayContaining([
+        "Duplicate dictionary entry ID: atoaji",
+        "Unknown parent term missing in kire",
+      ]),
+    );
   });
 });

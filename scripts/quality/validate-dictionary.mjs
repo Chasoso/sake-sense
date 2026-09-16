@@ -11,8 +11,6 @@ if (!validate(dictionary)) {
   process.exit(1);
 }
 
-const dimensionIds = new Set(dictionary.dimensions.map((dimension) => dimension.id));
-const dimensionsById = new Map(dictionary.dimensions.map((dimension) => [dimension.id, dimension]));
 const entryIds = new Set();
 for (const entry of dictionary.entries) {
   if (entryIds.has(entry.id)) {
@@ -20,18 +18,16 @@ for (const entry of dictionary.entries) {
     process.exit(1);
   }
   entryIds.add(entry.id);
-  for (const dimension of entry.dimensions) {
-    const definition = dimensionsById.get(dimension.dimensionId);
-    if (!dimensionIds.has(dimension.dimensionId)) {
-      console.error(`Unknown dimension ${dimension.dimensionId} in ${entry.id}`);
-      process.exit(1);
-    }
-    if (!definition.polarities.includes(dimension.polarity)) {
-      console.error(
-        `Invalid polarity ${dimension.polarity} for ${dimension.dimensionId} in ${entry.id}`,
-      );
-      process.exit(1);
-    }
+}
+
+for (const entry of dictionary.entries) {
+  if (entry.parentTermId === entry.id) {
+    console.error(`Entry cannot parent itself: ${entry.id}`);
+    process.exit(1);
+  }
+  if (entry.parentTermId && !entryIds.has(entry.parentTermId)) {
+    console.error(`Unknown parent term ${entry.parentTermId} in ${entry.id}`);
+    process.exit(1);
   }
 }
 

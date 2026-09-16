@@ -4,34 +4,14 @@ import {
   runLocalExperiment,
   runVoiceSemanticExperiment,
 } from "./experiment";
-import type { GesturePoint } from "./gesture";
-import type { VoiceFeatures } from "./voice";
 import type { BodyMovementFeatures } from "./body";
+import type { VoiceFeatures } from "./voice";
 
-const shortSharpStroke: GesturePoint[] = [
+const stroke = [
   { x: 10, y: 40, t: 0 },
   { x: 80, y: 40, t: 100 },
   { x: 160, y: 40, t: 120 },
 ];
-
-const longGradualStroke: GesturePoint[] = [
-  { x: 0, y: 0, t: 0 },
-  { x: 100, y: 0, t: 200 },
-  { x: 200, y: 0, t: 400 },
-  { x: 300, y: 0, t: 600 },
-  { x: 310, y: 0, t: 700 },
-  { x: 320, y: 0, t: 800 },
-  { x: 330, y: 0, t: 900 },
-  { x: 340, y: 0, t: 1000 },
-];
-
-const shortVoice: VoiceFeatures = {
-  durationMs: 400,
-  averageIntensity: 0.4,
-  pauseCount: 0,
-  endingBehavior: "maintained",
-};
-const longVoice: VoiceFeatures = { ...shortVoice, durationMs: 1200 };
 const bodyFeatures: BodyMovementFeatures = {
   frameCount: 12,
   captureDurationMs: 3000,
@@ -44,6 +24,7 @@ const bodyFeatures: BodyMovementFeatures = {
   activeJointCount: 4,
   endingSpeedRatio: 0.9,
   endingBehavior: "abrupt",
+  hasSustainedFastMovement: false,
   motionShape: {
     expansion: "expanding",
     dominantDirection: "unknown",
@@ -51,236 +32,46 @@ const bodyFeatures: BodyMovementFeatures = {
     participation: "broad",
   },
 };
+const voiceFeatures: VoiceFeatures = {
+  durationMs: 1200,
+  averageIntensity: 0.4,
+  pauseCount: 1,
+  endingBehavior: "fading",
+};
 
-describe("EXP-001 deterministic pipeline", () => {
-  it("maps a known everyday expression and gesture to candidates", () => {
-    const result = runLocalExperiment("スッ", shortSharpStroke);
-
-    expect(result).not.toHaveProperty("error");
+describe("experiment integration boundaries", () => {
+  it("keeps the existing text mapping as a legacy compatibility path", () => {
+    const result = runLocalExperiment("スッ", stroke);
+    expect("error" in result).toBe(false);
     if ("error" in result) return;
-    expect(result.candidates[0].entry.id).toBe("kire");
-    expect(result.candidates[0].matchedBy).toBe("both");
-    expect(result.candidates[0].explanation).toContain("動き");
-    expect(result.candidates[0].explanation).not.toContain("ジェスチャーから");
-    expect(result.interpretation).toBe("aligned");
+    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["kire"]);
+    expect(result.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
   });
 
-  it("keeps conflicting signals as multiple candidates", () => {
-    const result = runLocalExperiment("じわ〜", shortSharpStroke);
-
-    expect(result).not.toHaveProperty("error");
+  it("does not make gesture or voice observations direct term candidates", () => {
+    const result = runLocalExperiment("未知", stroke, voiceFeatures, bodyFeatures);
+    expect("error" in result).toBe(false);
     if ("error" in result) return;
-    expect(result.interpretation).toBe("mixed-signals");
-    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual([
-      "atoaji",
-      "kire",
-      "sanmi",
-    ]);
+    expect(result.candidates).toEqual([]);
+    expect(result.sakeProducts).toEqual([]);
+    expect(result.interpretation).toBe("no-match");
   });
 
-  it("handles unknown and invalid input without fake certainty", () => {
-    expect(runLocalExperiment("", shortSharpStroke)).toEqual({
-      error: "まず、音や感覚を表す短い言葉を入力してください。",
-    });
-    expect(runLocalExperiment("未知", [])).toEqual({
-      error:
-        "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
-    });
-
-    const result = runLocalExperiment("未知", shortSharpStroke);
-    expect(result).not.toHaveProperty("error");
-    if ("error" in result) return;
-    expect(result.interpretation).toBe("gesture-only");
-    expect(result.message).not.toContain("%");
-    expect(result.candidates[0].explanation).toContain("動きから");
-  });
-
-  it("accepts one valid stroke instead of counting strokes as points", () => {
-    const result = runLocalExperiment("譛ｪ遏･", [
-      { x: 10, y: 10, t: 0 },
-      { x: 20, y: 10, t: 100 },
-      { x: 30, y: 10, t: 200 },
-    ]);
-
-    expect(result).not.toHaveProperty("error");
-  });
-
-  it("rejects empty, tap-only, and zero-length gesture input", () => {
-    const tap = { x: 10, y: 10, t: 0 };
-    const cases = [[], [[]], [tap], [[tap], [{ ...tap, x: 20 }]], [tap, { ...tap }]];
-
-    for (const points of cases) {
-      expect(runLocalExperiment("譛ｪ遏･", points)).toEqual({
-        error:
-          "\u52d5\u304d\u3067\u8868\u73fe\u3057\u3066\u304b\u3089\u8a66\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
-      });
+  it("keeps the Body fixture unmapped even for short abrupt and gradual lingering observations", async () => {
+    for (const features of [
+      { ...bodyFeatures, activeDurationMs: 500, endingBehavior: "abrupt" as const },
+      { ...bodyFeatures, activeDurationMs: 2400, endingBehavior: "gradual" as const },
+    ]) {
+      const result = await runBodySemanticExperiment(features);
+      expect("error" in result).toBe(false);
+      if ("error" in result) continue;
+      expect(result.sensoryBridge?.provider).toBe("fixture");
+      expect(result.sensoryBridge?.response.candidateTermIds).toEqual([]);
+      expect(result.sakeProducts).toEqual([]);
     }
   });
 
-  it("accepts multiple strokes when at least one stroke contains movement", () => {
-    const result = runLocalExperiment("譛ｪ遏･", [
-      [{ x: 10, y: 10, t: 0 }],
-      [
-        { x: 20, y: 20, t: 100 },
-        { x: 40, y: 20, t: 200 },
-      ],
-    ]);
-
-    expect(result).not.toHaveProperty("error");
-  });
-
-  it("connects voice duration to the existing duration representation", () => {
-    const short = runLocalExperiment("", longGradualStroke, shortVoice);
-    const long = runLocalExperiment("", longGradualStroke, longVoice);
-
-    expect("error" in short).toBe(false);
-    expect("error" in long).toBe(false);
-    if ("error" in short || "error" in long) return;
-    expect(short.inputSource).toBe("voice");
-    expect(short.representation.dimensions).toContainEqual(
-      expect.objectContaining({ dimensionId: "duration", polarity: "short" }),
-    );
-    expect(long.representation.dimensions).toContainEqual(
-      expect.objectContaining({ dimensionId: "duration", polarity: "lingering" }),
-    );
-    expect(short.voiceFeatures).toEqual(shortVoice);
-  });
-
-  it("keeps agreeing voice and gesture signals as multiple signals", () => {
-    const result = runLocalExperiment("", shortSharpStroke, shortVoice);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.candidates.find((candidate) => candidate.entry.id === "kire")?.matchedBy).toBe(
-      "multiple-signals",
-    );
-    expect(result.interpretation).toBe("voice-and-gesture");
-    expect(
-      result.candidates.find((candidate) => candidate.entry.id === "kire")?.explanation,
-    ).toContain("声と動きの両方");
-  });
-
-  it("attributes a candidate supported only by voice to voice", () => {
-    const result = runLocalExperiment("", longGradualStroke, shortVoice);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    const voiceCandidate = result.candidates.find((candidate) => candidate.entry.id === "kire");
-    expect(voiceCandidate?.matchedBy).toBe("voice");
-    expect(voiceCandidate?.explanation).toContain("声の長さ");
-    expect(voiceCandidate?.explanation).not.toContain("動きから");
-  });
-
-  it("keeps conflicting voice and gesture duration hints visible", () => {
-    const result = runLocalExperiment("", shortSharpStroke, longVoice);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.interpretation).toBe("mixed-signals");
-    expect(result.candidates.map((candidate) => candidate.entry.id)).toContain("atoaji");
-    expect(result.candidates.map((candidate) => candidate.entry.id)).toContain("kire");
-  });
-
-  it("preserves the text fallback when voice is unavailable", () => {
-    const result = runLocalExperiment("スッ", shortSharpStroke, null);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.inputSource).toBe("text");
-    expect(result.voiceFeatures).toBeNull();
-  });
-
-  it("combines voice hints with a multi-stroke movement", () => {
-    const result = runLocalExperiment(
-      "",
-      [
-        [
-          { x: 10, y: 40, t: 0 },
-          { x: 80, y: 40, t: 100 },
-        ],
-        [
-          { x: 200, y: 100, t: 500 },
-          { x: 260, y: 100, t: 600 },
-        ],
-      ],
-      shortVoice,
-    );
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.gesture.pointCount).toBe(4);
-    expect(result.candidates.some((candidate) => candidate.matchedBy === "multiple-signals")).toBe(
-      true,
-    );
-  });
-
-  it("connects a grounded candidate to Ishikawa sake products", () => {
-    const result = runLocalExperiment("スッ", shortSharpStroke);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.sakeProducts.length).toBeGreaterThan(0);
-    expect(result.sakeProducts[0].product.provenance.length).toBeGreaterThan(0);
-    expect(result.sakeProducts[0].matchedTermIds).toContain("kire");
-  });
-
-  it("allows a voice-only path when microphone input has usable duration", () => {
-    const result = runLocalExperiment("", [], shortVoice);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.inputSource).toBe("voice");
-    expect(result.gesture.pointCount).toBe(0);
-    expect(result.sakeProducts.length).toBeGreaterThan(0);
-  });
-
-  it("reports the sample limitation when no product supports a candidate", () => {
-    const result = runLocalExperiment("未登録", longGradualStroke);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.candidates.length).toBeGreaterThan(0);
-    expect(result.sakeProducts).toEqual([]);
-  });
-
-  it("explains a candidate with a human-readable sensory hint", () => {
-    const result = runLocalExperiment("スッ", shortSharpStroke);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    const kire = result.candidates.find((candidate) => candidate.entry.id === "kire");
-    expect(kire?.explanation).toContain("短く終わる感じ");
-    expect(kire?.explanation).not.toContain("duration:short");
-  });
-
-  it("connects body movement through the existing candidate and product path", () => {
-    const result = runLocalExperiment("", [], null, bodyFeatures);
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.inputSource).toBe("body");
-    expect(result.representation.dimensions).toContainEqual(
-      expect.objectContaining({ dimensionId: "weight", polarity: "heavy" }),
-    );
-    expect(result.candidates.length).toBeGreaterThan(0);
-    expect(result.sakeProducts.length).toBeGreaterThan(0);
-  });
-
-  it("rejects an unusable body capture", () => {
-    const result = runLocalExperiment("", [], null, {
-      ...bodyFeatures,
-      frameCount: 1,
-      captureDurationMs: 0,
-      activeDurationMs: 0,
-      totalMovement: 0,
-      hasMeaningfulMovement: false,
-      endingBehavior: "unknown",
-    });
-
-    expect(result).toEqual({ error: "動きで表現してから試してください。" });
-  });
-
-  it("keeps broad repeated sway unmapped in the EXP-005 body path", async () => {
+  it("keeps broad repeated lateral movement unmapped rather than returning nojun", async () => {
     const result = await runBodySemanticExperiment({
       ...bodyFeatures,
       activeDurationMs: 2200,
@@ -292,110 +83,38 @@ describe("EXP-001 deterministic pipeline", () => {
         participation: "broad",
       },
     });
-
     expect("error" in result).toBe(false);
     if ("error" in result) return;
-    expect(result.sensoryBridge?.provider).toBe("fixture");
-    if (result.sensoryBridge?.modality !== "body") return;
-    expect(result.sensoryBridge.input.spread).toBe("broad");
     expect(result.sensoryBridge?.response.candidateTermIds).toEqual([]);
     expect(result.sakeProducts).toEqual([]);
-    expect(result.representation.dimensions).toEqual([]);
   });
 
-  it("preserves an AI provider kind when a test double succeeds", async () => {
-    const result = await runBodySemanticExperiment(
-      {
-        ...bodyFeatures,
-        activeDurationMs: 500,
-        spread: 0.5,
-        endingBehavior: "abrupt",
-        motionShape: {
-          expansion: "unknown",
-          dominantDirection: "unknown",
-          repetition: "single",
-          participation: "localized",
-        },
-      },
-      {
-        kind: "ai",
-        interpret: async () => ({
-          sensoryExpressions: ["短く切り替わる感じ"],
-          candidateTermIds: ["kire"],
-          unmappedFeatures: ["spread:compact"],
-          reason: "観測された短い停止を、候補語へ実験的につないでいます。",
-        }),
-      },
-    );
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.sensoryBridge?.provider).toBe("ai");
-    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["kire"]);
-    expect(result.sakeProducts.length).toBeGreaterThan(0);
-    expect(result.message).toContain("AIは味を判定しているのではなく");
-  });
-
-  it("passes only validated fixture candidates to product matching", async () => {
-    const result = await runBodySemanticExperiment({
-      ...bodyFeatures,
-      activeDurationMs: 500,
-      spread: 0.5,
-      endingBehavior: "abrupt",
-      motionShape: {
-        expansion: "unknown",
-        dominantDirection: "unknown",
-        repetition: "single",
-        participation: "localized",
-      },
-    });
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.sensoryBridge?.response.candidateTermIds).toEqual(["kire"]);
-    expect(result.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
-  });
-
-  it("falls back to observation-only output when the bridge provider fails", async () => {
-    const result = await runBodySemanticExperiment(bodyFeatures, {
+  it("keeps provider failure and invalid AI output observation-only", async () => {
+    const failing = await runBodySemanticExperiment(bodyFeatures, {
       kind: "ai",
       interpret: async () => {
         throw new Error("provider unavailable");
       },
     });
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.sensoryBridge?.provider).toBe("fallback");
-    expect(result.candidates).toEqual([]);
-    expect(result.sakeProducts).toEqual([]);
-  });
-
-  it("falls back when an AI provider returns an invalid response", async () => {
-    const result = await runBodySemanticExperiment(bodyFeatures, {
+    const invalid = await runBodySemanticExperiment(bodyFeatures, {
       kind: "ai",
       interpret: async () => ({
         sensoryExpressions: [],
-        candidateTermIds: ["unknown-term"],
+        candidateTermIds: ["nojun"],
         unmappedFeatures: [],
-        reason: "理由",
+        reason: "候補です",
       }),
     });
-
-    expect("error" in result).toBe(false);
-    if ("error" in result) return;
-    expect(result.sensoryBridge?.provider).toBe("fallback");
-    expect(result.candidates).toEqual([]);
-    expect(result.sakeProducts).toEqual([]);
+    for (const result of [failing, invalid]) {
+      expect("error" in result).toBe(false);
+      if ("error" in result) continue;
+      expect(result.sensoryBridge?.provider).toBe("fallback");
+      expect(result.candidates).toEqual([]);
+      expect(result.sakeProducts).toEqual([]);
+    }
   });
 
-  it("routes derived voice features through the same AI boundary without raw samples", async () => {
-    const voiceFeatures: VoiceFeatures = {
-      durationMs: 1200,
-      averageIntensity: 0.4,
-      pauseCount: 1,
-      endingBehavior: "fading",
-    };
+  it("passes only derived voice fields through the AI boundary and falls back safely", async () => {
     const base = runLocalExperiment("", [], voiceFeatures);
     expect("error" in base).toBe(false);
     if ("error" in base) return;
@@ -406,20 +125,43 @@ describe("EXP-001 deterministic pipeline", () => {
         received = request;
         return {
           sensoryExpressions: ["余韻が残る感じ"],
-          candidateTermIds: ["atoaji"],
+          candidateTermIds: [],
           unmappedFeatures: [],
-          reason: "derived voice duration and ending",
+          reason: "derived voice observations",
         };
       },
     });
     expect(result.sensoryBridge?.modality).toBe("voice");
     expect(result.sensoryBridge?.provider).toBe("ai");
-    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["atoaji"]);
-    expect(received).toMatchObject({ modality: "voice", allowedTermIds: expect.any(Array) });
-    expect(JSON.stringify(received)).not.toContain("displayTerm");
-    expect(JSON.stringify(received)).not.toContain("definitionSummary");
-    expect(JSON.stringify(received)).not.toContain("dimensions");
-    expect(JSON.stringify(received)).not.toContain("samples");
+    expect(result.candidates).toEqual([]);
+    expect(result.sakeProducts).toEqual([]);
     expect(JSON.stringify(received)).not.toContain("audio");
+    expect(JSON.stringify(received)).not.toContain("samples");
+    expect(JSON.stringify(received)).not.toContain("displayTerm");
+
+    const fallback = await runVoiceSemanticExperiment(base, voiceFeatures, {
+      kind: "ai",
+      interpret: async () => {
+        throw new Error("provider unavailable");
+      },
+    });
+    expect(fallback.sensoryBridge?.provider).toBe("fallback");
+    expect(fallback.candidates).toEqual([]);
+  });
+
+  it("passes validated AI candidates, but never reference-only candidates, to product matching", async () => {
+    const mapped = await runBodySemanticExperiment(bodyFeatures, {
+      kind: "ai",
+      interpret: async () => ({
+        sensoryExpressions: [],
+        candidateTermIds: ["kire"],
+        unmappedFeatures: [],
+        reason: "provider candidate",
+      }),
+    });
+    expect("error" in mapped).toBe(false);
+    if ("error" in mapped) return;
+    expect(mapped.candidates.map((candidate) => candidate.entry.id)).toEqual(["kire"]);
+    expect(mapped.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
   });
 });

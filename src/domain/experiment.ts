@@ -8,7 +8,6 @@ import {
 import type { GestureFeatures, GestureInput } from "./gesture";
 import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
-import { humanizeSensoryDimension } from "./translation-trail";
 import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
 import {
   buildSensoryBridgeInput,
@@ -97,13 +96,12 @@ export type ExperimentResult = {
       };
 };
 
+// Historical local-text compatibility only; #46 owns the reviewed expression dataset.
 const expressionMappings: Record<string, string[]> = {
   "\u30b9\u30c3": ["kire"],
   すっ: ["kire"],
   すっと: ["kire"],
   じわ: ["atoaji"],
-  ふわ: ["marui", "nameraka"],
-  こく: ["nojun"],
 };
 
 function normalizeExpression(expression: string): string {
@@ -118,19 +116,8 @@ function expressionCandidateIds(expression: string): string[] {
 }
 
 function gestureCandidateIds(representation: GestureRepresentation): string[] {
-  const ids = new Set<string>();
-  for (const dimension of representation.dimensions) {
-    if (dimension.dimensionId === "weight" && dimension.polarity === "light") ids.add("tanrei");
-    if (dimension.dimensionId === "weight" && dimension.polarity === "heavy") ids.add("nojun");
-    if (dimension.dimensionId === "duration" && dimension.polarity === "short") ids.add("kire");
-    if (dimension.dimensionId === "duration" && dimension.polarity === "lingering")
-      ids.add("atoaji");
-    if (dimension.dimensionId === "shape" && dimension.polarity === "sharp") ids.add("kire");
-    if (dimension.dimensionId === "shape" && dimension.polarity === "sharp") ids.add("sanmi");
-    if (dimension.dimensionId === "shape" && dimension.polarity === "round") ids.add("marui");
-    if (dimension.dimensionId === "shape" && dimension.polarity === "round") ids.add("nameraka");
-  }
-  return [...ids];
+  void representation;
+  return [];
 }
 
 export function runLocalExperiment(
@@ -188,7 +175,7 @@ export function runLocalExperiment(
   const gestureSet = new Set(gestureIds);
   const candidates = allIds.flatMap((id) => {
     const entry = entryById.get(id);
-    if (!entry || entry.mappingStatus !== "mapped") return [];
+    if (!entry || entry.vocabularyStatus !== "selectable") return [];
     const hasGestureSignal = gestureSet.has(id);
     const hasVoiceSignal = voiceIds.includes(id);
     const matchedBy: "expression" | "voice" | "gesture" | "both" | "multiple-signals" =
@@ -201,9 +188,7 @@ export function runLocalExperiment(
             : hasVoiceSignal
               ? "voice"
               : "gesture";
-    const dimensionText = entry.dimensions
-      .map((dimension) => humanizeSensoryDimension(dimension).label)
-      .join(", ");
+    const dimensionText = entry.sourceCategory;
     return [
       {
         entry,

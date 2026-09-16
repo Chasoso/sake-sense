@@ -76,14 +76,15 @@ function validateVoiceInput(input) {
 function canonicalEntriesById() {
   return new Map(
     dictionaryData.entries
-      .filter((entry) => entry.mappingStatus === "mapped")
+      .filter((entry) => entry.vocabularyStatus === "selectable")
       .map((entry) => [
         entry.id,
         {
           id: entry.id,
           displayTerm: entry.displayTerm,
           definitionSummary: entry.definitionSummary,
-          dimensions: entry.dimensions,
+          sourceCategory: entry.sourceCategory,
+          ...(entry.parentTermId ? { parentTermId: entry.parentTermId } : {}),
         },
       ]),
   );
@@ -99,7 +100,7 @@ function validateAllowedTermIds(ids) {
   const canonical = canonicalEntriesById();
   assert(
     ids.every((id) => canonical.has(id)),
-    "unknown or unmapped dictionary ID",
+    "unknown or non-selectable dictionary ID",
   );
   return {
     ids,

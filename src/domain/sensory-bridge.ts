@@ -43,7 +43,8 @@ export type SensoryDictionaryContext = Array<{
   id: string;
   displayTerm: string;
   definitionSummary: string;
-  dimensions: Array<{ dimensionId: string; polarity: string }>;
+  sourceCategory: string;
+  parentTermId?: string;
 }>;
 
 export type SensoryBridgeRequest =
@@ -150,12 +151,13 @@ export function buildVoiceSensoryBridgeRequest(
 
 export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
   return dictionaryData.entries
-    .filter((entry) => entry.mappingStatus === "mapped")
+    .filter((entry) => entry.vocabularyStatus === "selectable")
     .map((entry) => ({
       id: entry.id,
       displayTerm: entry.displayTerm,
       definitionSummary: entry.definitionSummary,
-      dimensions: entry.dimensions,
+      sourceCategory: entry.sourceCategory,
+      ...(entry.parentTermId ? { parentTermId: entry.parentTermId } : {}),
     }));
 }
 
@@ -199,7 +201,7 @@ export function buildSensoryBridgeInstruction(request: SensoryBridgeRequest): st
   const allowedContext = getSensoryDictionaryContextForIds(request.allowedTermIds)
     .map(
       (entry) =>
-        `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  dimensions: ${entry.dimensions.map(({ dimensionId, polarity }) => `${dimensionId}:${polarity}`).join(", ") || "none"}`,
+        `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  source category: ${entry.sourceCategory}${entry.parentTermId ? `\n  parent term: ${entry.parentTermId}` : ""}`,
     )
     .join("\n");
   return [
@@ -288,9 +290,11 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         if (endingBehavior === "fading" && durationMs > 700) {
           return {
             sensoryExpressions: ["余韻が残る感じ"],
-            candidateTermIds: ["atoaji"],
+            // Compatibility wording only. #46/#47 own expression-to-term links.
+            candidateTermIds: [],
             unmappedFeatures,
-            reason: "voice duration and fading were observed",
+            reason:
+              "voice duration and fading were observed; the local fixture does not select a sake term",
           };
         }
         return {
@@ -322,18 +326,21 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       if (input.ending === "abrupt" && input.duration === "short") {
         return {
           sensoryExpressions: ["短く切り替わる感じ"],
-          candidateTermIds: ["kire"],
-          unmappedFeatures: unmappedFeatures.filter((feature) => !feature.startsWith("ending:")),
+          // This existing fixture wording is not a #45 term decision.
+          candidateTermIds: [],
+          unmappedFeatures,
           reason:
-            "短い動きと実際に観測された急な停止を、切れが良いという候補へ実験的につないでいます。",
+            "short movement and an abrupt ending were observed; the local fixture does not select a sake term",
         };
       }
       if (input.ending === "gradual" && input.duration === "lingering") {
         return {
           sensoryExpressions: ["余韻が残るような感じ"],
-          candidateTermIds: ["atoaji"],
-          unmappedFeatures: unmappedFeatures.filter((feature) => !feature.startsWith("ending:")),
-          reason: "長く続き、ゆっくり収まった動きを、あと味という候補へ実験的につないでいます。",
+          // Keep the historical fixture string for UI compatibility only.
+          candidateTermIds: [],
+          unmappedFeatures,
+          reason:
+            "a long gradual ending was observed; the local fixture does not select a sake term",
         };
       }
       return {

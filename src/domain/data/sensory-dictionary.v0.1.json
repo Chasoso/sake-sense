@@ -1,230 +1,224 @@
 {
   "version": "0.1.0",
   "status": "experimental",
-  "dimensions": [
-    {
-      "id": "weight",
-      "label": "軽さ ↔ 重さ",
-      "polarities": ["light", "heavy"],
-      "status": "experimental"
-    },
-    {
-      "id": "shape",
-      "label": "鋭さ ↔ 丸さ",
-      "polarities": ["sharp", "round"],
-      "status": "experimental"
-    },
-    {
-      "id": "duration",
-      "label": "短さ ↔ 余韻",
-      "polarities": ["short", "lingering"],
-      "status": "experimental"
-    }
-  ],
   "entries": [
     {
-      "id": "tanrei",
-      "displayTerm": "淡麗",
-      "definitionSummary": "すっきりして、味の調和がよいという評価語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "weight", "polarity": "light" }],
+      "id": "atoaji",
+      "displayTerm": "あと味",
+      "definitionSummary": "飲み込んだ後に口に残る味わいを表す官能評価語。",
+      "vocabularyStatus": "selectable",
+      "sourceCategory": "aftertaste",
       "everydayLanguageCandidates": [
-        { "text": "すっきり", "status": "source-supported" },
-        { "text": "軽やか", "status": "inferred-from-examples" }
-      ],
-      "nonverbalCandidates": [
-        { "kind": "gesture", "feature": "小さく短い動き", "status": "experimental" },
-        { "kind": "sound-rhythm", "feature": "軽く速いリズム", "status": "experimental" }
+        { "text": "飲んだ後に残る感じ", "status": "inferred-from-examples" }
       ],
       "provenance": [
         {
-          "sourceId": "nta-tasting-terms-2023",
-          "sourceType": "National Tax Agency tasting terminology",
-          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists あと味 as aftertaste, a term expressing taste."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "軽さだけを意味する単純な点数ではなく、味の調和を含む評価語として扱う。"
+      "notes": "Source-backed terminology. Any Body/Voice interpretation is a separate experimental bridge layer."
     },
     {
-      "id": "nojun",
-      "displayTerm": "濃醇",
-      "definitionSummary": "味が濃く、よく調和しているという評価語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "weight", "polarity": "heavy" }],
+      "id": "kire",
+      "displayTerm": "きれ",
+      "definitionSummary": "あと味の評価語で、味が後まで残らない側を表す。初心者向けには「切れが良い」と説明できる。",
+      "vocabularyStatus": "selectable",
+      "sourceCategory": "aftertaste",
+      "parentTermId": "atoaji",
       "everydayLanguageCandidates": [
-        { "text": "味がしっかり", "status": "source-supported" },
-        { "text": "厚みがある", "status": "inferred-from-examples" }
-      ],
-      "nonverbalCandidates": [
-        { "kind": "gesture", "feature": "ゆっくり広がる動き", "status": "experimental" }
+        { "text": "すっと終わる感じ", "status": "inferred-from-examples" }
       ],
       "provenance": [
         {
-          "sourceId": "nta-tasting-terms-2023",
-          "sourceType": "National Tax Agency tasting terminology",
-          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+          "sourceId": "nrib-seikoumi-quality-terms",
+          "sourceName": "酒類総合研究所「清酒の官能評価分析における香味に関する品質評価用語及び標準見本」",
+          "sourceType": "public institutional sensory-evaluation material",
+          "url": "https://www.nrib.go.jp/data/pdf/seikoumihou.pdf",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "The NRIB terminology places きれ under あと味."
         },
         {
-          "sourceId": "nrib-sensory-terms",
-          "sourceType": "National Research Institute of Brewing sensory terminology",
-          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "英語用語表の対応語を参照し、意味を日本語で要約した。"
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceName": "国税庁「きき酒用語」掲載資料",
+          "sourceType": "public government training material",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "Used only to corroborate the familiar explanatory wording 「切れが良い」; canonical display remains きれ."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "濃さと品質の優劣を同一視しない。"
+      "notes": "The parent relationship is dictionary structure, not a duration-only or motion mapping."
     },
     {
       "id": "nameraka",
       "displayTerm": "なめらか",
-      "definitionSummary": "口当たりがなめらかで、角がないという評価語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
+      "definitionSummary": "口あたりのきめ・舌触りが滑らかなことを表す官能評価語。",
+      "vocabularyStatus": "selectable",
+      "sourceCategory": "mouthfeel-texture",
       "everydayLanguageCandidates": [
-        { "text": "角がない", "status": "source-supported" },
-        { "text": "すべるよう", "status": "experimental" }
-      ],
-      "nonverbalCandidates": [
-        { "kind": "gesture", "feature": "途切れない曲線", "status": "experimental" }
+        { "text": "舌触りが滑らかな感じ", "status": "source-supported" }
       ],
       "provenance": [
         {
-          "sourceId": "nta-tasting-terms-2023",
-          "sourceType": "National Tax Agency tasting terminology",
-          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公的資料の短い日本語要約。原文の説明文は転載していない。"
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary identifies なめらか as smooth and a texture term."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "飲みやすさや好ましさを自動的に意味する語ではない。"
+      "notes": "Separate from まるい: this entry concerns texture/fineness, not low stimulation."
     },
     {
       "id": "marui",
       "displayTerm": "まるい",
-      "definitionSummary": "丸みのある口当たりを表す評価語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "shape", "polarity": "round" }],
+      "definitionSummary": "刺激味が少ない側の、丸みのある口あたりを表す官能評価語。",
+      "vocabularyStatus": "selectable",
+      "sourceCategory": "mouthfeel-stimulus",
       "everydayLanguageCandidates": [
-        { "text": "丸みがある", "status": "source-supported" },
-        { "text": "やわらかい", "status": "inferred-from-examples" }
-      ],
-      "nonverbalCandidates": [
-        { "kind": "onomatopoeia", "feature": "ころんとした音の印象", "status": "experimental" }
+        { "text": "刺激が少なく丸みのある感じ", "status": "source-supported" }
       ],
       "provenance": [
         {
-          "sourceId": "nrib-sensory-terms",
-          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "sourceId": "nrib-seikoumi-quality-terms",
+          "sourceName": "酒類総合研究所「清酒の官能評価分析における香味に関する品質評価用語及び標準見本」",
+          "sourceType": "public institutional sensory-evaluation material",
+          "url": "https://www.nrib.go.jp/data/pdf/seikoumihou.pdf",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB terminology treats まるい as the low-stimulation side of mouthfeel."
+        },
+        {
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
           "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "round / mellow に対応する用語を短く日本語化した。"
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists まるい as round/mellow texture terminology."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "温度や組み合わせによる感じ方の差をこの語だけで決めない。"
-    },
-    {
-      "id": "kire",
-      "displayTerm": "切れが良い",
-      "definitionSummary": "あと味の切れがよいという評価語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "duration", "polarity": "short" }],
-      "everydayLanguageCandidates": [
-        { "text": "後味がすっと消える", "status": "source-supported" },
-        { "text": "あとを引かない", "status": "inferred-from-examples" }
-      ],
-      "nonverbalCandidates": [
-        { "kind": "sound-rhythm", "feature": "短く止まるリズム", "status": "experimental" }
-      ],
-      "provenance": [
-        {
-          "sourceId": "nta-tasting-terms-2023",
-          "sourceType": "National Tax Agency tasting terminology",
-          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公的資料の短い日本語要約。日常語候補は意味を補助するために分離した。"
-        }
-      ],
-      "confidenceStatus": "source-supported",
-      "notes": "アルコール感や辛さと同じ意味とは限らない。"
+      "notes": "Not a synonym for なめらか and not a generic shape mapping."
     },
     {
       "id": "sanmi",
       "displayTerm": "酸味",
-      "definitionSummary": "酸による味わいを表す基本的な味覚語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "shape", "polarity": "sharp" }],
-      "everydayLanguageCandidates": [
-        { "text": "すっぱい", "status": "source-supported" },
-        { "text": "きゅっとする", "status": "inferred-from-examples" }
-      ],
-      "nonverbalCandidates": [],
+      "definitionSummary": "酸による味わいを表す基本味の官能評価語。",
+      "vocabularyStatus": "reference-only",
+      "sourceCategory": "basic-taste",
+      "everydayLanguageCandidates": [{ "text": "酸っぱい味わい", "status": "source-supported" }],
       "provenance": [
         {
-          "sourceId": "nrib-sensory-terms",
-          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
           "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "acid / sourness に対応する用語を短く日本語化した。"
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists 酸味 as acid/sourness, a term expressing taste."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "酸味の強さと酒全体の良し悪しを同一視しない。"
+      "notes": "Reference-only for the MVP bridge; no shape:sharp relationship is retained."
     },
     {
       "id": "umami",
       "displayTerm": "うま味",
-      "definitionSummary": "うま味を表す味覚語。",
-      "mappingStatus": "unmapped",
-      "dimensions": [],
+      "definitionSummary": "うま味を表す基本味の官能評価語。",
+      "vocabularyStatus": "reference-only",
+      "sourceCategory": "basic-taste",
       "everydayLanguageCandidates": [
-        { "text": "だしのよう", "status": "inferred-from-examples" },
-        { "text": "味わいがある", "status": "experimental" }
+        { "text": "うま味のある味わい", "status": "inferred-from-examples" }
       ],
-      "nonverbalCandidates": [],
       "provenance": [
         {
-          "sourceId": "nrib-sensory-terms",
-          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
           "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "savory taste / umami に対応する用語を短く日本語化した。"
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists うま味 as savory taste/umami, a term expressing taste."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "日常語候補は公式定義ではなく、今後の橋渡し実験用の候補である。"
+      "notes": "Reference-only for the MVP bridge."
     },
     {
-      "id": "atoaji",
-      "displayTerm": "あと味",
-      "definitionSummary": "飲み込んだ後に残る味わいを表す語。",
-      "mappingStatus": "mapped",
-      "dimensions": [{ "dimensionId": "duration", "polarity": "lingering" }],
-      "everydayLanguageCandidates": [
-        { "text": "後に残る感じ", "status": "inferred-from-examples" },
-        { "text": "余韻", "status": "experimental" }
+      "id": "amami",
+      "displayTerm": "甘味",
+      "definitionSummary": "甘さを表す基本味の官能評価語。",
+      "vocabularyStatus": "reference-only",
+      "sourceCategory": "basic-taste",
+      "everydayLanguageCandidates": [{ "text": "甘い味わい", "status": "source-supported" }],
+      "provenance": [
+        {
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists 甘味 as sweetness, a term expressing taste."
+        }
       ],
-      "nonverbalCandidates": [
-        { "kind": "gesture", "feature": "尾を引く動き", "status": "experimental" }
+      "notes": "Reference-only for the MVP bridge; added after human semantic review."
+    },
+    {
+      "id": "tanrei",
+      "displayTerm": "淡麗",
+      "definitionSummary": "軽快で繊細な味わいを表す、濃淡・body文脈の官能評価語。",
+      "vocabularyStatus": "reference-only",
+      "sourceCategory": "concentration-body",
+      "everydayLanguageCandidates": [
+        { "text": "軽快で繊細な味わい", "status": "source-supported" }
       ],
       "provenance": [
         {
-          "sourceId": "nrib-sensory-terms",
-          "sourceType": "National Research Institute of Brewing sensory terminology",
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
           "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "aftertaste に対応する用語を短く日本語化した。余韻は別の実験候補として分離した。"
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists 淡麗 as light body/light and delicate taste."
+        },
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceName": "国税庁「きき酒用語」掲載資料",
+          "sourceType": "public government training material",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "Used to corroborate the term as a public tasting vocabulary item."
         }
       ],
-      "confidenceStatus": "source-supported",
-      "notes": "残ること自体を良い・悪いとは評価しない。"
+      "notes": "Reference-only. No weight:light or movement shortcut is retained."
+    },
+    {
+      "id": "nojun",
+      "displayTerm": "濃醇",
+      "definitionSummary": "豊かで厚みのある味わいを表す、濃淡・body文脈の官能評価語。",
+      "vocabularyStatus": "reference-only",
+      "sourceCategory": "concentration-body",
+      "everydayLanguageCandidates": [
+        { "text": "豊かで厚みのある味わい", "status": "source-supported" }
+      ],
+      "provenance": [
+        {
+          "sourceId": "nrib-sake-terms",
+          "sourceName": "NRIB Japanese Sake Essentials — Sensory Evaluation Terms",
+          "sourceType": "public institutional glossary",
+          "url": "https://www.nrib.go.jp/English/sake_info/sake-essentials/sensory-evaluation-terms/",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "NRIB glossary lists 濃醇 as full body/rich and full taste."
+        },
+        {
+          "sourceId": "nta-tasting-terms-2023",
+          "sourceName": "国税庁「きき酒用語」掲載資料",
+          "sourceType": "public government training material",
+          "url": "https://www.nta.go.jp/taxes/sake/hambai/moderutekisuto/pdf/r05_07_07.pdf",
+          "accessedOn": "2026-09-17",
+          "transformationNote": "Used to corroborate the term as a public tasting vocabulary item."
+        }
+      ],
+      "notes": "Reference-only. No weight:heavy or broad-movement shortcut is retained."
     }
   ]
 }
