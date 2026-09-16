@@ -43,7 +43,8 @@ export type SensoryDictionaryContext = Array<{
   id: string;
   displayTerm: string;
   definitionSummary: string;
-  dimensions: Array<{ dimensionId: string; polarity: string }>;
+  sourceCategory: string;
+  parentTermId?: string;
 }>;
 
 export type SensoryBridgeRequest =
@@ -150,12 +151,13 @@ export function buildVoiceSensoryBridgeRequest(
 
 export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
   return dictionaryData.entries
-    .filter((entry) => entry.mappingStatus === "mapped")
+    .filter((entry) => entry.vocabularyStatus === "selectable")
     .map((entry) => ({
       id: entry.id,
       displayTerm: entry.displayTerm,
       definitionSummary: entry.definitionSummary,
-      dimensions: entry.dimensions,
+      sourceCategory: entry.sourceCategory,
+      ...(entry.parentTermId ? { parentTermId: entry.parentTermId } : {}),
     }));
 }
 
@@ -199,7 +201,7 @@ export function buildSensoryBridgeInstruction(request: SensoryBridgeRequest): st
   const allowedContext = getSensoryDictionaryContextForIds(request.allowedTermIds)
     .map(
       (entry) =>
-        `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  dimensions: ${entry.dimensions.map(({ dimensionId, polarity }) => `${dimensionId}:${polarity}`).join(", ") || "none"}`,
+        `- id: ${entry.id}\n  term: ${entry.displayTerm}\n  definition: ${entry.definitionSummary}\n  source category: ${entry.sourceCategory}${entry.parentTermId ? `\n  parent term: ${entry.parentTermId}` : ""}`,
     )
     .join("\n");
   return [

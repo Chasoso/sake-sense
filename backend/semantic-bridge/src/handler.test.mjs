@@ -93,7 +93,8 @@ describe("production semantic bridge Lambda", () => {
       expect(request.dictionaryContext).toHaveLength(1);
       expect(request.dictionaryContext[0]).toMatchObject({
         id: "kire",
-        dimensions: [{ dimensionId: "duration", polarity: "short" }],
+        sourceCategory: "aftertaste",
+        parentTermId: "atoaji",
       });
       expect(typeof request.dictionaryContext[0].displayTerm).toBe("string");
       expect(typeof request.dictionaryContext[0].definitionSummary).toBe("string");

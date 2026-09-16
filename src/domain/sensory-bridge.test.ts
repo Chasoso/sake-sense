@@ -2,18 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   buildSensoryBridgeInput,
   buildSensoryBridgeInstruction,
-  createFallbackSensoryBridgeResponse,
   createFixtureSensoryBridgeProvider,
   getSelectableSensoryTermIds,
-  presentSensoryBridgeProvider,
   serializeSensoryDictionaryContext,
   serializeSensoryBridgeRequest,
-  createHttpSensoryBridgeProvider,
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
 
-const baseFeatures: BodyMovementFeatures = {
+const features: BodyMovementFeatures = {
   frameCount: 10,
   captureDurationMs: 3000,
   activeDurationMs: 2000,
@@ -34,212 +31,106 @@ const baseFeatures: BodyMovementFeatures = {
   },
 };
 
-describe("EXP-005 sensory bridge", () => {
-  it("builds observable-only input without legacy weight conclusions", () => {
-    const input = buildSensoryBridgeInput(baseFeatures);
-    expect(input).toEqual({
-      duration: "lingering",
-      ending: "gradual",
-      expansion: "unknown",
-      direction: "lateral",
-      repetition: "repeated",
-      participation: "broad",
-      spread: "broad",
-      speed: "unknown",
-    });
-    expect(input).not.toHaveProperty("weight");
-    expect(input).not.toHaveProperty("candidateTermIds");
-  });
-
-  it("serializes only the curated dictionary context", () => {
+describe("MVP sensory bridge vocabulary boundary", () => {
+  it("serializes only the four selectable terms", () => {
     const context = serializeSensoryDictionaryContext();
-    expect(context.length).toBeGreaterThan(0);
-    expect(new Set(context.map((entry) => entry.id)).size).toBe(context.length);
-    expect(context.every((entry) => !("provenance" in entry))).toBe(true);
-    expect(context.find((entry) => entry.id === "nojun")?.displayTerm).toBe("濃醇");
+    expect(context.map((entry) => entry.id)).toEqual(["atoaji", "kire", "nameraka", "marui"]);
     expect(context.find((entry) => entry.id === "kire")).toMatchObject({
-      displayTerm: "切れが良い",
-      definitionSummary: "あと味の切れがよいという評価語。",
-      dimensions: [{ dimensionId: "duration", polarity: "short" }],
+      displayTerm: "きれ",
+      parentTermId: "atoaji",
+      sourceCategory: "aftertaste",
     });
-    expect(context.find((entry) => entry.id === "umami")).toBeUndefined();
+    expect(context.every((entry) => !("provenance" in entry))).toBe(true);
   });
 
-  it("builds provider-neutral safety instructions from the closed dictionary", () => {
+  it("excludes reference-only terms from serialized, allowed, and validated candidates", () => {
+    const allowed = getSelectableSensoryTermIds();
+    expect(allowed).toEqual(["atoaji", "kire", "nameraka", "marui"]);
+    for (const id of ["sanmi", "umami", "amami", "tanrei", "nojun"]) {
+      expect(allowed).not.toContain(id);
+      expect(
+        validateSensoryBridgeResponse({
+          sensoryExpressions: [],
+          candidateTermIds: [id],
+          unmappedFeatures: [],
+          reason: "候補外です",
+        }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("keeps observable input separate from legacy reductive dimensions", () => {
+    const input = buildSensoryBridgeInput(features);
+    expect(input).toMatchObject({ direction: "lateral", repetition: "repeated", spread: "broad" });
+    expect(input).not.toHaveProperty("weight");
+    expect(JSON.stringify(input)).not.toContain("shape");
     const instruction = buildSensoryBridgeInstruction({
       modality: "body",
-      input: buildSensoryBridgeInput(baseFeatures),
+      input,
       allowedTermIds: getSelectableSensoryTermIds(),
     });
-    expect(instruction).toContain("味の測定・判定ではありません");
-    expect(instruction).toContain("nojun");
     expect(instruction).toContain("kire");
-    expect(instruction).toContain("切れが良い");
-    expect(instruction).toContain("あと味の切れがよいという評価語。");
-    expect(instruction).toContain("duration:short");
-    expect(instruction).toContain("atoaji");
-    expect(instruction).toContain("飲み込んだ後に残る味わいを表す語。");
-    expect(instruction).toContain("商品推薦");
+    expect(instruction).not.toContain("nojun");
+    expect(instruction).not.toContain("weight:heavy");
+    expect(instruction).not.toContain("shape:sharp");
   });
 
-  it("keeps provider selectable IDs identical to validator IDs", () => {
-    const contextIds = serializeSensoryDictionaryContext().map((entry) => entry.id);
-    expect(contextIds).toEqual(getSelectableSensoryTermIds());
-    for (const id of contextIds) {
-      const result = validateSensoryBridgeResponse({
-        sensoryExpressions: [],
-        candidateTermIds: [id],
-        unmappedFeatures: [],
-        reason: "検証用の理由",
-      });
-      expect(result.ok).toBe(true);
-    }
+  it("keeps broad repeated lateral sway unmapped in the deterministic fixture", async () => {
+    const response = await createFixtureSensoryBridgeProvider().interpret({
+      modality: "body",
+      input: buildSensoryBridgeInput(features),
+      allowedTermIds: getSelectableSensoryTermIds(),
+    });
+    const validated = validateSensoryBridgeResponse(response);
+    expect(validated.ok).toBe(true);
+    if (validated.ok) expect(validated.value.candidateTermIds).toEqual([]);
+  });
+
+  it("serializes only derived input and validates selectable candidates", () => {
+    const request = {
+      modality: "body" as const,
+      input: buildSensoryBridgeInput(features),
+      allowedTermIds: getSelectableSensoryTermIds(),
+    };
+    expect(serializeSensoryBridgeRequest(request)).not.toContain("definitionSummary");
     expect(
       validateSensoryBridgeResponse({
         sensoryExpressions: [],
-        candidateTermIds: ["umami"],
+        candidateTermIds: ["kire"],
         unmappedFeatures: [],
-        reason: "検証用の理由",
-      }),
-    ).toEqual(expect.objectContaining({ ok: false }));
+        reason: "実験的な候補です",
+      }).ok,
+    ).toBe(true);
   });
 
-  it("presents fixture, fallback, and future AI providers distinctly", () => {
-    expect(presentSensoryBridgeProvider("fixture").heading).toContain("ローカル実験");
-    expect(presentSensoryBridgeProvider("fixture").explanation).not.toContain("AIは");
-    expect(presentSensoryBridgeProvider("fallback").explanation).toContain("観測した動きのみ");
-    expect(presentSensoryBridgeProvider("fallback").explanation).not.toContain("AIは");
-    expect(presentSensoryBridgeProvider("ai").heading).toContain("AIによる");
-  });
-
-  it("declares the fixture implementation source explicitly", () => {
-    expect(createFixtureSensoryBridgeProvider().kind).toBe("fixture");
-  });
-
-  it("serializes only derived bridge fields for the production provider", () => {
-    const serialized = serializeSensoryBridgeRequest({
-      modality: "body",
-      input: buildSensoryBridgeInput(baseFeatures),
-      allowedTermIds: getSelectableSensoryTermIds(),
-    });
-    expect(serialized).not.toContain("landmark");
-    expect(serialized).not.toContain("video");
-    expect(serialized).not.toContain("audio");
-    expect(serialized).toContain('"duration":"lingering"');
-    expect(serialized).toContain('"allowedTermIds"');
-  });
-
-  it("uses the explicit AI provider for an HTTP endpoint", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (_input, init) => {
-      expect(init?.method).toBe("POST");
-      expect(String(init?.body)).toContain('"allowedTermIds"');
-      expect(String(init?.body)).not.toContain("definitionSummary");
-      expect(String(init?.body)).not.toContain("displayTerm");
-      expect(String(init?.body)).not.toContain("dimensions");
-      return new Response(
-        JSON.stringify({
-          sensoryExpressions: [],
-          candidateTermIds: [],
-          unmappedFeatures: ["direction:lateral"],
-          reason: "ambiguous observable input",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
-    }) as typeof fetch;
-    try {
-      const provider = createHttpSensoryBridgeProvider("https://example.test/semantic-bridge");
-      expect(provider.kind).toBe("ai");
-      const response = await provider.interpret({
-        modality: "body",
-        input: buildSensoryBridgeInput(baseFeatures),
-        allowedTermIds: getSelectableSensoryTermIds(),
-      });
-      expect(validateSensoryBridgeResponse(response).ok).toBe(true);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it("accepts zero candidates as a valid unmapped response", () => {
-    const result = validateSensoryBridgeResponse({
-      sensoryExpressions: ["ゆらぎながら続く感じ"],
-      candidateTermIds: [],
-      unmappedFeatures: ["direction:lateral"],
-      reason: "根拠が弱いため候補を選びません。",
-    });
-    expect(result).toEqual(expect.objectContaining({ ok: true }));
-  });
-
-  it("provides a safe no-candidate fallback when a provider is unavailable", () => {
-    const fallback = createFallbackSensoryBridgeResponse(buildSensoryBridgeInput(baseFeatures));
-    expect(fallback.candidateTermIds).toEqual([]);
-    expect(fallback.sensoryExpressions).toEqual([]);
-    expect(fallback.reason).toContain("観測した動き");
-  });
-
-  it("rejects malformed, unknown, duplicate, and extra response data", () => {
-    expect(validateSensoryBridgeResponse("not json")).toEqual({
-      ok: false,
-      error: "橋渡し応答の形式を確認できませんでした。",
-    });
+  it("rejects malformed, unknown, duplicate, and extra bridge response data", () => {
+    expect(validateSensoryBridgeResponse("not json").ok).toBe(false);
     expect(
       validateSensoryBridgeResponse({
         sensoryExpressions: [],
         candidateTermIds: ["invented"],
         unmappedFeatures: [],
-        reason: "理由",
-      }),
-    ).toEqual(expect.objectContaining({ ok: false }));
+        reason: "候補外です",
+      }).ok,
+    ).toBe(false);
     expect(
       validateSensoryBridgeResponse({
         sensoryExpressions: [],
         candidateTermIds: ["kire", "kire"],
         unmappedFeatures: [],
-        reason: "理由",
-      }),
-    ).toEqual(expect.objectContaining({ ok: false }));
+        reason: "重複です",
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("accepts zero candidates as an intentional unmapped result", () => {
     expect(
       validateSensoryBridgeResponse({
-        sensoryExpressions: [],
+        sensoryExpressions: ["まだ言葉にしにくい感じ"],
         candidateTermIds: [],
-        unmappedFeatures: [],
-        reason: "理由",
-        recommendation: "買うべき",
-      } as never),
-    ).toEqual(expect.objectContaining({ ok: false }));
-  });
-
-  it("keeps repeated lateral sway unmapped in the fixture path", async () => {
-    const provider = createFixtureSensoryBridgeProvider();
-    const response = await provider.interpret({
-      modality: "body",
-      input: buildSensoryBridgeInput(baseFeatures),
-      allowedTermIds: getSelectableSensoryTermIds(),
-    });
-    const validated = validateSensoryBridgeResponse(response);
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
-    expect(validated.value.candidateTermIds).toEqual([]);
-    expect(validated.value.sensoryExpressions).toContain("ゆらぎながら続く感じ");
-  });
-
-  it("maps only a grounded short abrupt fixture candidate", async () => {
-    const provider = createFixtureSensoryBridgeProvider();
-    const response = await provider.interpret({
-      modality: "body",
-      input: buildSensoryBridgeInput({
-        ...baseFeatures,
-        activeDurationMs: 500,
-        spread: 0.5,
-        endingBehavior: "abrupt",
-        motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
+        unmappedFeatures: ["direction:lateral"],
+        reason: "候補を絞れません",
       }),
-      allowedTermIds: getSelectableSensoryTermIds(),
-    });
-    const validated = validateSensoryBridgeResponse(response);
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
-    expect(validated.value.candidateTermIds).toEqual(["kire"]);
+    ).toEqual(expect.objectContaining({ ok: true }));
   });
 });
