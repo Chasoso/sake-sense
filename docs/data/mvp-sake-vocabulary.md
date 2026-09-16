@@ -48,6 +48,8 @@ The earlier dictionary's `weight`, `shape`, and `duration` fields were experimen
 
 Observable Body/Voice fields remain observations. They are passed to the experimental bridge without a deterministic gesture/voice-to-sake-term mapping. A bridge response with no candidates (`unmapped`) is a valid, expected result.
 
+The pre-existing `すっ / すっと -> kire` and `じわ -> atoaji` text path remains only as an explicitly legacy experimental compatibility path in `runLocalExperiment()`. It is neither source-backed dictionary meaning nor the #46 expression dataset, and it must be replaceable by that later work.
+
 ## Provenance and future changes
 
 Every retained term has a concise definition, source name/type/URL, and transformation note in `src/domain/data/sensory-dictionary.v0.1.json`. The primary sources reviewed are:

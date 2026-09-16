@@ -96,6 +96,7 @@ export type ExperimentResult = {
       };
 };
 
+// Historical local-text compatibility only; #46 owns the reviewed expression dataset.
 const expressionMappings: Record<string, string[]> = {
   "\u30b9\u30c3": ["kire"],
   すっ: ["kire"],
