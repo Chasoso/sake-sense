@@ -28,7 +28,7 @@ Provider implementations explicitly declare `fixture` or `ai`; successful execut
 
 The EXP-005 path does not pass legacy `weight:heavy` or `weight:light` conclusions to the bridge. Broad spread remains `spread:broad`, and repeated lateral sway may remain unmapped. Zero candidates is a valid result. Existing EXP-003/004 deterministic behavior remains historical/comparison behavior and is not silently removed.
 
-The reviewed beginner-facing expression records are maintained separately in [MVP sensory expressions](../data/mvp-sensory-expressions.md). The local fixture may use their IDs to resolve display text for legacy UI compatibility, but it returns no sake-term candidates from Body or Voice observations. Feature-to-expression support rules remain a later Human-reviewed responsibility; expression-to-term link status does not establish a feature mapping.
+The reviewed beginner-facing expression records are maintained separately in [MVP sensory expressions](../data/mvp-sensory-expressions.md). The local fixture retains its historical display routes through separate fixture-only legacy records; it does not select #46 expressions, returns no sake-term candidates from Body or Voice observations, and does not establish approved feature-to-expression support. Feature-to-expression support rules remain a later Human-reviewed responsibility; expression-to-term link status does not establish a feature mapping.
 
 ## Safety and privacy
 

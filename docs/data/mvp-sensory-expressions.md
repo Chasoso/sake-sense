@@ -36,6 +36,6 @@ The current pool contains 15 expressions and two separate system interpretation 
 
 ## Scope boundary
 
-Issue #46 defines expression content and term-link status only. Issue #47 decides whether any observable Body or Voice feature can support selecting an expression. Existing local fixture routes are legacy compatibility behavior, use expression IDs for display text, and return no sake-term candidates.
+Issue #46 defines expression content and term-link status only. Issue #47 decides whether any observable Body or Voice feature can support selecting an expression. Existing local fixture routes are isolated legacy compatibility behavior: they use fixture-only legacy records rather than #46 expression IDs, return no sake-term candidates, and do not establish approved feature-to-expression support.
 
 Only selectable dictionary terms can be linked by this dataset. The reference-only terms `sanmi`, `umami`, `amami`, `tanrei`, and `nojun` are valid vocabulary, but not normal expression candidates. Adding or promoting an expression requires Human semantic and UX review.

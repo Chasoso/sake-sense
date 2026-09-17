@@ -5,7 +5,10 @@ import {
   type BodyMovementFeatures,
 } from "./body";
 import type { VoiceFeatures } from "./voice";
-import { getSensoryExpressionDisplayText } from "./sensory-expressions";
+import {
+  getLegacyFixtureExpression,
+  type LegacyFixtureExpressionRoute,
+} from "./legacy-sensory-fixture";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -271,9 +274,8 @@ function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): strin
     .map(([key, value]) => `${key}:${value}`);
 }
 
-function fixtureExpression(expressionId: string): string[] {
-  const displayText = getSensoryExpressionDisplayText(expressionId);
-  return displayText ? [displayText] : [];
+function legacyFixtureExpression(route: LegacyFixtureExpressionRoute): string[] {
+  return [getLegacyFixtureExpression(route).displayText];
 }
 
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
@@ -295,8 +297,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         }
         if (endingBehavior === "fading" && durationMs > 700) {
           return {
-            sensoryExpressions: fixtureExpression("lingering-after-feel"),
-            // Existing fixture behavior only; #47 owns feature-to-expression rules.
+            sensoryExpressions: legacyFixtureExpression("voice-fading"),
+            // Historical compatibility only; this is not approved #47 feature support.
             candidateTermIds: [],
             unmappedFeatures,
             reason:
@@ -322,7 +324,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.direction === "lateral" && input.repetition === "repeated") {
         return {
-          sensoryExpressions: fixtureExpression("wavering-continuous"),
+          sensoryExpressions: legacyFixtureExpression("lateral-repeated"),
           candidateTermIds: [],
           unmappedFeatures: ["direction:lateral", "repetition:repeated", "spread:" + input.spread],
           reason:
@@ -331,8 +333,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "abrupt" && input.duration === "short") {
         return {
-          sensoryExpressions: fixtureExpression("clean-fade"),
-          // Existing fixture behavior only; this does not make a term decision.
+          sensoryExpressions: legacyFixtureExpression("short-abrupt"),
+          // Historical compatibility only; this is not approved #47 feature support.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -341,8 +343,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "gradual" && input.duration === "lingering") {
         return {
-          sensoryExpressions: fixtureExpression("lingering-after-feel"),
-          // Existing fixture behavior only; #47 owns feature-to-expression rules.
+          sensoryExpressions: legacyFixtureExpression("gradual-lingering"),
+          // Historical compatibility only; this is not approved #47 feature support.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -351,7 +353,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       return {
         sensoryExpressions:
-          input.expansion === "expanding" ? fixtureExpression("spreading-outward") : [],
+          input.expansion === "expanding" ? legacyFixtureExpression("expanding") : [],
         candidateTermIds: [],
         unmappedFeatures,
         reason:

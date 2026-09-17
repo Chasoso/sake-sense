@@ -12,7 +12,8 @@ import {
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
-import { getSensoryExpressionDisplayText } from "./sensory-expressions";
+import { getLegacyFixtureExpression, legacyFixtureExpressions } from "./legacy-sensory-fixture";
+import { getSensoryExpression } from "./sensory-expressions";
 
 const baseFeatures: BodyMovementFeatures = {
   frameCount: 10,
@@ -186,7 +187,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     }
   });
 
-  it("resolves legacy fixture display text from the reviewed expression dataset", async () => {
+  it("keeps legacy fixture wording outside approved expression support", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const shortAbrupt = await provider.interpret({
       modality: "body",
@@ -202,9 +203,16 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     expect(validated.ok).toBe(true);
     if (!validated.ok) return;
     expect(validated.value.sensoryExpressions).toEqual([
-      getSensoryExpressionDisplayText("clean-fade"),
+      getLegacyFixtureExpression("short-abrupt").displayText,
     ]);
     expect(validated.value.candidateTermIds).toEqual([]);
+    expect(getSensoryExpression(getLegacyFixtureExpression("short-abrupt").id)).toBeUndefined();
+    expect(getSensoryExpression("clean-fade")?.displayText).toBe("すっと引いていく感じ");
+    expect(
+      Object.values(legacyFixtureExpressions).every(
+        ({ id }) => getSensoryExpression(id) === undefined,
+      ),
+    ).toBe(true);
   });
 
   it("uses no candidate in the deterministic Voice fading fixture path", async () => {
@@ -216,7 +224,9 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);
     if (validated.ok) {
-      expect(validated.value.sensoryExpressions).toEqual(["余韻が残る感じ"]);
+      expect(validated.value.sensoryExpressions).toEqual([
+        getLegacyFixtureExpression("voice-fading").displayText,
+      ]);
       expect(validated.value.candidateTermIds).toEqual([]);
     }
   });
