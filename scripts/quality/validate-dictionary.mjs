@@ -1,8 +1,8 @@
 import Ajv from "ajv";
-import { readFileSync } from "node:fs";
+import { readJson } from "./read-json.mjs";
 
-const schema = JSON.parse(readFileSync("schemas/sensory-dictionary.schema.json", "utf8"));
-const dictionary = JSON.parse(readFileSync("src/domain/data/sensory-dictionary.v0.1.json", "utf8"));
+const schema = readJson("schemas/sensory-dictionary.schema.json");
+const dictionary = readJson("src/domain/data/sensory-dictionary.v0.1.json");
 const ajv = new Ajv({ allErrors: true, formats: { uri: true, date: true } });
 const validate = ajv.compile(schema);
 

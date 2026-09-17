@@ -88,11 +88,13 @@ describe("MVP sensory expression dataset", () => {
   it("rejects invalid statuses, non-selectable links, and invalid unmapped records", () => {
     const invalid = structuredClone(expressionData);
     invalid.expressions[0].expressionStatus = "mapped";
+    invalid.expressions[0].termLinkStatus = "pending";
     invalid.expressions[1].candidateTermIds = ["nojun"];
     invalid.expressions[5].candidateTermIds = ["atoaji"];
     expect(findSensoryExpressionErrors(invalid)).toEqual(
       expect.arrayContaining([
         "Invalid expression status: lingering-after-feel",
+        "Invalid term link status: lingering-after-feel",
         "Non-selectable candidate term nojun in clean-fade",
         "Unmapped expression cannot have candidate terms: wavering-continuous",
       ]),

@@ -33,6 +33,7 @@ export type DictionaryEntry = { id: string; vocabularyStatus: string };
 
 const renderableEvidence = new Set(["direct", "accepted-variant"]);
 const currentAvailabilityStatuses = new Set(["confirmed", "unconfirmed", "unavailable"]);
+const evidenceStatuses = new Set(["direct", "accepted-variant", "weak", "rejected"]);
 
 export function isRenderableProductTermReference(
   reference: TermReference,
@@ -49,6 +50,8 @@ export function isRenderableProductTermReference(
       (product.availabilityStatus === "seasonal" &&
         product.currentAvailabilityStatus === "confirmed")) &&
     Boolean(product.provenanceNotes) &&
+    Boolean(reference.sourceWording) &&
+    Boolean(reference.rationale) &&
     Boolean(reference.sourceUrl)
   );
 }
@@ -126,10 +129,13 @@ export function findSakeSampleValidationErrors(
       const dictionaryEntry = dictionary.get(reference.termId);
       if (!dictionaryEntry)
         errors.push(`Unknown dictionary term ${reference.termId} in ${product.id}`);
-      if (!["direct", "accepted-variant", "weak", "rejected"].includes(reference.evidenceStatus))
+      if (!evidenceStatuses.has(reference.evidenceStatus))
         errors.push(`Invalid evidence status in ${product.id}`);
-      if (!reference.sourceUrl || reference.sourceUrl.includes("example.com"))
+      if (!reference.sourceWording || !reference.rationale || !reference.sourceUrl) {
+        errors.push(`Missing term reference provenance in ${product.id} for ${reference.termId}`);
+      } else if (reference.sourceUrl.includes("example.com")) {
         errors.push(`Invalid term evidence URL in ${product.id}`);
+      }
       if (
         reference.sourceWording === "まろやか" &&
         reference.termId === "marui" &&

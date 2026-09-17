@@ -1,7 +1,6 @@
 import Ajv from "ajv";
-import { readFileSync } from "node:fs";
+import { readJson } from "./read-json.mjs";
 
-const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const schema = readJson("schemas/sensory-support-cases.schema.json");
 const dataset = readJson("src/domain/data/sensory-support-cases.v0.1.json");
 const expressions = readJson("src/domain/data/sensory-expressions.v0.1.json");

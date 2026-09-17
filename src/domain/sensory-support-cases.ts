@@ -219,12 +219,14 @@ export function getSensoryExpressionDisplayTextsForSupport(
 
 export function findSensorySupportCaseErrors(
   dataset: SensorySupportCaseValidationDataset,
+  expressions: readonly { id: string }[] = sensoryExpressions,
+  interpretationStates: readonly { id: string }[] = sensoryInterpretationStates,
 ): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
   const patternKeys = new Set<string>();
-  const expressionIds = new Set(sensoryExpressions.map((expression) => expression.id));
-  const stateIds = new Set<string>(sensoryInterpretationStates.map((state) => state.id));
+  const expressionIds = new Set(expressions.map((expression) => expression.id));
+  const stateIds = new Set<string>(interpretationStates.map((state) => state.id));
 
   for (const case_ of dataset.cases) {
     if (ids.has(case_.id)) errors.push(`Duplicate sensory support case ID: ${case_.id}`);
