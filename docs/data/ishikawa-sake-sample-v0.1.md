@@ -1,26 +1,77 @@
-# Ishikawa sake sample v0.1
+# Ishikawa sake MVP dataset v0.2
 
-This is a small, experimental sample for the EXP-002 product-connection experiment. It contains five products from two Ishikawa producers, not a complete catalog or a quality ranking. The machine-readable data is [`ishikawa-sake-sample.v0.1.json`](../../src/domain/data/ishikawa-sake-sample.v0.1.json), validated by [`ishikawa-sake-sample.schema.json`](../../schemas/ishikawa-sake-sample.schema.json).
+This is a curated, provenance-backed MVP dataset, not a catalog, ranking, or independent sensory assessment. It covers the 32-member Ishikawa Sake Brewers Association baseline reviewed in the Issue #48 Notion source of truth. A product without an allowed selectable-term reference is still a valid coverage record.
 
-## Sources reviewed and retained
+Machine-readable sources are [`ishikawa-breweries.v0.1.json`](../../src/domain/data/ishikawa-breweries.v0.1.json) and [`ishikawa-sake-sample.v0.1.json`](../../src/domain/data/ishikawa-sake-sample.v0.1.json). The legacy filename is retained for import compatibility; its data version is `0.2.0`.
 
-The retained sources are official product pages from [菊姫](https://www.kikuhime.co.jp/) and [天狗舞 / 車多酒造](https://www.tengumai.co.jp/), checked on 2026-08-29:
+## Matching policy
 
-- [菊姫 特撰純米 and product information](https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/): the product page supports the concise product summary.
-- [菊姫 味わいから選ぶ](https://www.kikuhime.co.jp/product/taste/): the official taste-category page places 特撰純米 in `濃醇タイプ`, which is the source-supported basis for the `nojun` reference.
-- [菊姫 山廃純米](https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/): `濃醇` is explicitly used; it references `nojun`.
-- [菊姫 加州菊酒](https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/): `酸味` and `キレが良い` are explicit; it references `sanmi` and `kire`.
-- [菊姫吟醸](https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/): `軽やか` is explicit; its `tanrei` reference is deliberately `inferred-from-wording`, not an official claim that the product is 淡麗.
-- [天狗舞 山廃仕込純米酒](https://www.tengumai.co.jp/products/junmai/19.html): `酸味` is explicit; `濃厚な香味` is recorded as an inferred, limited reference to `nojun`.
+Normal product matching requires all of the following:
 
-The sample uses concise paraphrases and stores the source URL, access date, source type, and transformation note for each product. No product description is copied at length.
+- a selectable #45 term (`atoaji`, `kire`, `nameraka`, or `marui`);
+- an explicit structured term reference;
+- `direct` or human-approved `accepted-variant` evidence;
+- `regular`, or `seasonal` with `currentAvailabilityStatus: confirmed`; and
+- reviewable provenance.
 
-## Omitted and ambiguous material
+`availabilityStatus` describes the product's sales pattern. Current normal-result eligibility is separate: seasonal records require an explicit current/in-season confirmation, while past or unconfirmed seasonal listings remain provenance-backed reference records. `weak`, `rejected`, reference-only, unknown-availability, and discontinued records do not normally match. No free-text similarity is used. `余韻` is the approved variant for `atoaji`; `丸み`-family wording is the approved variant for `marui`; `まろやか` is explicitly rejected as `marui` evidence.
 
-Products were omitted when the available source did not provide a sufficiently clear connection to an existing dictionary term. No new dictionary terms were added. The two `inferred-from-wording` mappings remain visibly qualified because `濃厚` and `軽やか` should not be silently treated as authoritative synonyms for the dictionary terms.
+Image URLs are source metadata only. Every committed product is `imageUsageStatus: needs-review`; an image source page is not reuse permission. Normal image rendering requires both `imageUsageStatus: allowed` and a direct `imageSourceUrl`.
 
-## Licensing and limitations
+## Existing five-product audit
 
-The sources are publicly visible official websites, not automatically open-data sources. This repository stores identifiers, factual metadata, short paraphrases, and provenance for local experimentation; it does not assert a general right to republish source prose or product images. Human review should confirm reuse expectations before any broader publication.
+- Retained/revised: 菊姫 加州菊酒 remains, but only direct `kire` is normally renderable; its `sanmi` reference is audit-only.
+- Removed/deferred from normal matching: 菊姫 特撰純米・山廃純米の `nojun`, 菊姫吟醸の inferred `tanrei`, 天狗舞 山廃仕込純米酒の inferred `nojun` / `sanmi`.
+- Replaced for the normal direct path: 天狗舞 超辛 純米酒 provides explicit `kire` evidence.
 
-The sample is not comprehensive, does not rank or recommend products, and does not claim that Sake Sense independently evaluated taste. Human review must decide whether the product selection, Ishikawa connection, source credibility, wording, and inferred mappings are suitable for EXP-002.
+## Brewery coverage — 32 / 32
+
+| Brewery    | Coverage status                     | Included product                   | Source quality / note                                       |
+| ---------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------- |
+| 久世酒造店 | source-found-but-no-selectable-term | 能登路 能登復興 特別純米酒         | Association; availability unknown                           |
+| 武内酒造店 | source-found-but-no-selectable-term | 御所泉 純米吟醸                    | Association                                                 |
+| 中村酒造   | covered                             | 金澤中村屋 能登復興支援酒 純米吟醸 | Association; direct wording, availability unknown           |
+| 福光屋     | covered                             | 加賀鳶 いかづち 一閃               | Official; direct `nameraka` / `kire`                        |
+| やちや酒造 | covered                             | 加賀鶴 特別純米 ひやおろし         | Association; direct `nameraka`                              |
+| 金谷酒造店 | covered                             | 高砂 純米 ひやおろし               | Association; direct `atoaji` / `kire`                       |
+| 菊姫       | covered                             | 加州菊酒、純米ひやおろし           | Official; direct `kire`, accepted `marui`                   |
+| 小堀酒造店 | covered                             | 萬歳楽 剱                          | Official; direct `kire`, accepted `atoaji`                  |
+| 車多酒造   | covered                             | 天狗舞 超辛 純米酒                 | Official; direct `kire`                                     |
+| 吉田酒造店 | covered                             | 手取川 山廃仕込 純米酒             | Official; direct `kire`                                     |
+| 加越       | covered                             | 加賀ノ月 純米吟醸                  | Association; direct `atoaji`, availability unknown          |
+| 鹿野酒造   | covered                             | 常きげん 純米吟醸 風神             | Official; direct `kire`                                     |
+| 西出酒造   | covered                             | 春心 山廃つくり本醸造              | Official store; direct `kire`                               |
+| 手塚酒造場 | insufficient-source                 | 菊鶴                               | Supplemental only; needs deeper source                      |
+| 東酒造     | covered                             | 神泉 純米吟醸 ひやおろし           | Association; direct `atoaji`                                |
+| 松浦酒造   | source-found-but-no-selectable-term | 獅子の里 純米酒 ひやおろし         | Association                                                 |
+| 宮本酒造店 | source-found-but-no-selectable-term | 夢醸 純米 ひやおろし               | `まろやか` rejected for `marui`                             |
+| 春成酒造店 | insufficient-source                 | 春山 鵜祭り 特別本醸造             | Supplemental only; needs deeper source                      |
+| 鳥屋酒造   | source-found-but-no-selectable-term | 池月 本醸造                        | Official identity; no inference from やわらかい             |
+| 布施酒造店 | source-found-but-no-selectable-term | 天平 三年古酒 鬼ころし七尾城       | Public source                                               |
+| 御祖酒造   | source-found-but-no-selectable-term | ほまれ 純米 ひやおろし             | Reference-only acid/umami evidence                          |
+| 数馬酒造   | source-found-but-no-selectable-term | 竹葉 純米酒 ミサキ                 | Association                                                 |
+| 櫻田酒造   | source-found-but-no-selectable-term | 能登大慶 純米 ひやおろし           | Association                                                 |
+| 清水酒造店 | covered                             | 奥能登輪島 千枚田                  | Official; direct `kire`                                     |
+| 宗玄酒造   | source-found-but-no-selectable-term | 宗玄 純米 ひやおろし               | Reference-only `nojun` / `sanmi`                            |
+| 鶴野酒造店 | covered                             | 谷泉 特別純米 ひやおろし           | Association; direct `kire`                                  |
+| 中島酒造店 | covered                             | 百石酒屋のおやじの手造り           | Association; direct `kire`                                  |
+| 中野酒造   | insufficient-source                 | 能登亀泉 上撰                      | Industry association; needs deeper source                   |
+| 中納酒造   | covered                             | 黒松 若緑                          | Industry association; direct `atoaji`, availability unknown |
+| 白藤酒造店 | insufficient-source                 | 純米酒 寧音                        | Association identity; needs deeper source                   |
+| 日吉酒造店 | source-found-but-no-selectable-term | おれの酒 純米ひやおろし            | Association / official brand source                         |
+| 松波酒造   | temporarily-unavailable             | 大江山 蔵出し純米酒                | Association; availability unknown                           |
+
+## Selectable-term coverage
+
+| Term       | Direct | Accepted variant | Weak/reference | Breweries                                                                | Limitation                                                        |
+| ---------- | -----: | ---------------: | -------------: | ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `atoaji`   |      5 |                1 |              0 | 中村、金谷、加越、東、中納、小堀                                         | Some direct sources have unknown availability                     |
+| `kire`     |     13 |                0 |              0 | 中村、福光屋、金谷、菊姫、小堀、車多、吉田、鹿野、西出、清水、鶴野、中島 | Several sources are seasonal                                      |
+| `nameraka` |      2 |                0 |              0 | 福光屋、やちや                                                           | Coverage intentionally remains small                              |
+| `marui`    |      0 |                1 |     1 rejected | 菊姫                                                                     | Only approved 丸み wording is rendered; まろやか remains rejected |
+
+## Source inventory and weak cases
+
+Sources are embedded per product and are intentionally limited to official brewery pages/stores, Ishikawa Sake Brewers Association pages/PDFs, public Ishikawa tourism, industry association material, and the named supplemental databases where higher-quality product detail was unavailable.
+
+Hand review remains required for 手塚酒造場、春成酒造店、中野酒造、白藤酒造店 and current post-earthquake availability in the Noto area. These gaps are recorded rather than force-filled.
