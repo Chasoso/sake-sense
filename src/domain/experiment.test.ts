@@ -57,17 +57,33 @@ describe("experiment integration boundaries", () => {
     expect(result.interpretation).toBe("no-match");
   });
 
-  it("keeps the Body fixture unmapped even for short abrupt and gradual lingering observations", async () => {
-    for (const features of [
-      { ...bodyFeatures, activeDurationMs: 500, endingBehavior: "abrupt" as const },
-      { ...bodyFeatures, activeDurationMs: 2400, endingBehavior: "gradual" as const },
-    ]) {
+  it("uses approved support links but keeps candidate links termless", async () => {
+    for (const [features, candidateTermIds] of [
+      [
+        {
+          ...bodyFeatures,
+          activeDurationMs: 500,
+          endingBehavior: "abrupt" as const,
+          motionShape: { ...bodyFeatures.motionShape, expansion: "unknown" as const },
+        },
+        ["kire"],
+      ],
+      [
+        {
+          ...bodyFeatures,
+          activeDurationMs: 2400,
+          endingBehavior: "gradual" as const,
+          motionShape: { ...bodyFeatures.motionShape, expansion: "unknown" as const },
+        },
+        [],
+      ],
+    ] as const) {
       const result = await runBodySemanticExperiment(features);
       expect("error" in result).toBe(false);
       if ("error" in result) continue;
       expect(result.sensoryBridge?.provider).toBe("fixture");
-      expect(result.sensoryBridge?.response.candidateTermIds).toEqual([]);
-      expect(result.sakeProducts).toEqual([]);
+      expect(result.sensoryBridge?.response.candidateTermIds).toEqual(candidateTermIds);
+      if (!candidateTermIds.length) expect(result.sakeProducts).toEqual([]);
     }
   });
 

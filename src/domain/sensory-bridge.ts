@@ -6,9 +6,11 @@ import {
 } from "./body";
 import type { VoiceFeatures } from "./voice";
 import {
-  getLegacyFixtureExpression,
-  type LegacyFixtureExpressionRoute,
-} from "./legacy-sensory-fixture";
+  evaluateBodySensorySupport,
+  evaluateVoiceSensorySupport,
+  getApprovedCandidateTermIdsForSupport,
+  getSensoryExpressionDisplayTextsForSupport,
+} from "./sensory-support-cases";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -274,90 +276,30 @@ function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): strin
     .map(([key, value]) => `${key}:${value}`);
 }
 
-function legacyFixtureExpression(route: LegacyFixtureExpressionRoute): string[] {
-  return [getLegacyFixtureExpression(route).displayText];
-}
-
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
     async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
       if (request.modality === "voice") {
-        const { durationMs, endingBehavior } = request.input;
         const unmappedFeatures = Object.entries(request.input)
           .filter(([, value]) => value !== 0 && value !== "unknown")
           .map(([key, value]) => `${key}:${value}`);
-        if (durationMs <= 0) {
-          return {
-            sensoryExpressions: [],
-            candidateTermIds: [],
-            unmappedFeatures,
-            reason: "voice feature evidence was insufficient",
-          };
-        }
-        if (endingBehavior === "fading" && durationMs > 700) {
-          return {
-            sensoryExpressions: legacyFixtureExpression("voice-fading"),
-            // Historical compatibility only; this is not approved #47 feature support.
-            candidateTermIds: [],
-            unmappedFeatures,
-            reason:
-              "voice duration and fading were observed; the local fixture does not select a sake term",
-          };
-        }
+        const support = evaluateVoiceSensorySupport(request.input);
         return {
-          sensoryExpressions: [],
-          candidateTermIds: [],
+          sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
+          candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
           unmappedFeatures,
-          reason: "voice observations remain unmapped in the local fixture",
+          reason: `experimental voice support case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
         };
       }
       const { input } = request;
       const unmappedFeatures = featureList(input);
-      if (input.duration === "unknown") {
-        return {
-          sensoryExpressions: [],
-          candidateTermIds: [],
-          unmappedFeatures,
-          reason: "はっきりした動きから、日本酒語への無理のない対応はまだ見つかっていません。",
-        };
-      }
-      if (input.direction === "lateral" && input.repetition === "repeated") {
-        return {
-          sensoryExpressions: legacyFixtureExpression("lateral-repeated"),
-          candidateTermIds: [],
-          unmappedFeatures: ["direction:lateral", "repetition:repeated", "spread:" + input.spread],
-          reason:
-            "左右の反復は観測できましたが、それだけで濃醇や淡麗と結びつける根拠はありません。",
-        };
-      }
-      if (input.ending === "abrupt" && input.duration === "short") {
-        return {
-          sensoryExpressions: legacyFixtureExpression("short-abrupt"),
-          // Historical compatibility only; this is not approved #47 feature support.
-          candidateTermIds: [],
-          unmappedFeatures,
-          reason:
-            "short movement and an abrupt ending were observed; the local fixture does not select a sake term",
-        };
-      }
-      if (input.ending === "gradual" && input.duration === "lingering") {
-        return {
-          sensoryExpressions: legacyFixtureExpression("gradual-lingering"),
-          // Historical compatibility only; this is not approved #47 feature support.
-          candidateTermIds: [],
-          unmappedFeatures,
-          reason:
-            "a long gradual ending was observed; the local fixture does not select a sake term",
-        };
-      }
+      const support = evaluateBodySensorySupport(input);
       return {
-        sensoryExpressions:
-          input.expansion === "expanding" ? legacyFixtureExpression("expanding") : [],
-        candidateTermIds: [],
+        sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
+        candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
         unmappedFeatures,
-        reason:
-          "観測した動きは表示できますが、現在の小さな辞書へ無理なくつなげる候補はありません。",
+        reason: `experimental body support case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
       };
     },
   };

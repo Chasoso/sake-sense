@@ -28,7 +28,7 @@ Provider implementations explicitly declare `fixture` or `ai`; successful execut
 
 The EXP-005 path does not pass legacy `weight:heavy` or `weight:light` conclusions to the bridge. Broad spread remains `spread:broad`, and repeated lateral sway may remain unmapped. Zero candidates is a valid result. Existing EXP-003/004 deterministic behavior remains historical/comparison behavior and is not silently removed.
 
-The reviewed beginner-facing expression records are maintained separately in [MVP sensory expressions](../data/mvp-sensory-expressions.md). The local fixture retains its historical display routes through separate fixture-only legacy records; it does not select #46 expressions, returns no sake-term candidates from Body or Voice observations, and does not establish approved feature-to-expression support. Feature-to-expression support rules remain a later Human-reviewed responsibility; expression-to-term link status does not establish a feature mapping.
+The reviewed beginner-facing expression records are maintained separately in [MVP sensory expressions](../data/mvp-sensory-expressions.md). The local fixture now evaluates the explicitly experimental [observable support cases](../data/mvp-observable-sensory-support-cases.md). A support case selects an expression, and only the expression dataset's approved link can yield a term candidate. Candidate and unmapped expression links remain termless. These support cases are Human-reviewable experiments, not authoritative feature-to-expression facts.
 
 ## Safety and privacy
 
@@ -36,7 +36,7 @@ The bridge does not detect taste, emotion, personality, preference, health, age,
 
 ## Automated verification
 
-Tests cover observable input construction, Body and Voice request serialization without raw sensor fields, prompt safety language, production request validation, bounded Bedrock request construction, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, fixture expression display behavior without term mapping, provider failure, and fallback behavior. The Lambda bundle is built with `npm run build:semantic-bridge` and deployed from a human-managed S3 artifact. Standard validation remains no-network.
+Tests cover observable input construction, Body and Voice request serialization without raw sensor fields, support-case validation and ambiguity handling, approved/candidate/unmapped term boundaries, prompt safety language, production request validation, bounded Bedrock request construction, valid zero-candidate responses, malformed/unknown/duplicate/extra response rejection, provider failure, and fallback behavior. The Lambda bundle is built with `npm run build:semantic-bridge` and deployed from a human-managed S3 artifact. Standard validation remains no-network.
 
 ## Human Experience Gate
 
