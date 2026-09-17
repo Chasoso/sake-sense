@@ -9,9 +9,21 @@ const products = readJson("src/domain/data/ishikawa-sake-sample.v0.1.json");
 
 const dictionaryById = new Map(dictionary.entries.map((entry) => [entry.id, entry]));
 const expressionIds = new Set(expressions.expressions.map((expression) => expression.id));
-const stateIds = new Set(states.states.map((state) => state.id));
 const breweryIds = new Set(breweries.memberBreweries.map((brewery) => brewery.id));
 const errors = [];
+const stateIds = new Set();
+
+for (const state of states.states) {
+  if (!state.id) {
+    errors.push("Missing sensory interpretation state ID");
+  } else if (stateIds.has(state.id)) {
+    errors.push(`Duplicate sensory interpretation state ID: ${state.id}`);
+  }
+  stateIds.add(state.id);
+  if (!state.displayText) {
+    errors.push(`Missing display text in sensory interpretation state: ${state.id || "<empty>"}`);
+  }
+}
 
 for (const expression of expressions.expressions) {
   for (const termId of expression.candidateTermIds) {

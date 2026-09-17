@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mvpDomainData, validateDomainDataIntegrity } from "./domain-data-integrity";
+import {
+  findSensoryInterpretationStateErrors,
+  mvpDomainData,
+  validateDomainDataIntegrity,
+} from "./domain-data-integrity";
 
 describe("MVP domain-data integrity", () => {
   it("accepts reviewed partial and unmapped domain paths", () => {
@@ -44,6 +48,14 @@ describe("MVP domain-data integrity", () => {
     (invalid.supportCases.cases[0] as Record<string, unknown>).termId = "kire";
     expect(validateDomainDataIntegrity(invalid)).toContain(
       "Direct term shortcut is not allowed in support case body-short-abrupt-clean-fade",
+    );
+  });
+
+  it("rejects duplicate interpretation state IDs", () => {
+    const states = structuredClone(mvpDomainData.interpretationStates);
+    states.push({ ...states[0] });
+    expect(findSensoryInterpretationStateErrors(states)).toContain(
+      "Duplicate sensory interpretation state ID: ambiguous-mixed",
     );
   });
 });

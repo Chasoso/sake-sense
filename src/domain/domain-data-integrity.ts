@@ -27,6 +27,26 @@ export const mvpDomainData: DomainDataIntegrityInput = {
   sakeSample: sakeSampleData,
 };
 
+export function findSensoryInterpretationStateErrors(
+  states: readonly { id: string; displayText: string }[],
+): string[] {
+  const errors: string[] = [];
+  const ids = new Set<string>();
+
+  for (const state of states) {
+    if (!state.id) {
+      errors.push("Missing sensory interpretation state ID");
+    } else if (ids.has(state.id)) {
+      errors.push(`Duplicate sensory interpretation state ID: ${state.id}`);
+    }
+    ids.add(state.id);
+    if (!state.displayText) {
+      errors.push(`Missing display text in sensory interpretation state: ${state.id || "<empty>"}`);
+    }
+  }
+  return errors;
+}
+
 /**
  * Validates references across the MVP domain chain. It deliberately permits
  * partial paths: unmapped expressions, candidate links, and terms without a
@@ -37,6 +57,7 @@ export function validateDomainDataIntegrity(
 ): string[] {
   const errors = [
     ...findDictionaryErrors(data.dictionary),
+    ...findSensoryInterpretationStateErrors(data.interpretationStates),
     ...findSensoryExpressionErrors(data.expressions, data.dictionary, data.interpretationStates),
     ...findSensorySupportCaseErrors(
       data.supportCases,
