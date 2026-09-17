@@ -12,8 +12,6 @@ import {
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
-import { getLegacyFixtureExpression, legacyFixtureExpressions } from "./legacy-sensory-fixture";
-import { getSensoryExpression } from "./sensory-expressions";
 
 const baseFeatures: BodyMovementFeatures = {
   frameCount: 10,
@@ -158,24 +156,30 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     ).toBe(false);
   });
 
-  it("uses no candidate in every deterministic Body fixture path", async () => {
+  it("derives Body fixture candidates only through approved expression links", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const cases = [
-      buildSensoryBridgeInput({
-        ...baseFeatures,
-        activeDurationMs: 500,
-        endingBehavior: "abrupt",
-        motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
-      }),
-      buildSensoryBridgeInput({
-        ...baseFeatures,
-        activeDurationMs: 2500,
-        endingBehavior: "gradual",
-        motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
-      }),
-      buildSensoryBridgeInput(baseFeatures),
+      {
+        input: buildSensoryBridgeInput({
+          ...baseFeatures,
+          activeDurationMs: 500,
+          endingBehavior: "abrupt",
+          motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
+        }),
+        candidateTermIds: ["kire"],
+      },
+      {
+        input: buildSensoryBridgeInput({
+          ...baseFeatures,
+          activeDurationMs: 2500,
+          endingBehavior: "gradual",
+          motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
+        }),
+        candidateTermIds: [],
+      },
+      { input: buildSensoryBridgeInput(baseFeatures), candidateTermIds: [] },
     ];
-    for (const input of cases) {
+    for (const { input, candidateTermIds } of cases) {
       const response = await provider.interpret({
         modality: "body",
         input,
@@ -183,11 +187,11 @@ describe("MVP sensory bridge vocabulary boundary", () => {
       });
       const validated = validateSensoryBridgeResponse(response);
       expect(validated.ok).toBe(true);
-      if (validated.ok) expect(validated.value.candidateTermIds).toEqual([]);
+      if (validated.ok) expect(validated.value.candidateTermIds).toEqual(candidateTermIds);
     }
   });
 
-  it("keeps legacy fixture wording outside approved expression support", async () => {
+  it("uses the support-case expression before deriving an approved term", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const shortAbrupt = await provider.interpret({
       modality: "body",
@@ -202,17 +206,8 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     const validated = validateSensoryBridgeResponse(shortAbrupt);
     expect(validated.ok).toBe(true);
     if (!validated.ok) return;
-    expect(validated.value.sensoryExpressions).toEqual([
-      getLegacyFixtureExpression("short-abrupt").displayText,
-    ]);
-    expect(validated.value.candidateTermIds).toEqual([]);
-    expect(getSensoryExpression(getLegacyFixtureExpression("short-abrupt").id)).toBeUndefined();
-    expect(getSensoryExpression("clean-fade")?.displayText).toBe("すっと引いていく感じ");
-    expect(
-      Object.values(legacyFixtureExpressions).every(
-        ({ id }) => getSensoryExpression(id) === undefined,
-      ),
-    ).toBe(true);
+    expect(validated.value.sensoryExpressions).toEqual(["すっと引いていく感じ"]);
+    expect(validated.value.candidateTermIds).toEqual(["kire"]);
   });
 
   it("uses no candidate in the deterministic Voice fading fixture path", async () => {
@@ -224,9 +219,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);
     if (validated.ok) {
-      expect(validated.value.sensoryExpressions).toEqual([
-        getLegacyFixtureExpression("voice-fading").displayText,
-      ]);
+      expect(validated.value.sensoryExpressions).toEqual(["ゆっくり落ち着いていく感じ"]);
       expect(validated.value.candidateTermIds).toEqual([]);
     }
   });

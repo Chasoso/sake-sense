@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "status": "experimental",
+  "cases": [
+    {
+      "id": "body-short-abrupt-clean-fade",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "expression",
+      "featurePattern": { "duration": "short", "ending": "abrupt" },
+      "expressionIds": ["clean-fade"],
+      "rationale": "短く急に終わる観測は、low persistence と quick clean disappearance を表す clean-fade を比較する最小の実験caseです。",
+      "notes": "#46のapproved linkを通じてのみ kire が導出されます。Human Experienceで自然さを確認します。"
+    },
+    {
+      "id": "body-lingering-gradual-soft-settle",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "expression",
+      "featurePattern": { "duration": "lingering", "ending": "gradual" },
+      "expressionIds": ["soft-settle"],
+      "rationale": "gradual settling を直接表す soft-settle を比較します。persistence / after-feel を断定しません。",
+      "notes": "soft-settle はcandidate linkのため、通常のterm candidateを生成しません。lingering-after-feel / slowly-fadingとの違いはHuman review対象です。"
+    },
+    {
+      "id": "body-expanding-spreading-outward",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "expression",
+      "featurePattern": { "expansion": "expanding" },
+      "expressionIds": ["spreading-outward"],
+      "rationale": "外向きのexpansionを、濃さやrichnessを主張しない spreading-outward として表します。",
+      "notes": "spreading-outwardはunmappedです。濃醇やnojunへは接続しません。"
+    },
+    {
+      "id": "body-lateral-repeated-wavering",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "expression",
+      "featurePattern": { "direction": "lateral", "repetition": "repeated" },
+      "expressionIds": ["wavering-continuous"],
+      "rationale": "横方向の反復という複数観測を、揺らぎと継続を表す wavering-continuous の比較caseとします。",
+      "notes": "wave-likeとの統合可能性はHuman review対象です。broad participationやspreadは濃醇/nojunの根拠にしません。"
+    },
+    {
+      "id": "body-sustained-fast-unmapped",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "unmapped",
+      "featurePattern": { "speed": "sustained-fast" },
+      "expressionIds": [],
+      "rationale": "sustained-fastは観測可能ですが、現行expressionのどれかを十分に支える根拠ではありません。",
+      "notes": "fastをきれ、酸味、または他の日本酒語へshortcutしません。unmappedは正常な結果です。"
+    },
+    {
+      "id": "body-ambiguous-short-abrupt-expanding",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "interpretation-state",
+      "featurePattern": { "duration": "short", "ending": "abrupt", "expansion": "expanding" },
+      "expressionIds": [],
+      "interpretationStateId": "ambiguous-mixed",
+      "rationale": "短く急な終わり方と外向きの広がりは、単一の感覚表現へ無理なく絞れないため曖昧として扱います。",
+      "notes": "複数matchをarray順で選びません。term candidateは生成しません。"
+    },
+    {
+      "id": "body-insufficient-movement",
+      "modality": "body",
+      "status": "experimental",
+      "resultKind": "interpretation-state",
+      "featurePattern": { "duration": "unknown" },
+      "expressionIds": [],
+      "interpretationStateId": "insufficient-expression",
+      "rationale": "meaningful movementがない入力は感覚表現へ接続する根拠が不足しています。",
+      "notes": "日本酒語も感覚表現も生成しません。"
+    },
+    {
+      "id": "voice-long-fading-soft-settle",
+      "modality": "voice",
+      "status": "experimental",
+      "resultKind": "expression",
+      "featurePattern": { "durationMs": { "minimum": 701 }, "endingBehavior": "fading" },
+      "expressionIds": ["soft-settle"],
+      "rationale": "長めの発声がfadingする観測は、after-feelを断定せず soft-settle を比較するための限定的なVoice caseです。",
+      "notes": "Voice featureは弱い根拠です。soft-settleはcandidate linkのためterm candidateを生成しません。"
+    },
+    {
+      "id": "voice-long-maintained-unmapped",
+      "modality": "voice",
+      "status": "experimental",
+      "resultKind": "unmapped",
+      "featurePattern": { "durationMs": { "minimum": 701 }, "endingBehavior": "maintained" },
+      "expressionIds": [],
+      "rationale": "長さだけでは感覚表現を支える十分な根拠にならないためunmappedとします。",
+      "notes": "intensityやpauseを日本酒語へ短絡させません。"
+    },
+    {
+      "id": "voice-insufficient-observation",
+      "modality": "voice",
+      "status": "experimental",
+      "resultKind": "interpretation-state",
+      "featurePattern": { "durationMs": { "maximum": 0 } },
+      "expressionIds": [],
+      "interpretationStateId": "insufficient-expression",
+      "rationale": "duration 0は解釈に必要なVoice観測が不足している状態です。",
+      "notes": "raw audioや文字起こしを補うことはしません。"
+    }
+  ]
+}

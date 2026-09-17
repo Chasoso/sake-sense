@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "status", "cases"],
+  "properties": {
+    "version": { "const": "0.1.0" },
+    "status": { "const": "experimental" },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "modality",
+          "status",
+          "resultKind",
+          "featurePattern",
+          "expressionIds",
+          "rationale",
+          "notes"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "modality": { "enum": ["body", "voice"] },
+          "status": { "enum": ["active", "experimental", "deferred", "legacy"] },
+          "resultKind": { "enum": ["expression", "unmapped", "interpretation-state"] },
+          "featurePattern": { "type": "object", "minProperties": 1 },
+          "expressionIds": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+          },
+          "interpretationStateId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "rationale": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
