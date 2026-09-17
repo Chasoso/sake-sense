@@ -38,6 +38,16 @@ Start the local UI with `npm run dev`. For each case, reproduce the listed obser
 | voice-insufficient-observation                     | [ ]                               | n/a                        | n/a                         | n/a                              |                                        |      |
 | expression-rounded-enveloping-term-without-product | n/a                               | [ ]                        | [ ]                         | [ ]                              |                                        |      |
 
+### Recorded Voice observations (human input)
+
+These are recorded Human Experience observations, not changes to the experimental support cases, sensory-expression dataset, term links, or product evidence.
+
+| Reproduced observation                                                        | Human-described result             | Existing representative case        | Follow-up note                                                                                                                     |
+| ----------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Voice held for about one second or more, then weakened at the end             | 声の終わり方が徐々に消えていく感じ | `voice-long-fading-expression-only` | Compare the observed wording with the current `soft-settle` fixture result during a later Human Experience review.                 |
+| Voice held for about one second or more, with intensity maintained to the end | 余韻が残る感じ                     | `voice-long-maintained-unmapped`    | The current fixture is intentionally unmapped; this observation is recorded without promoting it to an expression or term link.    |
+| Almost no voice / extremely short voice                                       | 短く終わる感じ                     | `voice-insufficient-observation`    | The current fixture returns `insufficient-expression`; this wording is recorded without creating a new expression or feature rule. |
+
 Overall Human Experience Gate (human-owned):
 
 - [ ] The flow from observation through expression and vocabulary feels coherent.
