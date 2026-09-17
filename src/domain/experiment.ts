@@ -96,7 +96,8 @@ export type ExperimentResult = {
       };
 };
 
-// Historical local-text compatibility only; #46 owns the reviewed expression dataset.
+// Historical local-text compatibility only. It is not source-backed dictionary meaning,
+// does not select from the #46 dataset, and #46/#47 will replace it when reviewed.
 const expressionMappings: Record<string, string[]> = {
   "\u30b9\u30c3": ["kire"],
   すっ: ["kire"],

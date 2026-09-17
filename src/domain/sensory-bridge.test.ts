@@ -12,6 +12,7 @@ import {
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
+import { getSensoryExpressionDisplayText } from "./sensory-expressions";
 
 const baseFeatures: BodyMovementFeatures = {
   frameCount: 10,
@@ -183,6 +184,27 @@ describe("MVP sensory bridge vocabulary boundary", () => {
       expect(validated.ok).toBe(true);
       if (validated.ok) expect(validated.value.candidateTermIds).toEqual([]);
     }
+  });
+
+  it("resolves legacy fixture display text from the reviewed expression dataset", async () => {
+    const provider = createFixtureSensoryBridgeProvider();
+    const shortAbrupt = await provider.interpret({
+      modality: "body",
+      input: buildSensoryBridgeInput({
+        ...baseFeatures,
+        activeDurationMs: 500,
+        endingBehavior: "abrupt",
+        motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
+      }),
+      allowedTermIds: getSelectableSensoryTermIds(),
+    });
+    const validated = validateSensoryBridgeResponse(shortAbrupt);
+    expect(validated.ok).toBe(true);
+    if (!validated.ok) return;
+    expect(validated.value.sensoryExpressions).toEqual([
+      getSensoryExpressionDisplayText("clean-fade"),
+    ]);
+    expect(validated.value.candidateTermIds).toEqual([]);
   });
 
   it("uses no candidate in the deterministic Voice fading fixture path", async () => {

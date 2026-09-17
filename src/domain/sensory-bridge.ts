@@ -5,6 +5,7 @@ import {
   type BodyMovementFeatures,
 } from "./body";
 import type { VoiceFeatures } from "./voice";
+import { getSensoryExpressionDisplayText } from "./sensory-expressions";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -270,6 +271,11 @@ function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): strin
     .map(([key, value]) => `${key}:${value}`);
 }
 
+function fixtureExpression(expressionId: string): string[] {
+  const displayText = getSensoryExpressionDisplayText(expressionId);
+  return displayText ? [displayText] : [];
+}
+
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
@@ -289,8 +295,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         }
         if (endingBehavior === "fading" && durationMs > 700) {
           return {
-            sensoryExpressions: ["余韻が残る感じ"],
-            // Compatibility wording only. #46/#47 own expression-to-term links.
+            sensoryExpressions: fixtureExpression("lingering-after-feel"),
+            // Existing fixture behavior only; #47 owns feature-to-expression rules.
             candidateTermIds: [],
             unmappedFeatures,
             reason:
@@ -316,7 +322,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.direction === "lateral" && input.repetition === "repeated") {
         return {
-          sensoryExpressions: ["ゆらぎながら続く感じ"],
+          sensoryExpressions: fixtureExpression("wavering-continuous"),
           candidateTermIds: [],
           unmappedFeatures: ["direction:lateral", "repetition:repeated", "spread:" + input.spread],
           reason:
@@ -325,8 +331,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "abrupt" && input.duration === "short") {
         return {
-          sensoryExpressions: ["短く切り替わる感じ"],
-          // This existing fixture wording is not a #45 term decision.
+          sensoryExpressions: fixtureExpression("clean-fade"),
+          // Existing fixture behavior only; this does not make a term decision.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -335,8 +341,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "gradual" && input.duration === "lingering") {
         return {
-          sensoryExpressions: ["余韻が残るような感じ"],
-          // Keep the historical fixture string for UI compatibility only.
+          sensoryExpressions: fixtureExpression("lingering-after-feel"),
+          // Existing fixture behavior only; #47 owns feature-to-expression rules.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -344,7 +350,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         };
       }
       return {
-        sensoryExpressions: input.expansion === "expanding" ? ["外へほどけていく感じ"] : [],
+        sensoryExpressions:
+          input.expansion === "expanding" ? fixtureExpression("spreading-outward") : [],
         candidateTermIds: [],
         unmappedFeatures,
         reason:
