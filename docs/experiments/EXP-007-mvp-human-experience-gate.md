@@ -38,6 +38,20 @@ Start the local UI with `npm run dev`. For each case, reproduce the listed obser
 | voice-insufficient-observation                     | [ ]                               | n/a                        | n/a                         | n/a                              |                                        |      |
 | expression-rounded-enveloping-term-without-product | n/a                               | [ ]                        | [ ]                         | [ ]                              |                                        |      |
 
+### Recorded Body observations (human input)
+
+These are recorded Human Experience observations, not changes to the experimental support cases, sensory-expression dataset, term links, or product evidence.
+
+| Reproduced observation             | Human-described result                                                       | Existing representative case             | Follow-up note                                                                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 短く動いて、ピタッと止める         | 今回の動きからは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。 | `body-short-abrupt-to-kire-product`      | The current fixture reaches `clean-fade` → `kire`; retain this contrast for Human Experience review without changing the support rule. |
+| ゆっくり長めに動いて、徐々に止める | 飲み込んだ後に広がり続く感覚 / あと味                                        | `body-lingering-gradual-expression-only` | The current fixture stops at `soft-settle`; record the observed `atoaji` wording without promoting it to a mapping.                    |
+| 両手などを外側へ広げる             | 飲み込んだ後に広がり続く感覚 / あと味                                        | `body-expanding-unmapped-expression`     | The current fixture returns unmapped `spreading-outward`; do not infer an `atoaji` link from this observation.                         |
+| 左右に何度か大きく揺れる           | 飲み込んだ後に味わいが続く感覚 / あと味                                      | `body-lateral-repeated-broad-no-nojun`   | The current fixture returns unmapped `wavering-continuous`; do not promote this observation or reintroduce a `nojun` shortcut.         |
+| 速い動きを続ける                   | 今回の動きからは、無理なく対応できる日本酒の言葉はまだ見つかりませんでした。 | `body-sustained-fast-unmapped`           | This aligns with the current unmapped fixture outcome.                                                                                 |
+| 短く急に止めつつ、同時に外へ広げる | 飲み込んだ後に広がり続く感覚 / あと味                                        | `body-short-abrupt-expanding-ambiguous`  | The current fixture remains `ambiguous-mixed`; record the observation without resolving the ambiguity.                                 |
+| ほぼ動かない                       | 飲み込んだ後に残る感覚が続く / あと味                                        | `body-insufficient-movement`             | The current fixture remains `insufficient-expression`; no expression or term link is created from this observation.                    |
+
 ### Recorded Voice observations (human input)
 
 These are recorded Human Experience observations, not changes to the experimental support cases, sensory-expression dataset, term links, or product evidence.
