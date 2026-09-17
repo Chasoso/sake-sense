@@ -7,6 +7,7 @@ import {
   evaluateVoiceSensorySupport,
   findSensorySupportCaseErrors,
   getApprovedCandidateTermIdsForSupport,
+  isRuntimeEligibleSupportCase,
   sensorySupportCases,
 } from "./sensory-support-cases";
 import type { SensoryBridgeInput, VoiceSensoryBridgeInput } from "./sensory-bridge";
@@ -78,6 +79,32 @@ describe("observable sensory support cases", () => {
     expect(getApprovedCandidateTermIdsForSupport(lateral)).not.toContain("nojun");
   });
 
+  it("treats unmapped support as neutral when one expression is supported", () => {
+    const shortAbruptFast = evaluateBodySensorySupport({
+      ...bodyInput,
+      duration: "short",
+      ending: "abrupt",
+      speed: "sustained-fast",
+    });
+    expect(shortAbruptFast).toMatchObject({
+      matchedCaseIds: ["body-short-abrupt-clean-fade", "body-sustained-fast-unmapped"],
+      resultKind: "expression",
+      expressionIds: ["clean-fade"],
+    });
+    expect(getApprovedCandidateTermIdsForSupport(shortAbruptFast)).toEqual(["kire"]);
+
+    const expandingFast = evaluateBodySensorySupport({
+      ...bodyInput,
+      expansion: "expanding",
+      speed: "sustained-fast",
+    });
+    expect(expandingFast).toMatchObject({
+      resultKind: "expression",
+      expressionIds: ["spreading-outward"],
+    });
+    expect(getApprovedCandidateTermIdsForSupport(expandingFast)).toEqual([]);
+  });
+
   it("keeps sustained-fast unmapped and resolves conflicting Body support explicitly", () => {
     expect(evaluateBodySensorySupport({ ...bodyInput, speed: "sustained-fast" })).toMatchObject({
       resultKind: "unmapped",
@@ -95,6 +122,35 @@ describe("observable sensory support cases", () => {
       interpretationStateId: "ambiguous-mixed",
       expressionIds: [],
     });
+  });
+
+  it("keeps different expression matches ambiguous instead of using array order", () => {
+    const evaluation = evaluateBodySensorySupport({
+      ...bodyInput,
+      duration: "lingering",
+      ending: "gradual",
+      expansion: "expanding",
+    });
+    expect(evaluation).toMatchObject({
+      resultKind: "interpretation-state",
+      interpretationStateId: "ambiguous-mixed",
+      expressionIds: [],
+    });
+  });
+
+  it("excludes deferred and legacy cases from normal evaluation", () => {
+    const cleanFade = sensorySupportCases.find(
+      (case_) => case_.id === "body-short-abrupt-clean-fade",
+    );
+    expect(cleanFade).toBeDefined();
+
+    for (const status of ["deferred", "legacy"] as const) {
+      const case_ = { ...cleanFade!, status };
+      expect(isRuntimeEligibleSupportCase(case_)).toBe(false);
+      expect(
+        evaluateBodySensorySupport({ ...bodyInput, duration: "short", ending: "abrupt" }, [case_]),
+      ).toEqual({ matchedCaseIds: [], resultKind: "unmapped", expressionIds: [] });
+    }
   });
 
   it("uses interpretation states for insufficient Body and Voice observations", () => {

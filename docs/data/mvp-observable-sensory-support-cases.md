@@ -31,12 +31,12 @@ Body observations are `duration`, `ending`, `expansion`, `direction`, `repetitio
 | voice-long-maintained-unmapped        | Voice    | duration ≥701ms + maintained | none                          | none                  | experimental |
 | voice-insufficient-observation        | Voice    | duration 0                   | insufficient-expression state | none                  | experimental |
 
-`ambiguous-mixed` and `insufficient-expression` remain system interpretation states, not expression IDs. Multiple matches are not resolved by dataset array order: an explicit, most-specific interpretation-state case wins; otherwise incompatible matched results become `ambiguous-mixed`.
+`ambiguous-mixed` and `insufficient-expression` remain system interpretation states, not expression IDs. Multiple matches are not resolved by dataset array order: an explicit, most-specific interpretation-state case wins; otherwise incompatible expression results become `ambiguous-mixed`.
 
 ## Boundaries and limitations
 
 `clean-fade` can derive `kire` only by using the approved link in the expression dataset. `soft-settle` is a candidate link and therefore never creates `atoaji` automatically. `spreading-outward` and `wavering-continuous` are intentionally unmapped.
 
-Broad or repeated lateral movement does not mean heavy, rich, or `nojun`; sustained-fast does not mean `kire` or `sanmi`. `unmapped` is a useful normal outcome. Voice support is deliberately narrow and experimental because the current local Voice features do not establish flavour or texture.
+Broad or repeated lateral movement does not mean heavy, rich, or `nojun`; sustained-fast does not mean `kire` or `sanmi`. `unmapped` is a useful normal outcome. An unmapped support case means its matched feature alone does not justify an expression; it is neutral evidence and does not veto a compatible expression supported by other observations. Explicit interpretation-state cases still take precedence. Voice support is deliberately narrow and experimental because the current local Voice features do not establish flavour or texture.
 
 Human semantic and UX review is required before treating any support case as natural: short + abrupt wording, lingering + gradual wording, the distinction between `wavering-continuous` and `wave-like`, whether Voice expressions are natural, and whether unmapped results are understandable.

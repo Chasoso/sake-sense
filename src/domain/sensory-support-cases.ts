@@ -115,6 +115,11 @@ function patternSpecificity(case_: SensorySupportCase): number {
   return Object.keys(case_.featurePattern).length;
 }
 
+/** Only reviewed runtime cases participate in the normal fixture evaluation. */
+export function isRuntimeEligibleSupportCase(case_: SensorySupportCase): boolean {
+  return case_.status === "active" || case_.status === "experimental";
+}
+
 function evaluateMatchedCases(matches: SensorySupportCase[]): SensorySupportEvaluation {
   if (!matches.length) return { matchedCaseIds: [], resultKind: "unmapped", expressionIds: [] };
 
@@ -144,14 +149,16 @@ function evaluateMatchedCases(matches: SensorySupportCase[]): SensorySupportEval
   }
 
   const expressionIds = [...new Set(matches.flatMap((case_) => case_.expressionIds))];
-  if (expressionIds.length === 1 && matches.every((case_) => case_.resultKind !== "unmapped")) {
+  // An unmapped case says only that its own observations are insufficient. It is
+  // neutral evidence, rather than a veto on an expression supported elsewhere.
+  if (expressionIds.length === 1) {
     return {
       matchedCaseIds: matches.map((case_) => case_.id),
       resultKind: "expression",
       expressionIds,
     };
   }
-  if (!expressionIds.length && matches.every((case_) => case_.resultKind === "unmapped")) {
+  if (!expressionIds.length) {
     return {
       matchedCaseIds: matches.map((case_) => case_.id),
       resultKind: "unmapped",
@@ -166,10 +173,14 @@ function evaluateMatchedCases(matches: SensorySupportCase[]): SensorySupportEval
   };
 }
 
-export function evaluateBodySensorySupport(input: SensoryBridgeInput): SensorySupportEvaluation {
+export function evaluateBodySensorySupport(
+  input: SensoryBridgeInput,
+  cases: readonly SensorySupportCase[] = sensorySupportCases,
+): SensorySupportEvaluation {
   return evaluateMatchedCases(
-    sensorySupportCases.filter(
+    cases.filter(
       (case_): case_ is SensorySupportCase & { modality: "body" } =>
+        isRuntimeEligibleSupportCase(case_) &&
         case_.modality === "body" &&
         matchesBodyPattern(input, case_.featurePattern as BodyFeaturePattern),
     ),
@@ -178,10 +189,12 @@ export function evaluateBodySensorySupport(input: SensoryBridgeInput): SensorySu
 
 export function evaluateVoiceSensorySupport(
   input: VoiceSensoryBridgeInput,
+  cases: readonly SensorySupportCase[] = sensorySupportCases,
 ): SensorySupportEvaluation {
   return evaluateMatchedCases(
-    sensorySupportCases.filter(
+    cases.filter(
       (case_): case_ is SensorySupportCase & { modality: "voice" } =>
+        isRuntimeEligibleSupportCase(case_) &&
         case_.modality === "voice" &&
         matchesVoicePattern(input, case_.featurePattern as VoiceFeaturePattern),
     ),
