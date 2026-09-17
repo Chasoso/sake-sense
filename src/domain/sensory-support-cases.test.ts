@@ -178,12 +178,14 @@ describe("observable sensory support cases", () => {
 
   it("rejects malformed patterns, system states as expressions, and duplicate cases", () => {
     const invalid = structuredClone(supportCaseData);
+    invalid.cases[0].status = "pending";
     invalid.cases[0].featurePattern = { rawAudio: "forbidden" } as never;
     invalid.cases[1].expressionIds = ["ambiguous-mixed"];
     invalid.cases.push(invalid.cases[2]);
     expect(findSensorySupportCaseErrors(invalid)).toEqual(
       expect.arrayContaining([
         "Invalid body feature pattern rawAudio in body-short-abrupt-clean-fade",
+        "Invalid support case status: body-short-abrupt-clean-fade",
         "Unknown support expression ambiguous-mixed in body-lingering-gradual-soft-settle",
         "Interpretation state cannot be a support expression: body-lingering-gradual-soft-settle",
         "Duplicate sensory support case ID: body-expanding-spreading-outward",

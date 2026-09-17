@@ -77,7 +77,7 @@ export function getSensoryInterpretationState(id: string): SensoryInterpretation
 export function findSensoryExpressionErrors(
   dataset: SensoryExpressionValidationDataset,
   dictionary = dictionaryData,
-  interpretationStates = sensoryInterpretationStates,
+  interpretationStates: readonly { id: string }[] = sensoryInterpretationStates,
 ): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();

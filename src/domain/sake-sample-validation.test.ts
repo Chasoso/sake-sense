@@ -37,6 +37,13 @@ describe("Ishikawa sake MVP dataset validation", () => {
       ),
     ).toBe(true);
     expect(
+      isRenderableProductTermReference(
+        { ...directRegular.termReferences[0], rationale: "" },
+        directRegular,
+        dictionaryById,
+      ),
+    ).toBe(false);
+    expect(
       isRenderableProductTermReference(seasonal.termReferences[0], seasonal, dictionaryById),
     ).toBe(false);
     expect(
@@ -103,6 +110,36 @@ describe("Ishikawa sake MVP dataset validation", () => {
         `Missing current availability status for seasonal product ${sample.products[1].id}`,
         `Rejected wording まろやか cannot support marui in ${sample.products[1].id}`,
         "Missing researched product for brewery matsunami",
+      ]),
+    );
+  });
+
+  it("rejects incomplete provenance on an otherwise renderable relation", () => {
+    const incomplete = structuredClone(sample);
+    const product = incomplete.products.find(
+      (candidate) => candidate.id === "kagatobi-ikazuchi-issen",
+    )!;
+    product.termReferences[0].rationale = "";
+
+    expect(findSakeSampleValidationErrors(incomplete, dictionary.entries, breweries)).toContain(
+      `Missing term reference provenance in kagatobi-ikazuchi-issen for ${product.termReferences[0].termId}`,
+    );
+  });
+
+  it("rejects invalid product status values with the product ID", () => {
+    const invalid = structuredClone(sample);
+    const product = invalid.products.find(
+      (candidate) => candidate.id === "kagatobi-ikazuchi-issen",
+    )!;
+    product.availabilityStatus = "whenever";
+    product.imageUsageStatus = "public-domain";
+    product.termReferences[0].evidenceStatus = "strong";
+
+    expect(findSakeSampleValidationErrors(invalid, dictionary.entries, breweries)).toEqual(
+      expect.arrayContaining([
+        "Invalid availability status in kagatobi-ikazuchi-issen",
+        "Invalid image usage status in kagatobi-ikazuchi-issen",
+        "Invalid evidence status in kagatobi-ikazuchi-issen",
       ]),
     );
   });
