@@ -5,6 +5,10 @@ import {
   type BodyMovementFeatures,
 } from "./body";
 import type { VoiceFeatures } from "./voice";
+import {
+  getLegacyFixtureExpression,
+  type LegacyFixtureExpressionRoute,
+} from "./legacy-sensory-fixture";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -270,6 +274,10 @@ function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): strin
     .map(([key, value]) => `${key}:${value}`);
 }
 
+function legacyFixtureExpression(route: LegacyFixtureExpressionRoute): string[] {
+  return [getLegacyFixtureExpression(route).displayText];
+}
+
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
@@ -289,8 +297,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         }
         if (endingBehavior === "fading" && durationMs > 700) {
           return {
-            sensoryExpressions: ["余韻が残る感じ"],
-            // Compatibility wording only. #46/#47 own expression-to-term links.
+            sensoryExpressions: legacyFixtureExpression("voice-fading"),
+            // Historical compatibility only; this is not approved #47 feature support.
             candidateTermIds: [],
             unmappedFeatures,
             reason:
@@ -316,7 +324,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.direction === "lateral" && input.repetition === "repeated") {
         return {
-          sensoryExpressions: ["ゆらぎながら続く感じ"],
+          sensoryExpressions: legacyFixtureExpression("lateral-repeated"),
           candidateTermIds: [],
           unmappedFeatures: ["direction:lateral", "repetition:repeated", "spread:" + input.spread],
           reason:
@@ -325,8 +333,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "abrupt" && input.duration === "short") {
         return {
-          sensoryExpressions: ["短く切り替わる感じ"],
-          // This existing fixture wording is not a #45 term decision.
+          sensoryExpressions: legacyFixtureExpression("short-abrupt"),
+          // Historical compatibility only; this is not approved #47 feature support.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -335,8 +343,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
       }
       if (input.ending === "gradual" && input.duration === "lingering") {
         return {
-          sensoryExpressions: ["余韻が残るような感じ"],
-          // Keep the historical fixture string for UI compatibility only.
+          sensoryExpressions: legacyFixtureExpression("gradual-lingering"),
+          // Historical compatibility only; this is not approved #47 feature support.
           candidateTermIds: [],
           unmappedFeatures,
           reason:
@@ -344,7 +352,8 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
         };
       }
       return {
-        sensoryExpressions: input.expansion === "expanding" ? ["外へほどけていく感じ"] : [],
+        sensoryExpressions:
+          input.expansion === "expanding" ? legacyFixtureExpression("expanding") : [],
         candidateTermIds: [],
         unmappedFeatures,
         reason:

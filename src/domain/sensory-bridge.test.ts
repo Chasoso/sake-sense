@@ -12,6 +12,8 @@ import {
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
+import { getLegacyFixtureExpression, legacyFixtureExpressions } from "./legacy-sensory-fixture";
+import { getSensoryExpression } from "./sensory-expressions";
 
 const baseFeatures: BodyMovementFeatures = {
   frameCount: 10,
@@ -185,6 +187,34 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     }
   });
 
+  it("keeps legacy fixture wording outside approved expression support", async () => {
+    const provider = createFixtureSensoryBridgeProvider();
+    const shortAbrupt = await provider.interpret({
+      modality: "body",
+      input: buildSensoryBridgeInput({
+        ...baseFeatures,
+        activeDurationMs: 500,
+        endingBehavior: "abrupt",
+        motionShape: { ...baseFeatures.motionShape, dominantDirection: "unknown" },
+      }),
+      allowedTermIds: getSelectableSensoryTermIds(),
+    });
+    const validated = validateSensoryBridgeResponse(shortAbrupt);
+    expect(validated.ok).toBe(true);
+    if (!validated.ok) return;
+    expect(validated.value.sensoryExpressions).toEqual([
+      getLegacyFixtureExpression("short-abrupt").displayText,
+    ]);
+    expect(validated.value.candidateTermIds).toEqual([]);
+    expect(getSensoryExpression(getLegacyFixtureExpression("short-abrupt").id)).toBeUndefined();
+    expect(getSensoryExpression("clean-fade")?.displayText).toBe("すっと引いていく感じ");
+    expect(
+      Object.values(legacyFixtureExpressions).every(
+        ({ id }) => getSensoryExpression(id) === undefined,
+      ),
+    ).toBe(true);
+  });
+
   it("uses no candidate in the deterministic Voice fading fixture path", async () => {
     const response = await createFixtureSensoryBridgeProvider().interpret({
       modality: "voice",
@@ -194,7 +224,9 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     const validated = validateSensoryBridgeResponse(response);
     expect(validated.ok).toBe(true);
     if (validated.ok) {
-      expect(validated.value.sensoryExpressions).toEqual(["余韻が残る感じ"]);
+      expect(validated.value.sensoryExpressions).toEqual([
+        getLegacyFixtureExpression("voice-fading").displayText,
+      ]);
       expect(validated.value.candidateTermIds).toEqual([]);
     }
   });

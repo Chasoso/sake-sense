@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "states": [
+    {
+      "id": "ambiguous-mixed",
+      "displayText": "いくつかの感じが混ざっていて、ひとつの言葉にしにくい"
+    },
+    {
+      "id": "insufficient-expression",
+      "displayText": "まだ言葉に結びつけられるほどの特徴が見つかっていません"
+    }
+  ]
+}
