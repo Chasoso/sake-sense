@@ -557,7 +557,7 @@ export function Result({
             {result.sakeProducts.map((match) => (
               <article className="sake-product" key={match.product.id}>
                 <h4>{match.product.name}</h4>
-                <p className="sake-product__producer">{match.product.producer.name}</p>
+                <p className="sake-product__producer">{match.product.breweryName}</p>
                 <p>{match.product.descriptionSummary}</p>
                 <p className="sake-product__why">
                   この商品は、候補語とterm参照が重なるため表示しています。
@@ -567,7 +567,7 @@ export function Result({
                     const term = result.candidates.find(
                       (candidate) => candidate.entry.id === reference.termId,
                     )?.entry.displayTerm;
-                    const evidence = presentEvidenceStatus(reference.mappingStatus);
+                    const evidence = presentEvidenceStatus(reference.evidenceStatus);
                     return (
                       <li key={reference.termId}>
                         <strong>{term ?? "対応する日本酒の言葉"}</strong>
@@ -582,14 +582,7 @@ export function Result({
                   <a href={match.product.sourceUrl} target="_blank" rel="noreferrer">
                     商品情報（公式）
                   </a>
-                  {match.product.provenance.slice(1).map((source) => (
-                    <span key={source.sourceId}>
-                      {" · "}
-                      <a href={source.url} target="_blank" rel="noreferrer">
-                        {source.sourceType}
-                      </a>
-                    </span>
-                  ))}
+                  <span>{` (${match.product.sourceName})`}</span>
                 </p>
               </article>
             ))}

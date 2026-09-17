@@ -1,0 +1,296 @@
+{
+  "version": "0.1.0",
+  "baselineSourceName": "Ishikawa Sake Brewers Association member-brewery baseline",
+  "baselineSourceUrl": "https://www.ishikawa-sake.jp/",
+  "sourceReviewedAt": "2026-09-17",
+  "memberBreweries": [
+    {
+      "id": "kuse",
+      "name": "株式会社久世酒造店",
+      "brands": ["能登路"],
+      "association": "Kanazawa",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/p102.html",
+      "coverageNotes": "Association source confirms a product; no selectable wording."
+    },
+    {
+      "id": "takeuchi",
+      "name": "有限会社武内酒造店",
+      "brands": ["御所泉"],
+      "association": "Kanazawa",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "coverageNotes": "Association source confirms a product; no selectable wording."
+    },
+    {
+      "id": "nakamura",
+      "name": "中村酒造株式会社",
+      "brands": ["金澤中村屋", "日榮"],
+      "association": "Kanazawa",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "coverageNotes": "Explicit 後味 and キレ wording."
+    },
+    {
+      "id": "fukumitsuya",
+      "name": "株式会社福光屋",
+      "brands": ["加賀鳶"],
+      "association": "Kanazawa",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.fukumitsuya.com/ext/special/ikazuchi_issen/",
+      "coverageNotes": "Official direct nameraka and kire wording."
+    },
+    {
+      "id": "yachiya",
+      "name": "やちや酒造株式会社",
+      "brands": ["加賀鶴"],
+      "association": "Kanazawa",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Explicit なめらかな口当り wording."
+    },
+    {
+      "id": "kanaya",
+      "name": "株式会社金谷酒造店",
+      "brands": ["高砂"],
+      "association": "Hakusan",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "coverageNotes": "Explicit 後味 and キレ wording."
+    },
+    {
+      "id": "kikuhime",
+      "name": "菊姫合資会社",
+      "brands": ["菊姫"],
+      "association": "Hakusan",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
+      "coverageNotes": "Official direct kire wording."
+    },
+    {
+      "id": "kobori",
+      "name": "株式会社小堀酒造店",
+      "brands": ["萬歳楽"],
+      "association": "Hakusan",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://manzairaku.co.jp/product/product-308/",
+      "coverageNotes": "Official kire and approved 余韻 wording."
+    },
+    {
+      "id": "shata",
+      "name": "株式会社車多酒造",
+      "brands": ["天狗舞"],
+      "association": "Hakusan",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.tengumai.co.jp/products/season/187.html",
+      "coverageNotes": "Official direct kire wording."
+    },
+    {
+      "id": "yoshida",
+      "name": "株式会社吉田酒造店",
+      "brands": ["手取川"],
+      "association": "Hakusan",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://tedorigawa.com/item/item-category/tedorigawa/",
+      "coverageNotes": "Official direct kire wording."
+    },
+    {
+      "id": "kaetsu",
+      "name": "株式会社加越",
+      "brands": ["加賀ノ月"],
+      "association": "Komatsu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "coverageNotes": "Explicit 後味 wording."
+    },
+    {
+      "id": "kano",
+      "name": "鹿野酒造株式会社",
+      "brands": ["常きげん"],
+      "association": "Komatsu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://jokigen.co.jp/products/ginjyoshu/",
+      "coverageNotes": "Official direct kire wording."
+    },
+    {
+      "id": "nishide",
+      "name": "合同会社西出酒造",
+      "brands": ["春心"],
+      "association": "Komatsu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://nishidesake.shop-pro.jp/?cid=&keyword=&mode=srh&sort=p",
+      "coverageNotes": "Official store direct キレ味 wording."
+    },
+    {
+      "id": "tezuka",
+      "name": "合資会社手塚酒造場",
+      "brands": ["菊鶴", "御幸誉"],
+      "association": "Komatsu",
+      "coverageStatus": "insufficient-source",
+      "coverageSourceUrl": "https://www.sakeno.com/kuramoto/1755/",
+      "coverageNotes": "Supplemental product identity only; needs deeper source."
+    },
+    {
+      "id": "azuma",
+      "name": "東酒造株式会社",
+      "brands": ["神泉"],
+      "association": "Komatsu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Explicit スッキリした後味 wording."
+    },
+    {
+      "id": "matsuura",
+      "name": "松浦酒造有限会社",
+      "brands": ["獅子の里"],
+      "association": "Komatsu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Product confirmed, no selectable wording."
+    },
+    {
+      "id": "miyamoto",
+      "name": "株式会社宮本酒造店",
+      "brands": ["夢醸"],
+      "association": "Komatsu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "まろやか is not marui evidence."
+    },
+    {
+      "id": "harunari",
+      "name": "有限会社春成酒造店",
+      "brands": ["春山"],
+      "association": "Nanao",
+      "coverageStatus": "insufficient-source",
+      "coverageSourceUrl": "https://www.yawaragimizu.com/sake/kura-list.php?sakaguraid=17020",
+      "coverageNotes": "Supplemental product identity only; needs deeper source."
+    },
+    {
+      "id": "toriyashuzo",
+      "name": "鳥屋酒造株式会社",
+      "brands": ["池月"],
+      "association": "Nanao",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://ikezuki.net/contents.html",
+      "coverageNotes": "Official product identity; やわらかい is not nameraka."
+    },
+    {
+      "id": "fuse",
+      "name": "合資会社布施酒造店",
+      "brands": ["天平"],
+      "association": "Nanao",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.hot-ishikawa.jp/spot/detail_30057.html",
+      "coverageNotes": "Public product identity; no selectable inference."
+    },
+    {
+      "id": "mioya",
+      "name": "御祖酒造株式会社",
+      "brands": ["遊穂", "ほまれ"],
+      "association": "Nanao",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Reference-only acidity/umami retained only."
+    },
+    {
+      "id": "kazuma",
+      "name": "数馬酒造株式会社",
+      "brands": ["竹葉"],
+      "association": "Hoshu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "coverageNotes": "Product identity; brewery-level wording not applied."
+    },
+    {
+      "id": "sakurada",
+      "name": "櫻田酒造株式会社",
+      "brands": ["大慶", "初桜"],
+      "association": "Hoshu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "coverageNotes": "Product identity, no selectable wording."
+    },
+    {
+      "id": "shimizu",
+      "name": "株式会社清水酒造店",
+      "brands": ["能登誉"],
+      "association": "Hoshu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://notohomare.com/item/",
+      "coverageNotes": "Official direct 切れのよい wording."
+    },
+    {
+      "id": "sogen",
+      "name": "宗玄酒造株式会社",
+      "brands": ["宗玄"],
+      "association": "Hoshu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "coverageNotes": "濃醇 is reference-only evidence."
+    },
+    {
+      "id": "tsuruno",
+      "name": "株式会社鶴野酒造店",
+      "brands": ["谷泉"],
+      "association": "Hoshu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Explicit kire wording."
+    },
+    {
+      "id": "nakashima",
+      "name": "合名会社中島酒造店",
+      "brands": ["能登末廣"],
+      "association": "Hoshu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "coverageNotes": "Explicit kire wording."
+    },
+    {
+      "id": "nakano",
+      "name": "中野酒造株式会社",
+      "brands": ["能登亀泉"],
+      "association": "Hoshu",
+      "coverageStatus": "insufficient-source",
+      "coverageSourceUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "coverageNotes": "Industry source only; needs deeper source."
+    },
+    {
+      "id": "nakanori",
+      "name": "中納酒造株式会社",
+      "brands": ["黒松若緑"],
+      "association": "Hoshu",
+      "coverageStatus": "covered",
+      "coverageSourceUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "coverageNotes": "Industry source explicitly uses 後味."
+    },
+    {
+      "id": "shirafuji",
+      "name": "株式会社白藤酒造店",
+      "brands": ["奥能登の白菊"],
+      "association": "Hoshu",
+      "coverageStatus": "insufficient-source",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/p19.html",
+      "coverageNotes": "Association identity plus supplemental listing; needs deeper source."
+    },
+    {
+      "id": "hiyoshi",
+      "name": "日吉酒造店",
+      "brands": ["金瓢白駒"],
+      "association": "Hoshu",
+      "coverageStatus": "source-found-but-no-selectable-term",
+      "coverageSourceUrl": "https://hiyoshisyuzou.com/",
+      "coverageNotes": "Official brand source, no product term evidence."
+    },
+    {
+      "id": "matsunami",
+      "name": "松波酒造株式会社",
+      "brands": ["大江山"],
+      "association": "Hoshu",
+      "coverageStatus": "temporarily-unavailable",
+      "coverageSourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "coverageNotes": "Product identity confirmed; current availability uncertain."
+    }
+  ]
+}

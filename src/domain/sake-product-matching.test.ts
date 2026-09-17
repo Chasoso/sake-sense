@@ -2,36 +2,40 @@ import { describe, expect, it } from "vitest";
 import { findSakeProductMatches, presentEvidenceStatus } from "./sake-product-matching";
 
 describe("Ishikawa sake product matching", () => {
-  it("matches only products that reference a candidate term", () => {
+  it("matches only selectable terms through explicit renderable evidence", () => {
     const matches = findSakeProductMatches(["kire"]);
-
     expect(matches.length).toBeGreaterThan(0);
     expect(
-      matches.every((match) => match.product.termReferences.some((term) => term.termId === "kire")),
+      matches.every((match) =>
+        match.matchedReferences.every((reference) => reference.termId === "kire"),
+      ),
     ).toBe(true);
-    expect(matches[0].whyShown).toContain("kire");
-    expect(matches[0].matchedReferences[0].rationale).toBeTruthy();
+    expect(matches.some((match) => match.product.id === "kagatobi-ikazuchi-issen")).toBe(true);
+    expect(matches.every((match) => match.product.availabilityStatus !== "unknown")).toBe(true);
   });
 
-  it("preserves multiple grounded term connections without ranking", () => {
-    const matches = findSakeProductMatches(["sanmi", "kire"]);
-    const kashu = matches.find((match) => match.product.id === "kikuhime-kashu-kikuzake");
-
-    expect(kashu?.matchedTermIds).toEqual(["sanmi", "kire"]);
+  it("allows human-approved variants but never maroyaka or reference-only terms", () => {
+    const marui = findSakeProductMatches(["marui"]);
+    expect(marui.map((match) => match.product.id)).toContain("kikuhime-junmai-hiyaoroshi");
+    expect(marui.some((match) => match.product.id === "mujou-junmai-hiyaoroshi")).toBe(false);
+    expect(findSakeProductMatches(["sanmi", "nojun", "umami"])).toEqual([]);
   });
 
-  it("returns no match when the sample has no supporting term", () => {
+  it("does not use free text, weak evidence, or unavailable products as matches", () => {
     expect(findSakeProductMatches(["unknown-term"])).toEqual([]);
+    const atoaji = findSakeProductMatches(["atoaji"]);
+    expect(atoaji.some((match) => match.product.id === "kaganotsuki-junmai-ginjo")).toBe(false);
+    expect(atoaji.some((match) => match.product.id === "kuromatsu-wakawaka")).toBe(false);
   });
 
-  it("explains evidence strength without exposing internal status names", () => {
-    expect(presentEvidenceStatus("source-supported")).toEqual({
-      label: "公式表現に基づく参照",
-      explanation: expect.stringContaining("公式の商品説明・分類"),
-    });
-    expect(presentEvidenceStatus("inferred-from-wording")).toEqual({
-      label: "実験的な表現の橋渡し",
-      explanation: expect.stringContaining("公式がこの用語そのものを使っているとは限りません"),
-    });
+  it("presents evidence policy without treating internal strength as taste truth", () => {
+    expect(presentEvidenceStatus("direct").label).toBe("出典の明示表現");
+    expect(presentEvidenceStatus("accepted-variant").label).toBe("承認済み表記variant");
+    expect(presentEvidenceStatus("weak").explanation).toContain(
+      "通常のproduct matchには使いません",
+    );
+    expect(presentEvidenceStatus("rejected").explanation).toContain(
+      "通常のproduct matchには使いません",
+    );
   });
 });

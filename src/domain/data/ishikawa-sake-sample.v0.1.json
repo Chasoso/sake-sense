@@ -1,153 +1,816 @@
 {
-  "version": "0.1.0",
-  "status": "experimental",
+  "version": "0.2.0",
+  "status": "curated-mvp",
   "products": [
     {
-      "id": "kikuhime-tokusen-junmai",
-      "name": "特撰純米",
-      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
-      "sourceUrl": "https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/",
-      "descriptionSummary": "米の甘味・旨味が豊かで、蔵内熟成によるまろやかさと深みがある純米酒。",
-      "termReferences": [
-        {
-          "termId": "nojun",
-          "mappingStatus": "source-supported",
-          "rationale": "菊姫公式の「味わいから選ぶ」で特撰純米が濃醇タイプに分類されているため、nojunをsource-supportedとして参照する。"
-        }
-      ],
-      "provenance": [
-        {
-          "sourceId": "kikuhime-tokusen-junmai-product",
-          "sourceType": "Official Kikuhime product information",
-          "url": "https://www.kikuhime.co.jp/products/%E7%89%B9%E9%81%B8%E7%B4%94%E7%B1%B3/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公式の商品詳細から商品概要の要点だけを短く要約した。濃醇分類の根拠は別の公式ページに分離して記録した。"
-        },
-        {
-          "sourceId": "kikuhime-taste-category",
-          "sourceType": "Official Kikuhime taste category page",
-          "url": "https://www.kikuhime.co.jp/product/taste/",
-          "accessedOn": "2026-08-30",
-          "transformationNote": "味わいから選ぶページで特撰純米が濃醇タイプに分類されていることを、nojun参照の根拠として短く記録した。"
-        }
-      ],
-      "accessedOn": "2026-08-29",
-      "transformationNote": "商品説明本文を転載せず、商品名・蔵元・要点・term参照のみを構造化した。",
-      "notes": "白山市の蔵元によるサンプル。おすすめや味の独自評価ではない。"
+      "id": "notoji-noto-recovery-tokubetsu-junmai",
+      "name": "能登路 能登復興 特別純米酒",
+      "breweryId": "kuse",
+      "breweryName": "株式会社久世酒造店",
+      "region": "Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/p102.html",
+      "sourceName": "石川県酒造組合連合会 復興支援酒",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "復興支援酒として掲載された特別純米酒。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/p102.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source confirms identity; current availability is not asserted.",
+      "reviewNotes": "No selectable-term evidence."
     },
     {
-      "id": "kikuhime-yamahai-junmai",
-      "name": "山廃純米",
-      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
-      "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/",
-      "descriptionSummary": "山廃仕込みで、濃醇で飲み応えのある個性を持つ純米酒。",
+      "id": "goshoizumi-junmai-ginjo",
+      "name": "御所泉 純米吟醸",
+      "breweryId": "takeuchi",
+      "breweryName": "有限会社武内酒造店",
+      "region": "Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "sourceName": "石川県酒造組合連合会",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "組合資料に掲載された純米吟醸。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source confirms identity.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "kanazawa-nakamuraya-noto-recovery-junmai-ginjo",
+      "name": "金澤中村屋 能登復興支援酒 純米吟醸",
+      "breweryId": "nakamura",
+      "breweryName": "中村酒造株式会社",
+      "region": "Kanazawa, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "sourceName": "石川県酒造組合連合会 復興支援酒",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "上品な後味とキレの良さを掲げる純米吟醸。",
       "termReferences": [
         {
-          "termId": "nojun",
-          "mappingStatus": "source-supported",
-          "rationale": "公式酒質説明に濃醇と明記されている。"
-        }
-      ],
-      "provenance": [
+          "termId": "atoaji",
+          "sourceWording": "上品な後味",
+          "evidenceStatus": "direct",
+          "rationale": "Source explicitly uses 後味.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/c44.html"
+        },
         {
-          "sourceId": "kikuhime-yamahai-junmai",
-          "sourceType": "Official Kikuhime product page",
-          "url": "https://www.kikuhime.co.jp/products/%E5%B1%B1%E5%BB%83%E7%B4%94%E7%B1%B3/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公式の商品説明から濃醇という明示語と商品概要を短く要約した。"
+          "termId": "kire",
+          "sourceWording": "キレの良さ",
+          "evidenceStatus": "direct",
+          "rationale": "Source explicitly uses キレ.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/c44.html"
         }
       ],
-      "accessedOn": "2026-08-29",
-      "transformationNote": "公式説明の短いparaphraseのみを保存した。",
-      "notes": "白山市のGI白山地域に所在する蔵元の商品。製法名を味覚termとは扱わない。"
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Explicit association wording, with conservative availability.",
+      "reviewNotes": "Unknown availability prevents normal rendering."
+    },
+    {
+      "id": "kagatobi-ikazuchi-issen",
+      "name": "加賀鳶 いかづち 一閃",
+      "breweryId": "fukumitsuya",
+      "breweryName": "株式会社福光屋",
+      "region": "Kanazawa, Ishikawa",
+      "sourceUrl": "https://www.fukumitsuya.com/ext/special/ikazuchi_issen/",
+      "sourceName": "福光屋公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "なめらかな口当たりとキレを説明する加賀鳶の商品。",
+      "termReferences": [
+        {
+          "termId": "nameraka",
+          "sourceWording": "味わいはなめらか",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses なめらか.",
+          "sourceUrl": "https://www.fukumitsuya.com/ext/special/ikazuchi_issen/"
+        },
+        {
+          "termId": "kire",
+          "sourceWording": "キレをしっかりと感じる",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://www.fukumitsuya.com/ext/special/ikazuchi_issen/"
+        }
+      ],
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://www.fukumitsuya.com/ext/special/ikazuchi_issen/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official source; image reuse unassessed.",
+      "reviewNotes": "Renderable direct evidence."
+    },
+    {
+      "id": "kagatsuru-tokubetsu-junmai-hiyaoroshi",
+      "name": "加賀鶴 特別純米 ひやおろし",
+      "breweryId": "yachiya",
+      "breweryName": "やちや酒造株式会社",
+      "region": "Kanazawa, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "なめらかな口当りを掲げる季節の特別純米酒。",
+      "termReferences": [
+        {
+          "termId": "nameraka",
+          "sourceWording": "なめらかな口当り",
+          "evidenceStatus": "direct",
+          "rationale": "Association source explicitly uses なめらか.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "Seasonal product."
+    },
+    {
+      "id": "takasago-junmai-hiyaoroshi",
+      "name": "高砂 純米 ひやおろし",
+      "breweryId": "kanaya",
+      "breweryName": "株式会社金谷酒造店",
+      "region": "Hakusan, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "sourceName": "石川県酒造組合連合会 2025ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "後味のキレを説明する季節の純米酒。",
+      "termReferences": [
+        {
+          "termId": "atoaji",
+          "sourceWording": "後味",
+          "evidenceStatus": "direct",
+          "rationale": "Source explicitly uses 後味.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf"
+        },
+        {
+          "termId": "kire",
+          "sourceWording": "後味のキレも良く",
+          "evidenceStatus": "direct",
+          "rationale": "Source explicitly uses キレ.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association PDF has explicit wording.",
+      "reviewNotes": "Seasonal product."
     },
     {
       "id": "kikuhime-kashu-kikuzake",
       "name": "加州菊酒",
-      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
+      "breweryId": "kikuhime",
+      "breweryName": "菊姫合資会社",
+      "region": "Hakusan, Ishikawa",
       "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
-      "descriptionSummary": "酸味が程よく効いた、シャープで個性的な純米酒。キレのよい飲み口。",
+      "sourceName": "菊姫公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "キレの良さを明記する菊姫の商品。",
       "termReferences": [
-        {
-          "termId": "sanmi",
-          "mappingStatus": "source-supported",
-          "rationale": "公式酒質説明に酸味と明記されている。"
-        },
         {
           "termId": "kire",
-          "mappingStatus": "source-supported",
-          "rationale": "公式酒質説明にキレが良いと明記されている。"
-        }
-      ],
-      "provenance": [
+          "sourceWording": "キレが良く",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/"
+        },
         {
-          "sourceId": "kikuhime-kashu-kikuzake",
-          "sourceType": "Official Kikuhime product page",
-          "url": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公式の商品説明にある酸味・シャープ・キレの表現を簡潔に要約した。"
+          "termId": "sanmi",
+          "sourceWording": "酸味",
+          "evidenceStatus": "weak",
+          "rationale": "Reference-only evidence retained for audit only.",
+          "sourceUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/"
         }
       ],
-      "accessedOn": "2026-08-29",
-      "transformationNote": "公式説明の語を既存dictionary termへ直接参照し、独自の味評価は加えていない。",
-      "notes": "白山市のGI白山認証酒。GIの説明を味の優劣とは扱わない。"
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://www.kikuhime.co.jp/products/%E5%8A%A0%E5%B7%9E%E8%8F%8A%E9%85%92/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Legacy sanmi is retained only as non-renderable evidence.",
+      "reviewNotes": "Revised to direct kire-only rendering."
     },
     {
-      "id": "kikuhime-ginjo",
-      "name": "菊姫吟醸",
-      "producer": { "name": "菊姫合資会社", "prefecture": "Ishikawa" },
-      "sourceUrl": "https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/",
-      "descriptionSummary": "公式説明ではフレッシュで軽やかな味わいを持つ北陸地区限定の吟醸酒。",
+      "id": "manzairaku-tsurugi",
+      "name": "萬歳楽 剱 -Tsurugi-",
+      "breweryId": "kobori",
+      "breweryName": "株式会社小堀酒造店",
+      "region": "Hakusan, Ishikawa",
+      "sourceUrl": "https://manzairaku.co.jp/product/product-308/",
+      "sourceName": "萬歳楽公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "爽快なキレと心地よい余韻を説明する商品。",
       "termReferences": [
         {
-          "termId": "tanrei",
-          "mappingStatus": "inferred-from-wording",
-          "rationale": "公式の軽やかという表現を、淡麗の定義全体ではなくweight/lightの実験的参照として限定的に扱う。"
-        }
-      ],
-      "provenance": [
+          "termId": "kire",
+          "sourceWording": "爽快なキレ",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://manzairaku.co.jp/product/product-308/"
+        },
         {
-          "sourceId": "kikuhime-ginjo",
-          "sourceType": "Official Kikuhime product page",
-          "url": "https://www.kikuhime.co.jp/products/%E8%8F%8A%E5%A7%AB%E5%90%9F%E9%86%B8/",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公式説明の軽やかという語を引用せず要約し、淡麗への参照はinferredと明示した。"
+          "termId": "atoaji",
+          "sourceWording": "心地よい余韻が続く",
+          "evidenceStatus": "accepted-variant",
+          "rationale": "余韻 is the approved atoaji evidence variant.",
+          "sourceUrl": "https://manzairaku.co.jp/product/product-308/"
         }
       ],
-      "accessedOn": "2026-08-29",
-      "transformationNote": "商品説明の軽やかという語からの保守的な推論であり、公式が淡麗と呼んだとは記録していない。",
-      "notes": "白山市の蔵元の商品。term参照はsource-supportedではなくexperimental dataset上のinferred mapping。"
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://manzairaku.co.jp/product/product-308/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official source; 余韻 is preserved verbatim.",
+      "reviewNotes": "Renderable direct and approved variant evidence."
     },
     {
-      "id": "tengumai-yamahai-junmai",
-      "name": "山廃仕込純米酒",
-      "producer": { "name": "株式会社車多酒造（天狗舞）", "prefecture": "Ishikawa" },
-      "sourceUrl": "https://www.tengumai.co.jp/products/junmai/19.html",
-      "descriptionSummary": "山廃仕込み特有の濃厚な香味と酸味の調和を持つ純米酒。",
+      "id": "tengumai-chokarakuchi-junmai",
+      "name": "天狗舞 超辛 純米酒",
+      "breweryId": "shata",
+      "breweryName": "株式会社車多酒造",
+      "region": "Hakusan, Ishikawa",
+      "sourceUrl": "https://www.tengumai.co.jp/products/season/187.html",
+      "sourceName": "天狗舞公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "研ぎ澄まされたキレのよさを掲げる季節の純米酒。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "研ぎ澄まされたキレのよさ",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://www.tengumai.co.jp/products/season/187.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://www.tengumai.co.jp/products/season/187.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official seasonal product page.",
+      "reviewNotes": "Seasonal product."
+    },
+    {
+      "id": "tedorigawa-yamahai-jikomi-junmai",
+      "name": "手取川 山廃仕込 純米酒",
+      "breweryId": "yoshida",
+      "breweryName": "株式会社吉田酒造店",
+      "region": "Hakusan, Ishikawa",
+      "sourceUrl": "https://tedorigawa.com/item/item-category/tedorigawa/",
+      "sourceName": "手取川公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "フィニッシュのキレを説明する山廃仕込純米酒。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "フィニッシュはキレの良さ",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://tedorigawa.com/item/item-category/tedorigawa/"
+        }
+      ],
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://tedorigawa.com/item/item-category/tedorigawa/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official product category page.",
+      "reviewNotes": "Renderable direct evidence."
+    },
+    {
+      "id": "kaganotsuki-junmai-ginjo",
+      "name": "加賀ノ月 純米吟醸",
+      "breweryId": "kaetsu",
+      "breweryName": "株式会社加越",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "sourceName": "石川県酒造組合連合会 復興支援酒",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "旨みがのった後味を説明する純米吟醸。",
+      "termReferences": [
+        {
+          "termId": "atoaji",
+          "sourceWording": "旨みがのった後味",
+          "evidenceStatus": "direct",
+          "rationale": "Source explicitly uses 後味.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/c44.html"
+        }
+      ],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/c44.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source supports wording, but availability is unknown.",
+      "reviewNotes": "Not normally renderable while availability is unknown."
+    },
+    {
+      "id": "jokigen-fujin-junmai-ginjo",
+      "name": "常きげん 純米吟醸 風神",
+      "breweryId": "kano",
+      "breweryName": "鹿野酒造株式会社",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://jokigen.co.jp/products/ginjyoshu/",
+      "sourceName": "常きげん公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "米の旨みとキレのある味わいを説明する純米吟醸。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "キレのある味わい",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://jokigen.co.jp/products/ginjyoshu/"
+        }
+      ],
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://jokigen.co.jp/products/ginjyoshu/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official product category source.",
+      "reviewNotes": "Renderable direct evidence."
+    },
+    {
+      "id": "harugokoro-yamahai-honjozo",
+      "name": "春心 山廃つくり本醸造",
+      "breweryId": "nishide",
+      "breweryName": "合同会社西出酒造",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://nishidesake.shop-pro.jp/?cid=&keyword=&mode=srh&sort=p",
+      "sourceName": "西出酒造公式オンラインストア",
+      "sourceType": "official-store",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "キレ味を持たせたと説明される本醸造。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "キレ味を持たせた",
+          "evidenceStatus": "direct",
+          "rationale": "Official store wording explicitly uses キレ味.",
+          "sourceUrl": "https://nishidesake.shop-pro.jp/?cid=&keyword=&mode=srh&sort=p"
+        }
+      ],
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://nishidesake.shop-pro.jp/?cid=&keyword=&mode=srh&sort=p",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official producer store search source.",
+      "reviewNotes": "Renderable direct evidence."
+    },
+    {
+      "id": "kikutsuru",
+      "name": "菊鶴",
+      "breweryId": "tezuka",
+      "breweryName": "合資会社手塚酒造場",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://www.sakeno.com/kuramoto/1755/",
+      "sourceName": "日本酒物語",
+      "sourceType": "supplemental-database",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "補助的な蔵元情報で確認した代表銘柄。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.sakeno.com/kuramoto/1755/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Supplemental source only; primary detail unavailable.",
+      "reviewNotes": "Needs deeper source; no term evidence."
+    },
+    {
+      "id": "shinsen-junmai-ginjo-hiyaoroshi",
+      "name": "神泉 純米吟醸 ひやおろし",
+      "breweryId": "azuma",
+      "breweryName": "東酒造株式会社",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "しっかりした旨味とスッキリした後味を説明する季節酒。",
+      "termReferences": [
+        {
+          "termId": "atoaji",
+          "sourceWording": "スッキリした後味",
+          "evidenceStatus": "direct",
+          "rationale": "Association source explicitly uses 後味.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "Seasonal product."
+    },
+    {
+      "id": "shishinosato-junmai-hiyaoroshi",
+      "name": "獅子の里 純米酒 ひやおろし",
+      "breweryId": "matsuura",
+      "breweryName": "松浦酒造有限会社",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "ひと夏熟成の生詰純米酒として掲載。",
+      "termReferences": [],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source confirms identity.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "mujou-junmai-hiyaoroshi",
+      "name": "夢醸 純米 ひやおろし",
+      "breweryId": "miyamoto",
+      "breweryName": "株式会社宮本酒造店",
+      "region": "Komatsu, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "まろやかでナチュラルな旨味を説明する季節酒。",
+      "termReferences": [
+        {
+          "termId": "marui",
+          "sourceWording": "まろやか",
+          "evidenceStatus": "rejected",
+          "rationale": "まろやか is deliberately not marui evidence.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source; rejected relation retained for audit.",
+      "reviewNotes": "Must never normally match marui."
+    },
+    {
+      "id": "haruyama-umatsuri-tokubetsu-honjozo",
+      "name": "春山 鵜祭り 特別本醸造",
+      "breweryId": "harunari",
+      "breweryName": "有限会社春成酒造店",
+      "region": "Nanao, Ishikawa",
+      "sourceUrl": "https://www.yawaragimizu.com/sake/kura-list.php?sakaguraid=17020",
+      "sourceName": "酒蔵・日本酒検索",
+      "sourceType": "supplemental-database",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "補助的な蔵元情報で確認した特別本醸造。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.yawaragimizu.com/sake/kura-list.php?sakaguraid=17020",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Supplemental identity evidence only.",
+      "reviewNotes": "Needs deeper source; no term evidence."
+    },
+    {
+      "id": "ikezuki-honjozo",
+      "name": "池月 本醸造",
+      "breweryId": "toriyashuzo",
+      "breweryName": "鳥屋酒造株式会社",
+      "region": "Nanao, Ishikawa",
+      "sourceUrl": "https://ikezuki.net/contents.html",
+      "sourceName": "鳥屋酒造公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "やわらかい口当たりを説明する本醸造。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://ikezuki.net/contents.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official source confirms identity.",
+      "reviewNotes": "やわらかい is not nameraka."
+    },
+    {
+      "id": "tenpei-three-year-koshu-onikoroshi-nanaojyo",
+      "name": "天平 三年古酒 鬼ころし七尾城",
+      "breweryId": "fuse",
+      "breweryName": "合資会社布施酒造店",
+      "region": "Nanao, Ishikawa",
+      "sourceUrl": "https://www.hot-ishikawa.jp/spot/detail_30057.html",
+      "sourceName": "石川県公式観光",
+      "sourceType": "public",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "石川県公式観光情報で確認した長期熟成酒。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.hot-ishikawa.jp/spot/detail_30057.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Public source confirms identity.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "homare-junmai-hiyaoroshi",
+      "name": "ほまれ 純米 ひやおろし",
+      "breweryId": "mioya",
+      "breweryName": "御祖酒造株式会社",
+      "region": "Nanao, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "旨味と酸味の調和を説明する季節の純米酒。",
+      "termReferences": [
+        {
+          "termId": "umami",
+          "sourceWording": "旨味",
+          "evidenceStatus": "weak",
+          "rationale": "Reference-only evidence retained for audit only.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        },
+        {
+          "termId": "sanmi",
+          "sourceWording": "酸味",
+          "evidenceStatus": "weak",
+          "rationale": "Reference-only evidence retained for audit only.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "Reference-only evidence cannot match."
+    },
+    {
+      "id": "chikuha-junmai-misaki",
+      "name": "竹葉 純米酒 ミサキ",
+      "breweryId": "kazuma",
+      "breweryName": "数馬酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "sourceName": "石川県酒造組合連合会",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "組合の認定酒一覧で確認した純米酒。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association source confirms identity.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "noto-daikei-junmai-hiyaoroshi",
+      "name": "能登大慶 純米 ひやおろし",
+      "breweryId": "sakurada",
+      "breweryName": "櫻田酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "sourceName": "石川県酒造組合連合会 2025ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "やさしい味わいとして掲載された季節の純米酒。",
+      "termReferences": [],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association PDF confirms identity.",
+      "reviewNotes": "No selectable-term inference."
+    },
+    {
+      "id": "okunoto-wajima-senmaida",
+      "name": "奥能登輪島 千枚田",
+      "breweryId": "shimizu",
+      "breweryName": "株式会社清水酒造店",
+      "region": "Wajima, Ishikawa",
+      "sourceUrl": "https://notohomare.com/item/",
+      "sourceName": "清水酒造店公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "切れのよい喉越しを説明する商品。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "切れのよい喉越し",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses 切れのよい.",
+          "sourceUrl": "https://notohomare.com/item/"
+        }
+      ],
+      "availabilityStatus": "regular",
+      "imageSourcePageUrl": "https://notohomare.com/item/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official product listing.",
+      "reviewNotes": "Renderable direct evidence."
+    },
+    {
+      "id": "sogen-junmai-hiyaoroshi",
+      "name": "宗玄 純米 ひやおろし",
+      "breweryId": "sogen",
+      "breweryName": "宗玄酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "sourceName": "石川県酒造組合連合会 2025ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "濃醇な味わいと酸味のバランスを説明する季節酒。",
       "termReferences": [
         {
           "termId": "nojun",
-          "mappingStatus": "inferred-from-wording",
-          "rationale": "公式の濃厚な香味を、dictionaryの濃醇と同一視せず、近接する実験的参照としてinferredにした。"
+          "sourceWording": "濃醇な味わい",
+          "evidenceStatus": "weak",
+          "rationale": "Reference-only evidence retained for audit only.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf"
         },
         {
           "termId": "sanmi",
-          "mappingStatus": "source-supported",
-          "rationale": "公式商品説明に酸味と明記されている。"
+          "sourceWording": "酸味",
+          "evidenceStatus": "weak",
+          "rationale": "Reference-only evidence retained for audit only.",
+          "sourceUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf"
         }
       ],
-      "provenance": [
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association PDF provides reference-only wording.",
+      "reviewNotes": "No normal matching for reference-only terms."
+    },
+    {
+      "id": "taniizumi-tokubetsu-junmai-hiyaoroshi",
+      "name": "谷泉 特別純米 ひやおろし",
+      "breweryId": "tsuruno",
+      "breweryName": "株式会社鶴野酒造店",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "キレの良い辛口を説明する季節の特別純米酒。",
+      "termReferences": [
         {
-          "sourceId": "tengumai-yamahai-junmai",
-          "sourceType": "Official Tengumai product page",
-          "url": "https://www.tengumai.co.jp/products/junmai/19.html",
-          "accessedOn": "2026-08-29",
-          "transformationNote": "公式説明の濃厚な香味・酸味を短く要約し、濃醇との関係はinferredと明示した。"
+          "termId": "kire",
+          "sourceWording": "キレの良い",
+          "evidenceStatus": "direct",
+          "rationale": "Association source explicitly uses キレ.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
         }
       ],
-      "accessedOn": "2026-08-29",
-      "transformationNote": "商品説明を転載せず、termごとの根拠強度を分離して保存した。",
-      "notes": "白山市の車多酒造による商品。Sake Senseが味を独自評価したものではない。"
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "Seasonal product."
+    },
+    {
+      "id": "oyaji-no-tezukuri",
+      "name": "百石酒屋のおやじの手造り",
+      "breweryId": "nakashima",
+      "breweryName": "合名会社中島酒造店",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "ひやおろし説明でキレの良さを掲げる商品。",
+      "termReferences": [
+        {
+          "termId": "kire",
+          "sourceWording": "キレの良さ",
+          "evidenceStatus": "direct",
+          "rationale": "Association source explicitly uses キレ.",
+          "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "Seasonal product."
+    },
+    {
+      "id": "noto-kameizumi-josen",
+      "name": "能登亀泉 上撰",
+      "breweryId": "nakano",
+      "breweryName": "中野酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "sourceName": "日本酒造組合中央会資料",
+      "sourceType": "industry-association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "業界団体資料で確認した上撰。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Industry source only; primary detail unavailable.",
+      "reviewNotes": "Needs deeper source; no term evidence."
+    },
+    {
+      "id": "kuromatsu-wakawaka",
+      "name": "黒松 若緑",
+      "breweryId": "nakanori",
+      "breweryName": "中納酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "sourceName": "日本酒造組合中央会資料",
+      "sourceType": "industry-association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "後味すっきりと説明される商品。",
+      "termReferences": [
+        {
+          "termId": "atoaji",
+          "sourceWording": "後味すっきり",
+          "evidenceStatus": "direct",
+          "rationale": "Industry source explicitly uses 後味.",
+          "sourceUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf"
+        }
+      ],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.japansake.or.jp/sake/about/kumiaiin/pdf/19.pdf",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Reviewable source; availability unknown.",
+      "reviewNotes": "Not normally renderable while availability is unknown."
+    },
+    {
+      "id": "junmai-shune",
+      "name": "純米酒 寧音",
+      "breweryId": "shirafuji",
+      "breweryName": "株式会社白藤酒造店",
+      "region": "Wajima, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "sourceName": "石川県酒造組合連合会",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "組合の認定酒一覧で確認した純米酒。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association identity; primary product page needs follow-up.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "ore-no-sake-junmai-hiyaoroshi",
+      "name": "おれの酒 純米ひやおろし",
+      "breweryId": "hiyoshi",
+      "breweryName": "日吉酒造店",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "sourceName": "石川県酒造組合連合会 ひやおろし",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "組合の季節酒一覧で確認した純米ひやおろし。",
+      "termReferences": [],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association seasonal listing.",
+      "reviewNotes": "No selectable-term evidence."
+    },
+    {
+      "id": "oeyama-kuradashi-junmai",
+      "name": "大江山 蔵出し純米酒",
+      "breweryId": "matsunami",
+      "breweryName": "松波酒造株式会社",
+      "region": "Noto, Ishikawa",
+      "sourceUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "sourceName": "石川県酒造組合連合会",
+      "sourceType": "association",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "組合の認定酒一覧で確認した蔵出し純米酒。",
+      "termReferences": [],
+      "availabilityStatus": "unknown",
+      "imageSourcePageUrl": "https://www.ishikawa-sake.jp/eng/index_jp.html",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Association identity; availability remains uncertain.",
+      "reviewNotes": "Temporarily unavailable or unknown is conservative."
+    },
+    {
+      "id": "kikuhime-junmai-hiyaoroshi",
+      "name": "菊姫 純米ひやおろし",
+      "breweryId": "kikuhime",
+      "breweryName": "菊姫合資会社",
+      "region": "Hakusan, Ishikawa",
+      "sourceUrl": "https://www.kikuhime.co.jp/products/%E7%B4%94%E7%B1%B3%E3%81%B2%E3%82%84%E3%81%8A%E3%82%8D%E3%81%97/",
+      "sourceName": "菊姫公式",
+      "sourceType": "official-product-page",
+      "sourceReviewedAt": "2026-09-17",
+      "descriptionSummary": "丸みを帯びた味わいと後口のキレを説明する季節酒。",
+      "termReferences": [
+        {
+          "termId": "marui",
+          "sourceWording": "丸みを帯び",
+          "evidenceStatus": "accepted-variant",
+          "rationale": "丸みを帯びた is an approved marui evidence variant.",
+          "sourceUrl": "https://www.kikuhime.co.jp/products/%E7%B4%94%E7%B1%B3%E3%81%B2%E3%82%84%E3%81%8A%E3%82%8D%E3%81%97/"
+        },
+        {
+          "termId": "kire",
+          "sourceWording": "後口のキレも良く",
+          "evidenceStatus": "direct",
+          "rationale": "Official source explicitly uses キレ.",
+          "sourceUrl": "https://www.kikuhime.co.jp/products/%E7%B4%94%E7%B1%B3%E3%81%B2%E3%82%84%E3%81%8A%E3%82%8D%E3%81%97/"
+        }
+      ],
+      "availabilityStatus": "seasonal",
+      "imageSourcePageUrl": "https://www.kikuhime.co.jp/products/%E7%B4%94%E7%B1%B3%E3%81%B2%E3%82%84%E3%81%8A%E3%82%8D%E3%81%97/",
+      "imageUsageStatus": "needs-review",
+      "provenanceNotes": "Official source; approved variant wording is preserved.",
+      "reviewNotes": "Renderable accepted-variant marui evidence."
     }
   ]
 }

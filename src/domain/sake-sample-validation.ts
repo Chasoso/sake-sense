@@ -1,35 +1,131 @@
+type TermReference = {
+  termId: string;
+  sourceWording: string;
+  evidenceStatus: string;
+  rationale: string;
+  sourceUrl: string;
+};
+
 type SakeProduct = {
   id: string;
+  breweryId: string;
   sourceUrl: string;
-  termReferences: Array<{ termId: string }>;
-  provenance: Array<{ url: string }>;
+  sourceName: string;
+  sourceReviewedAt: string;
+  termReferences: TermReference[];
+  availabilityStatus: string;
+  imageSourcePageUrl: string;
+  imageSourceUrl?: string;
+  imageUsageStatus: string;
+  provenanceNotes: string;
 };
 
 type SakeSample = { products: SakeProduct[] };
+type Brewery = {
+  id: string;
+  name: string;
+  coverageStatus: string;
+  coverageSourceUrl: string;
+};
+type BreweryBaseline = { memberBreweries: Brewery[] };
+export type DictionaryEntry = { id: string; vocabularyStatus: string };
+
+const renderableEvidence = new Set(["direct", "accepted-variant"]);
+const renderableAvailability = new Set(["regular", "seasonal"]);
+
+export function isRenderableProductTermReference(
+  reference: TermReference,
+  product: Pick<SakeProduct, "availabilityStatus" | "provenanceNotes">,
+  dictionary: Map<string, DictionaryEntry>,
+): boolean {
+  return (
+    dictionary.get(reference.termId)?.vocabularyStatus === "selectable" &&
+    renderableEvidence.has(reference.evidenceStatus) &&
+    renderableAvailability.has(product.availabilityStatus) &&
+    Boolean(product.provenanceNotes) &&
+    Boolean(reference.sourceUrl)
+  );
+}
+
+export function isNormalImageRenderable(
+  product: Pick<SakeProduct, "imageUsageStatus" | "imageSourceUrl">,
+): boolean {
+  return product.imageUsageStatus === "allowed";
+}
 
 export function findSakeSampleValidationErrors(
   sample: SakeSample,
-  dictionaryTermIds: Set<string>,
+  dictionaryEntries: readonly DictionaryEntry[],
+  baseline: BreweryBaseline,
 ): string[] {
   const errors: string[] = [];
   const productIds = new Set<string>();
+  const breweryIds = new Set<string>();
+  const dictionary = new Map(dictionaryEntries.map((entry) => [entry.id, entry]));
+  const baselineIds = new Set(baseline.memberBreweries.map((brewery) => brewery.id));
+
+  if (baseline.memberBreweries.length !== 32)
+    errors.push(`Expected 32 member breweries, got ${baseline.memberBreweries.length}`);
+  for (const brewery of baseline.memberBreweries) {
+    if (breweryIds.has(brewery.id)) errors.push(`Duplicate brewery ID: ${brewery.id}`);
+    breweryIds.add(brewery.id);
+    if (
+      !brewery.name ||
+      !brewery.coverageSourceUrl ||
+      brewery.coverageSourceUrl.includes("example.com")
+    )
+      errors.push(`Missing coverage provenance for brewery ${brewery.id}`);
+    if (
+      ![
+        "covered",
+        "source-found-but-no-selectable-term",
+        "insufficient-source",
+        "temporarily-unavailable",
+      ].includes(brewery.coverageStatus)
+    )
+      errors.push(`Invalid brewery coverage status: ${brewery.id}`);
+  }
+
   for (const product of sample.products) {
     if (productIds.has(product.id)) errors.push(`Duplicate sake product ID: ${product.id}`);
     productIds.add(product.id);
-    if (!product.sourceUrl || product.sourceUrl.includes("example.com")) {
+    if (!baselineIds.has(product.breweryId))
+      errors.push(`Unknown brewery ${product.breweryId} in ${product.id}`);
+    if (!product.sourceUrl || product.sourceUrl.includes("example.com"))
       errors.push(`Invalid product source URL in ${product.id}`);
-    }
-    if (!product.provenance.length) errors.push(`Missing provenance in ${product.id}`);
+    if (!product.sourceName || !product.sourceReviewedAt || !product.provenanceNotes)
+      errors.push(`Missing provenance in ${product.id}`);
+    if (!["regular", "seasonal", "discontinued", "unknown"].includes(product.availabilityStatus))
+      errors.push(`Invalid availability status in ${product.id}`);
+    if (!["allowed", "needs-review", "not-allowed", "unknown"].includes(product.imageUsageStatus))
+      errors.push(`Invalid image usage status in ${product.id}`);
+    if (!product.imageSourcePageUrl || product.imageSourcePageUrl.includes("example.com"))
+      errors.push(`Invalid image source page URL in ${product.id}`);
     for (const reference of product.termReferences) {
-      if (!dictionaryTermIds.has(reference.termId)) {
+      const dictionaryEntry = dictionary.get(reference.termId);
+      if (!dictionaryEntry)
         errors.push(`Unknown dictionary term ${reference.termId} in ${product.id}`);
-      }
+      if (!["direct", "accepted-variant", "weak", "rejected"].includes(reference.evidenceStatus))
+        errors.push(`Invalid evidence status in ${product.id}`);
+      if (!reference.sourceUrl || reference.sourceUrl.includes("example.com"))
+        errors.push(`Invalid term evidence URL in ${product.id}`);
+      if (
+        reference.sourceWording === "まろやか" &&
+        reference.termId === "marui" &&
+        reference.evidenceStatus !== "rejected"
+      )
+        errors.push(`Rejected wording まろやか cannot support marui in ${product.id}`);
+      if (
+        (reference.evidenceStatus === "weak" || reference.evidenceStatus === "rejected") &&
+        isRenderableProductTermReference(reference, product, dictionary)
+      )
+        errors.push(`Weak or rejected evidence cannot render in ${product.id}`);
     }
-    for (const source of product.provenance) {
-      if (!source.url || source.url.includes("example.com")) {
-        errors.push(`Invalid provenance URL in ${product.id}`);
-      }
-    }
+  }
+
+  for (const brewery of baseline.memberBreweries) {
+    if (!sample.products.some((product) => product.breweryId === brewery.id))
+      errors.push(`Missing researched product for brewery ${brewery.id}`);
   }
   return errors;
 }
