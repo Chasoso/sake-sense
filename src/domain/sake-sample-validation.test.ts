@@ -23,6 +23,9 @@ describe("Ishikawa sake MVP dataset validation", () => {
       (product) => product.id === "kagatobi-ikazuchi-issen",
     )!;
     const unknown = sample.products.find((product) => product.id === "kaganotsuki-junmai-ginjo")!;
+    const seasonal = sample.products.find(
+      (product) => product.id === "kikuhime-junmai-hiyaoroshi",
+    )!;
     const rejected = sample.products.find((product) => product.id === "mujou-junmai-hiyaoroshi")!;
     const dictionaryById = new Map(dictionary.entries.map((entry) => [entry.id, entry]));
 
@@ -30,6 +33,16 @@ describe("Ishikawa sake MVP dataset validation", () => {
       isRenderableProductTermReference(
         directRegular.termReferences[0],
         directRegular,
+        dictionaryById,
+      ),
+    ).toBe(true);
+    expect(
+      isRenderableProductTermReference(seasonal.termReferences[0], seasonal, dictionaryById),
+    ).toBe(false);
+    expect(
+      isRenderableProductTermReference(
+        seasonal.termReferences[0],
+        { ...seasonal, currentAvailabilityStatus: "confirmed" },
         dictionaryById,
       ),
     ).toBe(true);
@@ -49,11 +62,18 @@ describe("Ishikawa sake MVP dataset validation", () => {
     expect(isNormalImageRenderable(directRegular)).toBe(false);
     expect(
       isNormalImageRenderable({
+        imageUsageStatus: "allowed",
+        imageSourceUrl: "https://official.example.jp/image.jpg",
+      }),
+    ).toBe(true);
+    expect(isNormalImageRenderable({ imageUsageStatus: "allowed" })).toBe(false);
+    expect(
+      isNormalImageRenderable({
         imageUsageStatus: "needs-review",
         imageSourceUrl: "https://official.example.jp/image.jpg",
       }),
     ).toBe(false);
-    expect(isNormalImageRenderable({ imageUsageStatus: "allowed" })).toBe(true);
+    expect(isNormalImageRenderable({ imageUsageStatus: "not-allowed" })).toBe(false);
   });
 
   it("rejects invalid product links, unsafe evidence, and incomplete coverage", () => {
@@ -62,6 +82,7 @@ describe("Ishikawa sake MVP dataset validation", () => {
     invalid.products[0].breweryId = "missing";
     invalid.products[0].sourceUrl = "https://example.com/product";
     invalid.products[0].imageSourcePageUrl = "https://example.com/image";
+    invalid.products[0].availabilityStatus = "seasonal";
     invalid.products[0].termReferences = [
       {
         termId: "marui",
@@ -79,6 +100,7 @@ describe("Ishikawa sake MVP dataset validation", () => {
         `Unknown brewery missing in ${sample.products[1].id}`,
         `Invalid product source URL in ${sample.products[1].id}`,
         `Invalid image source page URL in ${sample.products[1].id}`,
+        `Missing current availability status for seasonal product ${sample.products[1].id}`,
         `Rejected wording まろやか cannot support marui in ${sample.products[1].id}`,
         "Missing researched product for brewery matsunami",
       ]),

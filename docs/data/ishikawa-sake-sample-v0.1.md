@@ -11,12 +11,12 @@ Normal product matching requires all of the following:
 - a selectable #45 term (`atoaji`, `kire`, `nameraka`, or `marui`);
 - an explicit structured term reference;
 - `direct` or human-approved `accepted-variant` evidence;
-- `regular` or `seasonal` availability; and
+- `regular`, or `seasonal` with `currentAvailabilityStatus: confirmed`; and
 - reviewable provenance.
 
-`weak`, `rejected`, reference-only, unknown-availability, and discontinued records are retained for audit but do not normally match. No free-text similarity is used. `余韻` is the approved variant for `atoaji`; `丸み`-family wording is the approved variant for `marui`; `まろやか` is explicitly rejected as `marui` evidence.
+`availabilityStatus` describes the product's sales pattern. Current normal-result eligibility is separate: seasonal records require an explicit current/in-season confirmation, while past or unconfirmed seasonal listings remain provenance-backed reference records. `weak`, `rejected`, reference-only, unknown-availability, and discontinued records do not normally match. No free-text similarity is used. `余韻` is the approved variant for `atoaji`; `丸み`-family wording is the approved variant for `marui`; `まろやか` is explicitly rejected as `marui` evidence.
 
-Image URLs are source metadata only. Every committed product is `imageUsageStatus: needs-review`; an image source page is not reuse permission. Only `allowed` would be normal-image-renderable.
+Image URLs are source metadata only. Every committed product is `imageUsageStatus: needs-review`; an image source page is not reuse permission. Normal image rendering requires both `imageUsageStatus: allowed` and a direct `imageSourceUrl`.
 
 ## Existing five-product audit
 

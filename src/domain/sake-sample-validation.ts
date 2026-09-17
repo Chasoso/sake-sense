@@ -14,6 +14,7 @@ type SakeProduct = {
   sourceReviewedAt: string;
   termReferences: TermReference[];
   availabilityStatus: string;
+  currentAvailabilityStatus?: string;
   imageSourcePageUrl: string;
   imageSourceUrl?: string;
   imageUsageStatus: string;
@@ -31,17 +32,22 @@ type BreweryBaseline = { memberBreweries: Brewery[] };
 export type DictionaryEntry = { id: string; vocabularyStatus: string };
 
 const renderableEvidence = new Set(["direct", "accepted-variant"]);
-const renderableAvailability = new Set(["regular", "seasonal"]);
+const currentAvailabilityStatuses = new Set(["confirmed", "unconfirmed", "unavailable"]);
 
 export function isRenderableProductTermReference(
   reference: TermReference,
-  product: Pick<SakeProduct, "availabilityStatus" | "provenanceNotes">,
+  product: Pick<
+    SakeProduct,
+    "availabilityStatus" | "currentAvailabilityStatus" | "provenanceNotes"
+  >,
   dictionary: Map<string, DictionaryEntry>,
 ): boolean {
   return (
     dictionary.get(reference.termId)?.vocabularyStatus === "selectable" &&
     renderableEvidence.has(reference.evidenceStatus) &&
-    renderableAvailability.has(product.availabilityStatus) &&
+    (product.availabilityStatus === "regular" ||
+      (product.availabilityStatus === "seasonal" &&
+        product.currentAvailabilityStatus === "confirmed")) &&
     Boolean(product.provenanceNotes) &&
     Boolean(reference.sourceUrl)
   );
@@ -50,7 +56,7 @@ export function isRenderableProductTermReference(
 export function isNormalImageRenderable(
   product: Pick<SakeProduct, "imageUsageStatus" | "imageSourceUrl">,
 ): boolean {
-  return product.imageUsageStatus === "allowed";
+  return product.imageUsageStatus === "allowed" && Boolean(product.imageSourceUrl);
 }
 
 export function findSakeSampleValidationErrors(
@@ -97,6 +103,21 @@ export function findSakeSampleValidationErrors(
       errors.push(`Missing provenance in ${product.id}`);
     if (!["regular", "seasonal", "discontinued", "unknown"].includes(product.availabilityStatus))
       errors.push(`Invalid availability status in ${product.id}`);
+    if (
+      product.currentAvailabilityStatus !== undefined &&
+      !currentAvailabilityStatuses.has(product.currentAvailabilityStatus)
+    )
+      errors.push(`Invalid current availability status in ${product.id}`);
+    if (
+      product.availabilityStatus === "seasonal" &&
+      product.currentAvailabilityStatus === undefined
+    )
+      errors.push(`Missing current availability status for seasonal product ${product.id}`);
+    if (
+      (product.availabilityStatus === "discontinued" || product.availabilityStatus === "unknown") &&
+      product.currentAvailabilityStatus === "confirmed"
+    )
+      errors.push(`Unavailable product cannot be current-confirmed in ${product.id}`);
     if (!["allowed", "needs-review", "not-allowed", "unknown"].includes(product.imageUsageStatus))
       errors.push(`Invalid image usage status in ${product.id}`);
     if (!product.imageSourcePageUrl || product.imageSourcePageUrl.includes("example.com"))

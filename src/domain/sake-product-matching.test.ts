@@ -14,9 +14,9 @@ describe("Ishikawa sake product matching", () => {
     expect(matches.every((match) => match.product.availabilityStatus !== "unknown")).toBe(true);
   });
 
-  it("allows human-approved variants but never maroyaka or reference-only terms", () => {
+  it("keeps unconfirmed seasonal variants as provenance-backed references", () => {
     const marui = findSakeProductMatches(["marui"]);
-    expect(marui.map((match) => match.product.id)).toContain("kikuhime-junmai-hiyaoroshi");
+    expect(marui.map((match) => match.product.id)).not.toContain("kikuhime-junmai-hiyaoroshi");
     expect(marui.some((match) => match.product.id === "mujou-junmai-hiyaoroshi")).toBe(false);
     expect(findSakeProductMatches(["sanmi", "nojun", "umami"])).toEqual([]);
   });

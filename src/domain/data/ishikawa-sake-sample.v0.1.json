@@ -125,6 +125,10 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
+      "currentAvailabilityStatus": "unconfirmed",
+      "currentAvailabilityStatus": "unconfirmed",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -158,6 +162,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association PDF has explicit wording.",
@@ -250,6 +255,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://www.tengumai.co.jp/products/season/187.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Official seasonal product page.",
@@ -398,6 +404,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -416,6 +423,7 @@
       "descriptionSummary": "ひと夏熟成の生詰純米酒として掲載。",
       "termReferences": [],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association source confirms identity.",
@@ -442,6 +450,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association source; rejected relation retained for audit.",
@@ -529,6 +538,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -565,6 +575,7 @@
       "descriptionSummary": "やさしい味わいとして掲載された季節の純米酒。",
       "termReferences": [],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association PDF confirms identity.",
@@ -624,6 +635,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://www.ishikawa-sake.jp/images/97-16.pdf",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association PDF provides reference-only wording.",
@@ -650,6 +662,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -676,6 +689,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -756,6 +770,7 @@
       "descriptionSummary": "組合の季節酒一覧で確認した純米ひやおろし。",
       "termReferences": [],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://ishikawa-sake.jp/seasonal/hiyaoroshi/sakelist/index.html",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Association seasonal listing.",
@@ -807,6 +822,7 @@
         }
       ],
       "availabilityStatus": "seasonal",
+      "currentAvailabilityStatus": "unconfirmed",
       "imageSourcePageUrl": "https://www.kikuhime.co.jp/products/%E7%B4%94%E7%B1%B3%E3%81%B2%E3%82%84%E3%81%8A%E3%82%8D%E3%81%97/",
       "imageUsageStatus": "needs-review",
       "provenanceNotes": "Official source; approved variant wording is preserved.",
