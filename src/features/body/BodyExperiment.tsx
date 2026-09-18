@@ -20,15 +20,8 @@ import {
   createRealCaptureDiagnostics,
   type MotionExperimentDiagnostic,
 } from "../../experiments/motion-representation/real-capture-diagnostics";
+import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 
-type CaptureStatus =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "capturing"
-  | "captured"
-  | "denied"
-  | "unavailable";
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
 const connections: Array<[number, number]> = [
@@ -78,7 +71,7 @@ export function BodyExperiment({
   onFallback: () => void;
   onBack: () => void;
 }) {
-  const [status, setStatus] = useState<CaptureStatus>("idle");
+  const [status, setStatus] = useState<BodyCaptureStatus>("idle");
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
@@ -257,6 +250,8 @@ export function BodyExperiment({
     else setResult(next);
   };
 
+  const isDedicatedCaptureLayout = getBodyCaptureLayout(status) === "capture";
+
   if (result) {
     return (
       <main className="experience-screen" aria-labelledby="result-title">
@@ -273,7 +268,10 @@ export function BodyExperiment({
   }
 
   return (
-    <main className="experience-screen" aria-labelledby="body-experiment-title">
+    <main
+      className={`experience-screen${isDedicatedCaptureLayout ? " experience-screen--body-capture" : ""}`}
+      aria-labelledby="body-experiment-title"
+    >
       <nav className="experience-screen__nav" aria-label="画面の移動">
         <button className="icon-text-button" type="button" onClick={onBack}>
           <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
@@ -281,20 +279,38 @@ export function BodyExperiment({
         </button>
         <span className="experience-screen__brand">Sake Sense</span>
       </nav>
-      <header className="experience-screen__header">
-        <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
-        <p>手だけでも、上半身でも大丈夫です。正解はありません。</p>
-      </header>
-      <section className="body-capture-card" aria-label="身体表現のカメラ入力">
-        <div className="body-capture-card__copy">
-          <h2>あなたの動きを見てみる</h2>
-          <p>
-            映像は端末内で処理され、保存・送信されません。3秒ほどの動きだけを一時的に取得します。
-          </p>
-        </div>
-        <div className="body-camera" data-status={status}>
+      {isDedicatedCaptureLayout && (
+        <h1 id="body-experiment-title" className="screen-reader-only">
+          この味、体でやってみてください
+        </h1>
+      )}
+      {!isDedicatedCaptureLayout && (
+        <header className="experience-screen__header">
+          <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
+          <p>手だけでも、上半身でも大丈夫です。正解はありません。</p>
+        </header>
+      )}
+      <section
+        className={`body-capture-card${isDedicatedCaptureLayout ? " body-capture-card--dedicated" : " body-capture-card--setup"}`}
+        aria-label="身体表現のカメラ入力"
+      >
+        {!isDedicatedCaptureLayout && (
+          <div className="body-capture-card__copy">
+            <h2>あなたの動きを見てみる</h2>
+            <p>
+              映像は端末内で処理され、保存・送信されません。3秒ほどの動きだけを一時的に取得します。
+            </p>
+          </div>
+        )}
+        <div className="body-camera" data-status={status} aria-live="polite">
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
+          {status === "ready" && (
+            <div className="body-camera__guide">
+              <strong>この味を、体で表現してみてください</strong>
+              <span>手だけでも大丈夫です</span>
+            </div>
+          )}
           {status === "idle" && <span>カメラを準備してください</span>}
           {status === "capturing" && <span>動いてください…</span>}
           {status === "captured" && <span>動きを取得しました</span>}
@@ -341,7 +357,7 @@ export function BodyExperiment({
             <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
           </details>
         )}
-        <div className="body-capture-card__actions">
+        <div className="body-capture-card__actions" aria-live="polite">
           {status === "idle" && (
             <button className="button button--primary" type="button" onClick={prepareCamera}>
               <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
