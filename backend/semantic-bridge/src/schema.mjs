@@ -11,12 +11,7 @@ export const bodyInputKeys = [
 
 export const voiceInputKeys = ["durationMs", "averageIntensity", "pauseCount", "endingBehavior"];
 
-export const responseKeys = [
-  "sensoryExpressions",
-  "candidateTermIds",
-  "unmappedFeatures",
-  "reason",
-];
+export const responseKeys = ["sensoryExpressions", "candidateTermIds", "reason"];
 
 export const requestKeys = ["modality", "input", "allowedTermIds"];
 
@@ -40,5 +35,5 @@ export const systemInstruction = [
   "Keep the reason concise, cautious, and experimental. Do not make authoritative taste claims or recommendation/ranking language.",
   "Use only supplied dictionary candidate IDs; zero candidates is valid.",
   "Do not force a sake term from repeated lateral sway or slow/expanding motion when the dictionary grounding is weak; prefer zero candidates.",
-  "Keep ambiguity in unmappedFeatures and output only the required JSON schema.",
+  "The server records observed, used, and unmapped feature provenance deterministically; do not add provenance fields.",
 ].join(" ");

@@ -10,6 +10,7 @@ import {
   evaluateVoiceSensorySupport,
   getApprovedCandidateTermIdsForSupport,
   getSensoryExpressionDisplayTextsForSupport,
+  sensorySupportCases,
 } from "./sensory-support-cases";
 
 export type SensoryBridgeInput = {
@@ -37,7 +38,17 @@ export type SensoryBridgeObservableInput =
 export type SensoryBridgeResponse = {
   sensoryExpressions: string[];
   candidateTermIds: string[];
+  /** Features present in the compact request, including explicit unknown values. */
+  observedFeatures?: string[];
+  /** Features from the reviewed support case that determined the outcome. */
+  interpretationEvidence?: string[];
+  /** Features matched by an explicit unmapped support case, not all input fields. */
   unmappedFeatures: string[];
+  /** Observed fields not used by the selected interpretation or unmapped case. */
+  unusedFeatures?: string[];
+  interpretationStateId?: string | null;
+  groundingCaseIds?: string[];
+  groundingExpressionIds?: string[];
   reason: string;
 };
 
@@ -111,7 +122,13 @@ export type SensoryBridgeProviderPresentation = {
 const responseKeys = new Set([
   "sensoryExpressions",
   "candidateTermIds",
+  "observedFeatures",
+  "interpretationEvidence",
   "unmappedFeatures",
+  "unusedFeatures",
+  "interpretationStateId",
+  "groundingCaseIds",
+  "groundingExpressionIds",
   "reason",
 ]);
 
@@ -247,7 +264,22 @@ export function validateSensoryBridgeResponse(
         (record[field] as unknown[]).some((value) => typeof value !== "string"),
     ) ||
     typeof record.reason !== "string" ||
-    !record.reason.trim()
+    !record.reason.trim() ||
+    [
+      "observedFeatures",
+      "interpretationEvidence",
+      "unusedFeatures",
+      "groundingCaseIds",
+      "groundingExpressionIds",
+    ].some(
+      (field) =>
+        record[field] !== undefined &&
+        (!Array.isArray(record[field]) ||
+          (record[field] as unknown[]).some((value) => typeof value !== "string")),
+    ) ||
+    (record.interpretationStateId !== undefined &&
+      record.interpretationStateId !== null &&
+      typeof record.interpretationStateId !== "string")
   ) {
     return { ok: false, error: "橋渡し応答の必須項目が不正です。" };
   }
@@ -264,16 +296,99 @@ export function validateSensoryBridgeResponse(
     value: {
       sensoryExpressions: record.sensoryExpressions as string[],
       candidateTermIds,
+      ...(Array.isArray(record.observedFeatures)
+        ? { observedFeatures: record.observedFeatures as string[] }
+        : {}),
+      ...(Array.isArray(record.interpretationEvidence)
+        ? { interpretationEvidence: record.interpretationEvidence as string[] }
+        : {}),
       unmappedFeatures: record.unmappedFeatures as string[],
+      ...(Array.isArray(record.unusedFeatures)
+        ? { unusedFeatures: record.unusedFeatures as string[] }
+        : {}),
+      ...(record.interpretationStateId === null || typeof record.interpretationStateId === "string"
+        ? { interpretationStateId: record.interpretationStateId }
+        : {}),
+      ...(Array.isArray(record.groundingCaseIds)
+        ? { groundingCaseIds: record.groundingCaseIds as string[] }
+        : {}),
+      ...(Array.isArray(record.groundingExpressionIds)
+        ? { groundingExpressionIds: record.groundingExpressionIds as string[] }
+        : {}),
       reason: record.reason,
     },
   };
 }
 
-function featureList(input: SensoryBridgeInput | VoiceSensoryBridgeInput): string[] {
+function featureList(
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
+  includeUnknown = false,
+): string[] {
   return Object.entries(input)
-    .filter(([, value]) => value !== "unknown")
+    .filter(([, value]) => includeUnknown || value !== "unknown")
     .map(([key, value]) => `${key}:${value}`);
+}
+
+function patternFeatureList(pattern: Record<string, unknown>): string[] {
+  return Object.entries(pattern).map(([key, value]) =>
+    typeof value === "object" && value !== null
+      ? `${key}:${JSON.stringify(value)}`
+      : `${key}:${value}`,
+  );
+}
+
+/**
+ * Re-derives term eligibility from reviewed support and expression-link data.
+ * A model-provided selectable ID is therefore never sufficient to reach products.
+ */
+export function applyReviewedSemanticGrounding(
+  request: SensoryBridgeRequest,
+  response: SensoryBridgeResponse,
+): SensoryBridgeResponse {
+  const support =
+    request.modality === "body"
+      ? evaluateBodySensorySupport(request.input)
+      : evaluateVoiceSensorySupport(request.input);
+  const matchedCases = sensorySupportCases.filter((case_) =>
+    support.matchedCaseIds.includes(case_.id),
+  );
+  const selectedCases =
+    support.resultKind === "expression"
+      ? matchedCases.filter((case_) =>
+          case_.expressionIds.some((id) => support.expressionIds.includes(id)),
+        )
+      : support.resultKind === "interpretation-state"
+        ? matchedCases.filter((case_) => case_.resultKind === "interpretation-state")
+        : [];
+  const unmappedCases = matchedCases.filter((case_) => case_.resultKind === "unmapped");
+  const interpretationEvidence = selectedCases.flatMap((case_) =>
+    patternFeatureList(case_.featurePattern as Record<string, unknown>),
+  );
+  const unmappedFeatures = unmappedCases.flatMap((case_) =>
+    patternFeatureList(case_.featurePattern as Record<string, unknown>),
+  );
+  const observedFeatures = featureList(request.input, true);
+  const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
+  const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
+  const approvedCandidateTermIds = getApprovedCandidateTermIdsForSupport(support).filter((id) =>
+    request.allowedTermIds.includes(id),
+  );
+
+  return {
+    ...response,
+    candidateTermIds: approvedCandidateTermIds,
+    observedFeatures,
+    interpretationEvidence,
+    unmappedFeatures:
+      support.resultKind === "unmapped" && !unmappedFeatures.length
+        ? observedFeatures
+        : unmappedFeatures,
+    unusedFeatures:
+      support.resultKind === "unmapped" && !unmappedFeatures.length ? [] : unusedFeatures,
+    interpretationStateId: support.interpretationStateId ?? null,
+    groundingCaseIds: support.matchedCaseIds,
+    groundingExpressionIds: support.expressionIds,
+  };
 }
 
 export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
@@ -281,26 +396,22 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
     kind: "fixture",
     async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
       if (request.modality === "voice") {
-        const unmappedFeatures = Object.entries(request.input)
-          .filter(([, value]) => value !== 0 && value !== "unknown")
-          .map(([key, value]) => `${key}:${value}`);
         const support = evaluateVoiceSensorySupport(request.input);
-        return {
+        return applyReviewedSemanticGrounding(request, {
           sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
           candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
-          unmappedFeatures,
+          unmappedFeatures: [],
           reason: `experimental voice support case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
-        };
+        });
       }
       const { input } = request;
-      const unmappedFeatures = featureList(input);
       const support = evaluateBodySensorySupport(input);
-      return {
+      return applyReviewedSemanticGrounding(request, {
         sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
         candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
-        unmappedFeatures,
+        unmappedFeatures: [],
         reason: `experimental body support case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
-      };
+      });
     },
   };
 }
@@ -312,7 +423,13 @@ export function createFallbackSensoryBridgeResponse(
   return {
     sensoryExpressions: [],
     candidateTermIds: [],
-    unmappedFeatures: featureList(input),
+    observedFeatures: featureList(input, true),
+    interpretationEvidence: [],
+    unmappedFeatures: featureList(input, true),
+    unusedFeatures: [],
+    interpretationStateId: null,
+    groundingCaseIds: [],
+    groundingExpressionIds: [],
     reason,
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyReviewedSemanticGrounding,
   buildSensoryBridgeInput,
   buildSensoryBridgeInstruction,
   createFallbackSensoryBridgeResponse,
@@ -222,6 +223,37 @@ describe("MVP sensory bridge vocabulary boundary", () => {
       expect(validated.value.sensoryExpressions).toEqual(["ゆっくり落ち着いていく感じ"]);
       expect(validated.value.candidateTermIds).toEqual([]);
     }
+  });
+
+  it("separates observed, interpretation, unmapped, and unused provenance after semantic grounding", () => {
+    const request = {
+      modality: "body" as const,
+      input: {
+        duration: "short" as const,
+        ending: "abrupt" as const,
+        expansion: "unknown" as const,
+        direction: "unknown" as const,
+        repetition: "single" as const,
+        participation: "localized" as const,
+        spread: "compact" as const,
+        speed: "sustained-fast" as const,
+      },
+      allowedTermIds: getSelectableSensoryTermIds(),
+    };
+    const response = applyReviewedSemanticGrounding(request, {
+      sensoryExpressions: ["モデルの表現"],
+      candidateTermIds: ["atoaji"],
+      unmappedFeatures: [],
+      reason: "モデル理由",
+    });
+    expect(response).toMatchObject({
+      candidateTermIds: ["kire"],
+      interpretationEvidence: ["duration:short", "ending:abrupt"],
+      unmappedFeatures: ["speed:sustained-fast"],
+      groundingExpressionIds: ["clean-fade"],
+    });
+    expect(response.observedFeatures).toContain("direction:unknown");
+    expect(response.unusedFeatures).toContain("direction:unknown");
   });
 
   it("provides a safe observation-only fallback", () => {

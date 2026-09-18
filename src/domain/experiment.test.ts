@@ -165,19 +165,40 @@ describe("experiment integration boundaries", () => {
     expect(fallback.candidates).toEqual([]);
   });
 
-  it("passes validated AI candidates, but never reference-only candidates, to product matching", async () => {
-    const mapped = await runBodySemanticExperiment(bodyFeatures, {
-      kind: "ai",
-      interpret: async () => ({
-        sensoryExpressions: [],
-        candidateTermIds: ["kire"],
-        unmappedFeatures: [],
-        reason: "provider candidate",
-      }),
-    });
+  it("passes only semantically grounded AI candidates to product matching", async () => {
+    const mapped = await runBodySemanticExperiment(
+      {
+        ...bodyFeatures,
+        activeDurationMs: 500,
+        motionShape: { ...bodyFeatures.motionShape, expansion: "unknown" },
+      },
+      {
+        kind: "ai",
+        interpret: async () => ({
+          sensoryExpressions: [],
+          candidateTermIds: ["atoaji"],
+          unmappedFeatures: [],
+          reason: "provider candidate",
+        }),
+      },
+    );
     expect("error" in mapped).toBe(false);
     if ("error" in mapped) return;
     expect(mapped.candidates.map((candidate) => candidate.entry.id)).toEqual(["kire"]);
     expect(mapped.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
+
+    const unsupported = await runBodySemanticExperiment(bodyFeatures, {
+      kind: "ai",
+      interpret: async () => ({
+        sensoryExpressions: [],
+        candidateTermIds: ["atoaji"],
+        unmappedFeatures: [],
+        reason: "provider candidate",
+      }),
+    });
+    expect("error" in unsupported).toBe(false);
+    if ("error" in unsupported) return;
+    expect(unsupported.sensoryBridge?.response.candidateTermIds).toEqual([]);
+    expect(unsupported.sakeProducts).toEqual([]);
   });
 });

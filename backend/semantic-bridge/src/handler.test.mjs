@@ -34,7 +34,6 @@ const voiceRequest = JSON.stringify({
 const emptyResponse = {
   sensoryExpressions: [],
   candidateTermIds: [],
-  unmappedFeatures: [],
   reason: "観測だけでは候補を無理なく絞り込めませんでした。",
 };
 
@@ -105,16 +104,24 @@ describe("production semantic bridge Lambda", () => {
     request.allowedTermIds = ["kire"];
     const response = await handler({ body: JSON.stringify(request) });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body).unmappedFeatures).toEqual([
-      "duration:short",
-      "ending:abrupt",
-      "expansion:unknown",
-      "direction:unknown",
-      "repetition:single",
-      "participation:localized",
-      "spread:compact",
-      "speed:unknown",
-    ]);
+    expect(JSON.parse(response.body)).toMatchObject({
+      candidateTermIds: ["kire"],
+      observedFeatures: [
+        "duration:short",
+        "ending:abrupt",
+        "expansion:unknown",
+        "direction:unknown",
+        "repetition:single",
+        "participation:localized",
+        "spread:compact",
+        "speed:unknown",
+      ],
+      interpretationEvidence: ["duration:short", "ending:abrupt"],
+      unmappedFeatures: [],
+      groundingCaseIds: ["body-short-abrupt-clean-fade"],
+      groundingExpressionIds: ["clean-fade"],
+      interpretationStateId: null,
+    });
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 
@@ -123,26 +130,105 @@ describe("production semantic bridge Lambda", () => {
       vi.fn(async () => ({
         sensoryExpressions: ["すっと切れるような印象"],
         candidateTermIds: ["kire"],
-        unmappedFeatures: ["model-generated text is ignored"],
         reason: "短い動きと急な終わりが観測されたため、切れのよさへ実験的につないでいます。",
       })),
     );
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toMatchObject({ candidateTermIds: ["kire"] });
-    expect(JSON.parse(response.body).unmappedFeatures[0]).toBe("duration:short");
+    expect(JSON.parse(response.body).interpretationEvidence).toEqual([
+      "duration:short",
+      "ending:abrupt",
+    ]);
   });
 
   it("keeps voice unmapped features deterministic", async () => {
     const handler = testHandler(vi.fn(async () => emptyResponse));
     const response = await handler({ body: voiceRequest });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body).unmappedFeatures).toEqual([
-      "durationMs:1200",
-      "averageIntensity:0.4",
-      "pauseCount:1",
-      "endingBehavior:fading",
-    ]);
+    expect(JSON.parse(response.body)).toMatchObject({
+      candidateTermIds: [],
+      interpretationEvidence: ['durationMs:{"minimum":701}', "endingBehavior:fading"],
+      unmappedFeatures: [],
+      groundingCaseIds: ["voice-long-fading-soft-settle"],
+      groundingExpressionIds: ["soft-settle"],
+    });
+  });
+
+  it("derives normal candidates only through approved support and expression links", async () => {
+    const handler = testHandler(
+      vi.fn(async () => ({
+        sensoryExpressions: ["モデルの表現"],
+        candidateTermIds: ["atoaji"],
+        reason: "モデルが候補を返しました。",
+      })),
+    );
+    const response = await handler({ body: bodyRequest });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      candidateTermIds: ["kire"],
+      groundingExpressionIds: ["clean-fade"],
+    });
+  });
+
+  it("does not let unsupported, candidate, ambiguous, or insufficient cases promote model terms", async () => {
+    const handler = testHandler(
+      vi.fn(async () => ({
+        sensoryExpressions: ["モデルの表現"],
+        candidateTermIds: ["atoaji"],
+        reason: "モデルが候補を返しました。",
+      })),
+    );
+    const requests = [
+      {
+        input: {
+          ...bodyInput,
+          duration: "lingering",
+          ending: "continued",
+          direction: "lateral",
+          repetition: "repeated",
+          participation: "broad",
+          spread: "broad",
+        },
+        state: null,
+      },
+      { input: { ...bodyInput, duration: "lingering", ending: "gradual" }, state: null },
+      {
+        input: { ...bodyInput, duration: "lingering", ending: "continued", expansion: "expanding" },
+        state: null,
+      },
+      { input: { ...bodyInput, expansion: "expanding" }, state: "ambiguous-mixed" },
+      {
+        input: { ...bodyInput, duration: "unknown", ending: "unknown" },
+        state: "insufficient-expression",
+      },
+    ];
+    for (const case_ of requests) {
+      const request = JSON.stringify({
+        modality: "body",
+        input: case_.input,
+        allowedTermIds: ["kire", "atoaji"],
+      });
+      const result = JSON.parse((await handler({ body: request })).body);
+      expect(result.candidateTermIds).toEqual([]);
+      if (case_.state) expect(result.interpretationStateId).toBe(case_.state);
+    }
+  });
+
+  it("keeps unmapped support neutral while reporting only its actual feature evidence", async () => {
+    const handler = testHandler(vi.fn(async () => emptyResponse));
+    const request = JSON.stringify({
+      modality: "body",
+      input: { ...bodyInput, speed: "sustained-fast" },
+      allowedTermIds: ["kire", "atoaji"],
+    });
+    const result = JSON.parse((await handler({ body: request })).body);
+    expect(result).toMatchObject({
+      candidateTermIds: ["kire"],
+      interpretationEvidence: ["duration:short", "ending:abrupt"],
+      unmappedFeatures: ["speed:sustained-fast"],
+    });
+    expect(result.unmappedFeatures).not.toContain("direction:unknown");
   });
 
   it("rejects browser-supplied dictionary metadata", async () => {
@@ -182,26 +268,27 @@ describe("production semantic bridge Lambda", () => {
       {
         sensoryExpressions: [],
         candidateTermIds: [],
-        unmappedFeatures: [],
         reason: "ok",
         extra: true,
       },
       {
         sensoryExpressions: [],
         candidateTermIds: ["kire", "kire"],
-        unmappedFeatures: [],
         reason: "invalid",
       },
       {
         sensoryExpressions: [],
         candidateTermIds: ["unknown"],
-        unmappedFeatures: [],
+        reason: "invalid",
+      },
+      {
+        sensoryExpressions: [],
+        candidateTermIds: ["nojun"],
         reason: "invalid",
       },
       {
         sensoryExpressions: ["short duration"],
         candidateTermIds: [],
-        unmappedFeatures: [],
         reason: "The input has short duration.",
       },
     ];
