@@ -10,6 +10,7 @@ import { voiceToRepresentation, type VoiceFeatures } from "./voice";
 import { findSakeProductMatches, type SakeProductMatch } from "./sake-product-matching";
 import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
 import {
+  applyReviewedSemanticGrounding,
   buildSensoryBridgeInput,
   buildVoiceSensoryBridgeRequest,
   createFallbackSensoryBridgeResponse,
@@ -275,7 +276,7 @@ export async function runBodySemanticExperiment(
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
-    if (validation.ok) response = validation.value;
+    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
     else {
       response = createFallbackSensoryBridgeResponse(input, validation.error);
       providerStatus = "fallback";
@@ -331,7 +332,7 @@ export async function runVoiceSemanticExperiment(
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
-    if (validation.ok) response = validation.value;
+    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
     else {
       response = createFallbackSensoryBridgeResponse(request.input, validation.error);
       providerStatus = "fallback";

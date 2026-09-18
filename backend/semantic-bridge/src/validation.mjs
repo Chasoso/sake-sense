@@ -1,4 +1,5 @@
 import { bodyInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
+import { applyReviewedGrounding } from "./grounding.mjs";
 import dictionaryData from "../../../src/domain/data/sensory-dictionary.v0.1.json" with { type: "json" };
 
 const bodyValues = {
@@ -108,10 +109,6 @@ function validateAllowedTermIds(ids) {
   };
 }
 
-function canonicalUnmappedFeatures(input) {
-  return Object.entries(input).map(([name, value]) => `${name}:${value}`);
-}
-
 function hasJapaneseText(value) {
   return /[ぁ-んァ-ン一-龯々〆ヵ]/u.test(value);
 }
@@ -143,13 +140,13 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
   };
 }
 
-export function validateModelResponse(value, allowedIds, input) {
+export function validateModelResponse(value, allowedIds, request) {
   assert(
     isRecord(value) && Object.keys(value).every((key) => responseKeys.includes(key)),
     "invalid model response fields",
     SemanticBridgeProviderValidationError,
   );
-  for (const key of ["sensoryExpressions", "candidateTermIds", "unmappedFeatures"]) {
+  for (const key of ["sensoryExpressions", "candidateTermIds"]) {
     assert(
       Array.isArray(value[key]) && value[key].every((item) => typeof item === "string"),
       "invalid model response array",
@@ -177,8 +174,5 @@ export function validateModelResponse(value, allowedIds, input) {
     "unknown candidate ID",
     SemanticBridgeProviderValidationError,
   );
-  return {
-    ...value,
-    unmappedFeatures: canonicalUnmappedFeatures(input),
-  };
+  return applyReviewedGrounding(value, request, allowedIds);
 }
