@@ -56,7 +56,7 @@ describe("real capture motion diagnostics", () => {
     expect(diagnostic.current.endingBehavior).toBe(analysis.endingBehavior);
   });
 
-  it("separates low-visibility lower-body movement from the production decision", () => {
+  it("excludes low-visibility lower-body movement from the v2 production decision", () => {
     const frames = motionFixtures[0].frames.map((frame, frameIndex) => ({
       ...frame,
       landmarks: frame.landmarks.map((landmark, jointIndex) =>
@@ -74,19 +74,16 @@ describe("real capture motion diagnostics", () => {
 
     expect(lowerBody.observableJointCount).toBe(0);
     expect(lowerBody.observableRatio).toBe(0);
-    expect(lowerBody.activeSegmentCount).toBeGreaterThan(0);
+    expect(lowerBody.activeSegmentCount).toBe(0);
     expect(lowerBody.observableOnlyActiveSegmentCount).toBe(0);
     expect(lowerBody.observableOnly.meetsMeaningfulActiveCriteria).toBe(false);
     expect(diagnostic.observabilityExperiment.observableJointCount).toBeGreaterThan(0);
     expect(diagnostic.observabilityExperiment.activeObservableRegions).not.toContain("lowerBody");
-    expect(diagnostic.speedObservabilityComparison.currentMedian).toBeGreaterThan(
-      diagnostic.speedObservabilityComparison.observableOnlyMedian,
-    );
     expect(diagnostic.jointMovement.observability.leftKnee.observable).toBe(false);
-    expect(diagnostic.jointMovement.observability.leftKnee.currentlyActive).toBe(true);
+    expect(diagnostic.jointMovement.observability.leftKnee.currentlyActive).toBe(false);
   });
 
-  it("separates visible shoulders from noisy low-visibility hips", () => {
+  it("excludes noisy low-visibility hips from upper-body activity", () => {
     const frames = motionFixtures[2].frames.map((frame, frameIndex) => ({
       ...frame,
       landmarks: frame.landmarks.map((landmark, jointIndex) =>
@@ -103,7 +100,7 @@ describe("real capture motion diagnostics", () => {
     const torso = diagnostic.regionActivity.torso;
 
     expect(torso.observableRatio).toBe(0.5);
-    expect(torso.current.activeSegmentCount).toBeGreaterThan(0);
+    expect(torso.current.activeSegmentCount).toBe(0);
     expect(torso.observableOnly.activeSegmentCount).toBe(0);
     expect(torso.observableOnly.meetsMeaningfulActiveCriteria).toBe(false);
     expect(diagnostic.observabilityExperiment.minimumVisibleRatio).toBe(0.35);

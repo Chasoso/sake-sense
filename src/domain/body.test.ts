@@ -53,6 +53,21 @@ function jitterFrame(t: number, phase: number): BodyPoseFrame {
   return { t, landmarks };
 }
 
+function nearStillWithOffscreenNoiseFrame(t: number, phase: number): BodyPoseFrame {
+  const landmarks: BodyLandmark[] = Array.from({ length: 33 }, (_, index) => ({
+    x: (index % 5) * 0.001 * phase,
+    y: (index % 3) * -0.001 * phase,
+    visibility: 0.05,
+  }));
+  landmarks[11] = { x: -0.5, y: 0, visibility: 0.99 };
+  landmarks[12] = { x: 0.5, y: 0, visibility: 0.99 };
+  landmarks[13] = { x: -0.25, y: -0.2, visibility: 0.99 };
+  landmarks[14] = { x: 0.25, y: -0.2, visibility: 0.99 };
+  landmarks[15] = { x: -0.4, y: -0.5, visibility: 0.99 };
+  landmarks[16] = { x: 0.4, y: -0.5, visibility: 0.99 };
+  return { t, landmarks };
+}
+
 function rotateFrame(frameToRotate: BodyPoseFrame, angle: number): BodyPoseFrame {
   const cosine = Math.cos(angle);
   const sine = Math.sin(angle);
@@ -232,6 +247,53 @@ describe("body movement features", () => {
       participation: "unknown",
     });
     expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
+  it("ignores off-screen and low-visibility landmark noise in production movement", () => {
+    const features = extractBodyMovementFeatures(
+      Array.from({ length: 31 }, (_, index) =>
+        nearStillWithOffscreenNoiseFrame(index * 100, index % 2 ? 1 : -1),
+      ),
+    );
+
+    expect(features.hasMeaningfulMovement).toBe(false);
+    expect(features.activeJointCount).toBe(0);
+    expect(features.activeDurationMs).toBe(0);
+    expect(features.endingBehavior).toBe("unknown");
+    expect(features.motionShape.participation).toBe("unknown");
+    expect(features.hasSustainedFastMovement).toBe(false);
+    expect(features.representationVersion).toBe("v2");
+    expect(features.trajectory).toEqual({
+      pathShape: "unknown",
+      spatialExtent: "unknown",
+      dominantJointIndices: [],
+      symmetry: "unknown",
+    });
+  });
+
+  it("does not use low-visibility wrist displacement as movement evidence", () => {
+    const frames = [
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: 0.4, y: -0.5 } }),
+      shapeFrame(200, { 15: { x: 1.2, y: -0.5 } }),
+    ].map((pose) => {
+      pose.landmarks[15].visibility = 0.05;
+      return pose;
+    });
+
+    const features = extractBodyMovementFeatures(frames);
+
+    expect(features.hasMeaningfulMovement).toBe(false);
+    expect(features.activeJointCount).toBe(0);
+    expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
+  it("keeps representative speed stable when the same wrist path has denser frames", () => {
+    const sparse = extractBodyMovementFeatures([frame(0, 0), frame(100, 0.4)]);
+    const dense = extractBodyMovementFeatures([frame(0, 0), frame(50, 0.2), frame(100, 0.4)]);
+
+    expect(dense.averageSpeed).toBeCloseTo(sparse.averageSpeed, 10);
+    expect(dense.peakSpeed).toBeCloseTo(sparse.peakSpeed, 10);
   });
 
   it("keeps coherent small hand movement as localized movement", () => {
@@ -433,14 +495,14 @@ describe("body movement features", () => {
     expect(features.motionShape.dominantDirection).toBe("upward");
   });
 
-  it("leaves equally strong limb and center directions ambiguous", () => {
+  it("keeps observable wrist direction when camera-relative center drift is present", () => {
     const features = extractBodyMovementFeatures([
       translateFrame(shapeFrame(0, { 15: { x: -0.4, y: 0.6 } }), 0),
       translateFrame(shapeFrame(100, { 15: { x: -0.4, y: 0.1 } }), 0.5),
       translateFrame(shapeFrame(200, { 15: { x: -0.4, y: -0.5 } }), 1),
     ]);
 
-    expect(features.motionShape.dominantDirection).toBe("unknown");
+    expect(features.motionShape.dominantDirection).toBe("upward");
   });
 
   it("detects meaningful repetition but ignores tiny movement", () => {
@@ -463,7 +525,7 @@ describe("body movement features", () => {
     expect(tiny.motionShape.repetition).not.toBe("repeated");
   });
 
-  it("preserves whole-body sway through a separately normalized center trajectory", () => {
+  it("recognizes clear visibility-qualified upper-body sway but filters small center jitter", () => {
     const sway = extractBodyMovementFeatures([
       translatedFrame(0, 0),
       translatedFrame(100, 0.3),
@@ -482,6 +544,22 @@ describe("body movement features", () => {
     expect(sway.motionShape.repetition).toBe("repeated");
     expect(jitter.hasMeaningfulMovement).toBe(false);
     expect(jitter.motionShape.repetition).not.toBe("repeated");
+  });
+
+  it("derives wrist direction without visible hips", () => {
+    const frames = [
+      shapeFrame(0, { 15: { x: -0.4, y: -0.5 } }),
+      shapeFrame(100, { 15: { x: 0.2, y: -0.5 } }),
+      shapeFrame(200, { 15: { x: 0.8, y: -0.5 } }),
+    ].map((pose) => {
+      pose.landmarks[23].visibility = 0;
+      pose.landmarks[24].visibility = 0;
+      return pose;
+    });
+
+    const analysis = extractBodyMovementFeatures(frames);
+
+    expect(analysis.motionShape.dominantDirection).toBe("lateral");
   });
 
   it("distinguishes arm expansion from a lateral sweep with similar timing", () => {

@@ -29,6 +29,8 @@ export type BodyMotionShape = {
 };
 
 export type BodyMovementFeatures = {
+  /** Compact, locally-derived v2 representation; it contains no pose history. */
+  representationVersion?: "v2";
   frameCount: number;
   captureDurationMs: number;
   activeDurationMs: number;
@@ -42,6 +44,12 @@ export type BodyMovementFeatures = {
   endingSpeedRatio: number;
   endingBehavior: "abrupt" | "gradual" | "continued" | "unknown";
   motionShape: BodyMotionShape;
+  trajectory?: {
+    pathShape: BodyMotionShapeAnalysis["trajectoryPathShape"];
+    spatialExtent: BodyMotionShapeAnalysis["spatialExtent"];
+    dominantJointIndices: number[];
+    symmetry: BodyMotionShapeAnalysis["symmetry"];
+  };
 };
 
 export type BodyMotionShapeAnalysis = {
@@ -79,6 +87,11 @@ export type BodyMotionShapeAnalysis = {
   regionCount: number;
   broadParticipationRatio: number;
   participation: BodyMotionShape["participation"];
+  /** v2 derives trajectories from visible upper-body joints only. */
+  trajectoryJointIndices: number[];
+  trajectoryPathShape: "linear" | "curved" | "oscillating" | "unknown";
+  spatialExtent: "compact" | "extended" | "unknown";
+  symmetry: "symmetric" | "asymmetric" | "unknown";
 };
 
 export type BodyMovementAnalysis = {
@@ -220,10 +233,12 @@ export const BODY_BROAD_PARTICIPATION_RATIO = 0.5;
 export const BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD = 0.04;
 export const BODY_JOINT_JITTER_THRESHOLD = 0.015;
 export const BODY_ACTIVE_JOINT_THRESHOLD = 0.08;
-/** Diagnostic-only observability guide; production movement does not filter on visibility. */
-export const BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD = 0.35;
-/** Diagnostic-only minimum share of visible samples; not production filtering. */
-export const BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO = 0.35;
+/** v2 production policy: only landmarks visible in both segment endpoints are observable. */
+export const BODY_OBSERVABLE_VISIBILITY_THRESHOLD = 0.35;
+export const BODY_OBSERVABLE_MIN_VISIBLE_RATIO = 0.35;
+/** Backwards-compatible names retained for development diagnostics. */
+export const BODY_DIAGNOSTIC_VISIBILITY_THRESHOLD = BODY_OBSERVABLE_VISIBILITY_THRESHOLD;
+export const BODY_DIAGNOSTIC_MIN_VISIBLE_RATIO = BODY_OBSERVABLE_MIN_VISIBLE_RATIO;
 
 function finite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
@@ -248,7 +263,13 @@ function shoulderGeometry(frame: BodyPoseFrame): {
 } | null {
   const left = frame.landmarks[LEFT_SHOULDER];
   const right = frame.landmarks[RIGHT_SHOULDER];
-  if (!left || !right) return null;
+  if (
+    !left ||
+    !right ||
+    finite(left.visibility ?? 1) < BODY_OBSERVABLE_VISIBILITY_THRESHOLD ||
+    finite(right.visibility ?? 1) < BODY_OBSERVABLE_VISIBILITY_THRESHOLD
+  )
+    return null;
   const center = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
   return { center, scale: Math.max(distance(left, right), 0.01) };
 }
@@ -303,39 +324,51 @@ function getBodyOrientation(frames: BodyPoseFrame[]): BodyOrientation | null {
     const rightShoulder = frame.landmarks[RIGHT_SHOULDER];
     const leftHip = frame.landmarks[23];
     const rightHip = frame.landmarks[24];
-    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return;
+    if (!leftShoulder || !rightShoulder) return;
     if (
-      (leftShoulder.visibility ?? 1) < 0.35 ||
-      (rightShoulder.visibility ?? 1) < 0.35 ||
-      (leftHip.visibility ?? 1) < 0.35 ||
-      (rightHip.visibility ?? 1) < 0.35
+      (leftShoulder.visibility ?? 1) < BODY_OBSERVABLE_VISIBILITY_THRESHOLD ||
+      (rightShoulder.visibility ?? 1) < BODY_OBSERVABLE_VISIBILITY_THRESHOLD
     )
       return;
     const shoulder = normalizedVector({
       x: rightShoulder.x - leftShoulder.x,
       y: rightShoulder.y - leftShoulder.y,
     });
-    const torsoDown = normalizedVector({
-      x: (leftHip.x + rightHip.x) / 2 - (leftShoulder.x + rightShoulder.x) / 2,
-      y: (leftHip.y + rightHip.y) / 2 - (leftShoulder.y + rightShoulder.y) / 2,
-    });
-    if (!shoulder || !torsoDown) return;
+    if (!shoulder) return;
     shoulderAngles.push(Math.atan2(shoulder.y, shoulder.x));
-    torsoDownVectors.push(torsoDown);
+    if (
+      leftHip &&
+      rightHip &&
+      (leftHip.visibility ?? 1) >= BODY_OBSERVABLE_VISIBILITY_THRESHOLD &&
+      (rightHip.visibility ?? 1) >= BODY_OBSERVABLE_VISIBILITY_THRESHOLD
+    ) {
+      const torsoDown = normalizedVector({
+        x: (leftHip.x + rightHip.x) / 2 - (leftShoulder.x + rightShoulder.x) / 2,
+        y: (leftHip.y + rightHip.y) / 2 - (leftShoulder.y + rightShoulder.y) / 2,
+      });
+      if (torsoDown) torsoDownVectors.push(torsoDown);
+    }
   });
-  if (!shoulderAngles.length || !torsoDownVectors.length) return null;
+  if (!shoulderAngles.length) return null;
   const horizontal = normalizedVector({
     x: median(shoulderAngles.map((angle) => Math.cos(angle))),
     y: median(shoulderAngles.map((angle) => Math.sin(angle))),
   });
-  const torsoDown = normalizedVector({
-    x: median(torsoDownVectors.map((vector) => vector.x)),
-    y: median(torsoDownVectors.map((vector) => vector.y)),
-  });
-  if (!horizontal || !torsoDown) return null;
+  if (!horizontal) return null;
+  const torsoDown = torsoDownVectors.length
+    ? normalizedVector({
+        x: median(torsoDownVectors.map((vector) => vector.x)),
+        y: median(torsoDownVectors.map((vector) => vector.y)),
+      })
+    : null;
   const perpendicular = { x: -horizontal.y, y: horizontal.x };
-  const down =
-    dot(perpendicular, torsoDown) >= 0
+  // Hips are optional. When absent, retain the camera-up perpendicular so wrist
+  // trajectories still have a stable upper-body direction reference.
+  const down = torsoDown
+    ? dot(perpendicular, torsoDown) >= 0
+      ? perpendicular
+      : { x: -perpendicular.x, y: -perpendicular.y }
+    : perpendicular.y >= 0
       ? perpendicular
       : { x: -perpendicular.x, y: -perpendicular.y };
   return { horizontal, up: { x: -down.x, y: -down.y } };
@@ -462,6 +495,9 @@ function buildObservabilityAnalysis(
       };
     },
   );
+  const observableCoreJointIndices = CORE_MOVEMENT_JOINTS.filter(
+    (jointIndex) => jointObservability[jointIndex]?.observable,
+  );
   const observableRegions = regionObservability
     .map((region, index) => (region.observableJointCount > 0 ? index : -1))
     .filter((index) => index >= 0);
@@ -495,20 +531,16 @@ function buildObservabilityAnalysis(
           return sum;
         return sum + distance(before, after);
       }, 0) / duration;
-    observableOnlySegmentSpeeds.push(
-      segmentSpeed(
-        jointObservability.flatMap((joint, jointIndex) => (joint.observable ? [jointIndex] : [])),
-      ),
-    );
+    observableOnlySegmentSpeeds.push(segmentSpeed(observableCoreJointIndices));
     upperBodyOnlySegmentSpeeds.push(segmentSpeed(UPPER_BODY_JOINTS));
   }
   return {
     jointObservability,
     regionObservability,
     observabilityExperiment: {
-      observableJointCount: jointObservability.filter((joint) => joint.observable).length,
-      observableActiveJointCount: jointObservability.filter(
-        (joint) => joint.observable && joint.currentlyActive,
+      observableJointCount: observableCoreJointIndices.length,
+      observableActiveJointCount: observableCoreJointIndices.filter(
+        (jointIndex) => jointObservability[jointIndex]?.currentlyActive,
       ).length,
       observableRegions,
       activeObservableRegions,
@@ -525,15 +557,30 @@ function buildObservabilityAnalysis(
   };
 }
 
-const MOTION_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-const ARM_JOINTS = [13, 15, 14, 16];
+/**
+ * Production Body representation v2 deliberately observes a small upper-body
+ * subset. Pose guesses for face and lower-body landmarks must not become
+ * movement evidence when they are off screen or low visibility.
+ */
+const CORE_MOVEMENT_JOINTS = [11, 12, 13, 14, 15, 16] as const;
+const LEFT_ARM_JOINTS = [13, 15] as const;
+const RIGHT_ARM_JOINTS = [14, 16] as const;
+const WRIST_JOINTS = [15, 16] as const;
+const ARM_JOINTS = [...LEFT_ARM_JOINTS, ...RIGHT_ARM_JOINTS];
+const MOTION_JOINTS = CORE_MOVEMENT_JOINTS;
 const MOTION_REGIONS = [
-  [13, 15],
-  [14, 16],
+  [...LEFT_ARM_JOINTS],
+  [...RIGHT_ARM_JOINTS],
   [11, 12, 23, 24],
   [25, 26, 27, 28],
 ];
-const UPPER_BODY_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24];
+const UPPER_BODY_JOINTS = [...CORE_MOVEMENT_JOINTS];
+
+function isObservableLandmark(landmark: BodyLandmark | undefined): landmark is BodyLandmark {
+  return Boolean(
+    landmark && finite(landmark.visibility ?? 1) >= BODY_OBSERVABLE_VISIBILITY_THRESHOLD,
+  );
+}
 
 function unknownMotionShape(): BodyMotionShape {
   return {
@@ -546,7 +593,7 @@ function unknownMotionShape(): BodyMotionShape {
 
 function meanRadialDistance(frame: BodyPoseFrame): number {
   const distances = ARM_JOINTS.map((index) => frame.landmarks[index])
-    .filter((landmark): landmark is BodyLandmark => landmark !== undefined)
+    .filter(isObservableLandmark)
     .map((landmark) => Math.hypot(landmark.x, landmark.y));
   return distances.length ? distances.reduce((sum, value) => sum + value, 0) / distances.length : 0;
 }
@@ -593,6 +640,10 @@ function extractMotionShape(
     regionCount: MOTION_REGIONS.length,
     broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
     participation: "unknown",
+    trajectoryJointIndices: [],
+    trajectoryPathShape: "unknown",
+    spatialExtent: "unknown",
+    symmetry: "unknown",
   });
   const activeFrameIndexes = new Set<number>();
   segmentMovements.forEach((movement, index) => {
@@ -617,13 +668,16 @@ function extractMotionShape(
         : "unknown";
 
   const movingJoints = MOTION_JOINTS.filter(
-    (index) => (jointMovement[index] ?? 0) >= BODY_MOTION_REVERSAL_THRESHOLD,
+    (index) =>
+      (jointMovement[index] ?? 0) >= BODY_MOTION_REVERSAL_THRESHOLD &&
+      isObservableLandmark(firstFrame.landmarks[index]) &&
+      isObservableLandmark(lastFrame.landmarks[index]),
   );
   const directionDisplacement = movingJoints.reduce(
     (sum, index) => {
       const start = firstFrame.landmarks[index];
       const end = lastFrame.landmarks[index];
-      if (!start || !end) return sum;
+      if (!isObservableLandmark(start) || !isObservableLandmark(end)) return sum;
       return { x: sum.x + end.x - start.x, y: sum.y + end.y - start.y };
     },
     { x: 0, y: 0 },
@@ -640,6 +694,8 @@ function extractMotionShape(
         vertical: dot(directionDisplacement, orientation.up),
       }
     : null;
+  // A visibility-qualified shoulder-center trajectory is independent upper-body
+  // evidence. It is only selected when arm trajectories provide no direction.
   const centerProjection = orientation
     ? {
         horizontal: dot(centerDisplacement, orientation.horizontal),
@@ -652,16 +708,13 @@ function extractMotionShape(
   const centerMagnitude = centerProjection
     ? Math.hypot(centerProjection.horizontal, centerProjection.vertical)
     : 0;
-  const selectedProjection =
-    !orientation ||
-    (relativeMagnitude < BODY_MOTION_DIRECTION_THRESHOLD &&
-      centerMagnitude < BODY_MOTION_DIRECTION_THRESHOLD)
-      ? null
-      : relativeMagnitude >= centerMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
-        ? relativeProjection
-        : centerMagnitude >= relativeMagnitude * BODY_MOTION_DIRECTION_DOMINANCE_RATIO
-          ? centerProjection
-          : null;
+  const selectedProjection = !orientation
+    ? null
+    : relativeMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
+      ? relativeProjection
+      : centerMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
+        ? centerProjection
+        : null;
   const horizontalMagnitude = selectedProjection ? Math.abs(selectedProjection.horizontal) : 0;
   const verticalMagnitude = selectedProjection ? Math.abs(selectedProjection.vertical) : 0;
   const dominantDirection: BodyMotionShape["dominantDirection"] =
@@ -676,37 +729,42 @@ function extractMotionShape(
             : "downward"
           : "unknown";
 
-  let representativeJoint = movingJoints[0];
+  const trajectoryCandidates = [
+    ...WRIST_JOINTS.filter((index) => movingJoints.includes(index)),
+    ...ARM_JOINTS.filter(
+      (index) =>
+        movingJoints.includes(index) && !(WRIST_JOINTS as readonly number[]).includes(index),
+    ),
+  ];
+  let representativeJoint = trajectoryCandidates[0];
   let representativePath = 0;
-  movingJoints.forEach((jointIndex) => {
+  trajectoryCandidates.forEach((jointIndex) => {
     let path = 0;
     for (let index = 1; index < activeFrames.length; index += 1) {
       const previous = normalized[activeFrames[index - 1]].landmarks[jointIndex];
       const current = normalized[activeFrames[index]].landmarks[jointIndex];
-      if (previous && current) path += distance(previous, current);
+      if (isObservableLandmark(previous) && isObservableLandmark(current)) {
+        path += distance(previous, current);
+      }
     }
     if (path > representativePath) {
       representativeJoint = jointIndex;
       representativePath = path;
     }
   });
-  const jointPath = representativePath;
   const centerTrajectory = activeFrames.map((frameIndex) => normalized[frameIndex].bodyCenter);
-  let trajectory =
+  const trajectory =
     representativeJoint === undefined
       ? centerTrajectory
       : activeFrames
           .map((frameIndex) => normalized[frameIndex].landmarks[representativeJoint])
-          .filter((landmark): landmark is BodyLandmark => landmark !== undefined);
+          .filter(isObservableLandmark);
   const centerPath = centerTrajectory.reduce(
     (path, point, index) =>
       index === 0 ? path : path + distance(centerTrajectory[index - 1], point),
     0,
   );
-  if (centerPath > representativePath) {
-    representativePath = centerPath;
-    trajectory = centerTrajectory;
-  }
+  if (representativeJoint === undefined) representativePath = centerPath;
   const xRange = trajectory.length
     ? Math.max(...trajectory.map((point) => point.x)) -
       Math.min(...trajectory.map((point) => point.x))
@@ -732,13 +790,49 @@ function extractMotionShape(
         ? "repeated"
         : "single";
 
+  const trajectoryPathShape: BodyMotionShapeAnalysis["trajectoryPathShape"] =
+    representativePath < BODY_MOTION_DIRECTION_THRESHOLD
+      ? "unknown"
+      : repetition === "repeated"
+        ? "oscillating"
+        : representativePath > Math.hypot(xRange, yRange) * 1.3
+          ? "curved"
+          : "linear";
+  const spatialExtent: BodyMotionShapeAnalysis["spatialExtent"] =
+    representativePath < BODY_MOTION_DIRECTION_THRESHOLD
+      ? "unknown"
+      : Math.max(xRange, yRange) >= BODY_BROAD_MOVEMENT_THRESHOLD
+        ? "extended"
+        : "compact";
+  const leftContribution = LEFT_ARM_JOINTS.reduce(
+    (sum, index) => sum + (jointMovement[index] ?? 0),
+    0,
+  );
+  const rightContribution = RIGHT_ARM_JOINTS.reduce(
+    (sum, index) => sum + (jointMovement[index] ?? 0),
+    0,
+  );
+  const symmetry: BodyMotionShapeAnalysis["symmetry"] =
+    leftContribution < BODY_MOTION_REVERSAL_THRESHOLD &&
+    rightContribution < BODY_MOTION_REVERSAL_THRESHOLD
+      ? "unknown"
+      : Math.min(leftContribution, rightContribution) /
+            Math.max(leftContribution, rightContribution) >=
+          0.6
+        ? "symmetric"
+        : "asymmetric";
+
   const activeRegions = regionActiveSegmentCounts.filter(
     (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
   ).length;
+  // Broad in v2 means meaningful contribution from both observable arms, not
+  // merely activity in arbitrary full-body landmark regions.
   const participation: BodyMotionShape["participation"] =
-    activeRegions === 0
+    leftContribution < BODY_ACTIVE_JOINT_THRESHOLD &&
+    rightContribution < BODY_ACTIVE_JOINT_THRESHOLD
       ? "unknown"
-      : activeRegions / MOTION_REGIONS.length >= BODY_BROAD_PARTICIPATION_RATIO
+      : leftContribution >= BODY_ACTIVE_JOINT_THRESHOLD &&
+          rightContribution >= BODY_ACTIVE_JOINT_THRESHOLD
         ? "broad"
         : "localized";
 
@@ -752,7 +846,7 @@ function extractMotionShape(
     representativeJoint: representativeJoint ?? null,
     representativePath,
     centerPath,
-    representativePathSource: centerPath > jointPath ? "center" : "joint",
+    representativePathSource: representativeJoint === undefined ? "center" : "joint",
     representativeStart,
     representativeEnd,
     centerStart: centerStartPoint,
@@ -785,6 +879,10 @@ function extractMotionShape(
     regionCount: MOTION_REGIONS.length,
     broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
     participation,
+    trajectoryJointIndices: trajectoryCandidates,
+    trajectoryPathShape,
+    spatialExtent,
+    symmetry,
   };
   return {
     shape: { expansion, dominantDirection, repetition, participation },
@@ -817,6 +915,13 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
       endingSpeedRatio: 0,
       endingBehavior: "unknown",
       motionShape: unknownMotionShape(),
+      representationVersion: "v2",
+      trajectory: {
+        pathShape: "unknown",
+        spatialExtent: "unknown",
+        dominantJointIndices: [],
+        symmetry: "unknown",
+      },
     };
     return {
       features,
@@ -881,6 +986,10 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
         regionCount: MOTION_REGIONS.length,
         broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
         participation: "unknown",
+        trajectoryJointIndices: [],
+        trajectoryPathShape: "unknown",
+        spatialExtent: "unknown",
+        symmetry: "unknown",
       },
       ...buildObservabilityAnalysis(normalized, [], [], [], []),
     };
@@ -899,26 +1008,33 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
     const current = normalized[index];
     const elapsed = current.t - previous.t;
     if (elapsed <= 0) continue;
-    let movement = 0;
+    const observableJointMovements: number[] = [];
     const regionMovements = MOTION_REGIONS.map(() => 0);
-    current.landmarks.forEach((landmark, jointIndex) => {
+    CORE_MOVEMENT_JOINTS.forEach((jointIndex) => {
+      const landmark = current.landmarks[jointIndex];
       const previousLandmark = previous.landmarks[jointIndex];
-      if (!previousLandmark) return;
+      if (!isObservableLandmark(previousLandmark) || !isObservableLandmark(landmark)) return;
       const jointDistance = distance(previousLandmark, landmark);
-      movement += jointDistance;
+      observableJointMovements.push(jointDistance);
       jointMovement[jointIndex] += jointDistance;
       MOTION_REGIONS.forEach((region, regionIndex) => {
-        if (region.includes(jointIndex)) regionMovements[regionIndex] += jointDistance;
+        if ((region as number[]).includes(jointIndex))
+          regionMovements[regionIndex] += jointDistance;
       });
-      movementSpread = Math.max(movementSpread, distance(startingLandmarks[jointIndex], landmark));
+      const startingLandmark = startingLandmarks[jointIndex];
+      if (isObservableLandmark(startingLandmark)) {
+        movementSpread = Math.max(movementSpread, distance(startingLandmark, landmark));
+      }
     });
-    const centerMovement = distance(previous.bodyCenter, current.bodyCenter);
-    centerSegmentMovements.push(centerMovement);
-    if (centerMovement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD) {
-      movement += centerMovement;
-      regionMovements[2] += centerMovement;
-      movementSpread = Math.max(movementSpread, distance({ x: 0, y: 0 }, current.bodyCenter));
-    }
+    // A representative joint distance prevents the number of available Pose
+    // landmarks from inflating motion or speed. A single visible wrist remains
+    // sufficient evidence; off-screen joints contribute nothing.
+    const armMovement = observableJointMovements.length ? Math.max(...observableJointMovements) : 0;
+    // This is not the former all-landmark center aggregate. It is a trajectory
+    // from the two visibility-qualified shoulders that survive frame selection.
+    const observableShoulderCenterMovement = distance(previous.bodyCenter, current.bodyCenter);
+    centerSegmentMovements.push(observableShoulderCenterMovement);
+    const movement = Math.max(armMovement, observableShoulderCenterMovement);
     segmentMovements.push(movement);
     segmentSpeeds.push(movement / elapsed);
     segmentDurations.push(elapsed);
@@ -948,20 +1064,20 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
   const meaningfulRegionCount = regionActiveSegmentCounts.filter(
     (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
   ).length;
-  const centerActiveSegmentCount = centerSegmentMovements.filter(
+  const observableShoulderCenterActiveSegments = centerSegmentMovements.filter(
     (movement) => movement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD,
   ).length;
-  const centerDisplacement = Math.max(
+  const observableShoulderCenterExtent = Math.max(
     ...normalized.map((frame) => Math.hypot(frame.bodyCenter.x, frame.bodyCenter.y)),
     0,
   );
-  const meaningfulCenterMovement =
-    centerActiveSegmentCount >= BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS &&
-    centerDisplacement >= BODY_MEANINGFUL_SPREAD_THRESHOLD;
+  const meaningfulShoulderCenterTrajectory =
+    observableShoulderCenterActiveSegments >= BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS &&
+    observableShoulderCenterExtent >= BODY_MEANINGFUL_SPREAD_THRESHOLD;
   const hasMeaningfulMovement =
     activeDurationMs > 0 &&
     (meaningfulRegionCount > 0 ||
-      meaningfulCenterMovement ||
+      meaningfulShoulderCenterTrajectory ||
       movementSpread >= BODY_MEANINGFUL_SPREAD_THRESHOLD);
   const lastActiveIndex = activeIndexes.at(-1);
   const finalSequence: number[] = [];
@@ -1024,9 +1140,9 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
     longestFastSegments >= BODY_MINIMUM_FAST_SEGMENTS &&
     longestFastDuration >= BODY_MINIMUM_FAST_DURATION_MS;
 
-  const activeJointIndices = jointMovement
-    .map((movement, index) => (movement >= BODY_ACTIVE_JOINT_THRESHOLD ? index : -1))
-    .filter((index) => index >= 0);
+  const activeJointIndices = CORE_MOVEMENT_JOINTS.filter(
+    (index) => (jointMovement[index] ?? 0) >= BODY_ACTIVE_JOINT_THRESHOLD,
+  );
   const shapeResult = hasMeaningfulMovement
     ? extractMotionShape(
         normalized,
@@ -1072,6 +1188,10 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
           regionCount: MOTION_REGIONS.length,
           broadParticipationRatio: BODY_BROAD_PARTICIPATION_RATIO,
           participation: "unknown" as const,
+          trajectoryJointIndices: [],
+          trajectoryPathShape: "unknown" as const,
+          spatialExtent: "unknown" as const,
+          symmetry: "unknown" as const,
         },
       };
   const features: BodyMovementFeatures = {
@@ -1088,6 +1208,13 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
     spread: movementSpread,
     hasMeaningfulMovement,
     motionShape: shapeResult.shape,
+    representationVersion: "v2",
+    trajectory: {
+      pathShape: shapeResult.analysis.trajectoryPathShape,
+      spatialExtent: shapeResult.analysis.spatialExtent,
+      dominantJointIndices: [...shapeResult.analysis.trajectoryJointIndices],
+      symmetry: shapeResult.analysis.symmetry,
+    },
   };
   const observability = buildObservabilityAnalysis(
     normalized,
