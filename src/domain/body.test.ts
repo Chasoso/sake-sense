@@ -525,7 +525,7 @@ describe("body movement features", () => {
     expect(tiny.motionShape.repetition).not.toBe("repeated");
   });
 
-  it("does not treat camera-relative whole-body translation as upper-body movement", () => {
+  it("recognizes clear visibility-qualified upper-body sway but filters small center jitter", () => {
     const sway = extractBodyMovementFeatures([
       translatedFrame(0, 0),
       translatedFrame(100, 0.3),
@@ -539,9 +539,9 @@ describe("body movement features", () => {
       translatedFrame(300, 0.01),
     ]);
 
-    expect(sway.hasMeaningfulMovement).toBe(false);
-    expect(sway.motionShape.dominantDirection).toBe("unknown");
-    expect(sway.motionShape.repetition).toBe("unknown");
+    expect(sway.hasMeaningfulMovement).toBe(true);
+    expect(sway.motionShape.dominantDirection).toBe("lateral");
+    expect(sway.motionShape.repetition).toBe("repeated");
     expect(jitter.hasMeaningfulMovement).toBe(false);
     expect(jitter.motionShape.repetition).not.toBe("repeated");
   });

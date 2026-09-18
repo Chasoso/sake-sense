@@ -28,6 +28,8 @@ or off-screen landmark contributes nothing.
 - Trajectory selection prefers visible wrists, then other arm joints. The local
   compact representation records path shape, spatial extent, dominant joints,
   and symmetry for inspection.
+- A visibility-qualified shoulder-center trajectory is independent evidence for
+  a clear upper-body translation when arm trajectories do not supply one.
 - Shoulder geometry supplies an upper-body direction fallback when hips are not
   observable.
 - `broad` participation now requires meaningful contribution from both arms;
@@ -43,7 +45,8 @@ to the former whole-body landmark aggregation.
 Automated coverage verifies that near-still captures with noisy, low-visibility
 off-screen landmarks do not create active joints, duration, ending, broad
 participation, or sustained-fast movement. It also verifies direction from a
-visible wrist trajectory without hips.
+visible wrist trajectory without hips and a clear lateral/repeated upper-body
+shoulder-center sway.
 
 This is an observable motion representation only. It does not establish a
 Body-to-sake-term mapping or make a claim about a user's taste.
@@ -52,6 +55,7 @@ Body-to-sake-term mapping or make a claim about a user's taste.
 
 - [ ] Upper-body-only smartphone captures retain intended wrist direction.
 - [ ] Near-still captures do not appear as continued or broad movement.
+- [ ] A deliberate upper-body lateral sway is distinct from small camera jitter.
 - [ ] Bilateral arm use versus a single-arm gesture is understandable in the
       localized/broad presentation.
 - [ ] The compact/extended trajectory descriptions remain useful without

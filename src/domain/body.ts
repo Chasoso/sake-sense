@@ -694,13 +694,27 @@ function extractMotionShape(
         vertical: dot(directionDisplacement, orientation.up),
       }
     : null;
-  const centerProjection = null;
+  // A visibility-qualified shoulder-center trajectory is independent upper-body
+  // evidence. It is only selected when arm trajectories provide no direction.
+  const centerProjection = orientation
+    ? {
+        horizontal: dot(centerDisplacement, orientation.horizontal),
+        vertical: dot(centerDisplacement, orientation.up),
+      }
+    : null;
   const relativeMagnitude = relativeProjection
     ? Math.hypot(relativeProjection.horizontal, relativeProjection.vertical)
     : 0;
-  const centerMagnitude = 0;
-  const selectedProjection =
-    !orientation || relativeMagnitude < BODY_MOTION_DIRECTION_THRESHOLD ? null : relativeProjection;
+  const centerMagnitude = centerProjection
+    ? Math.hypot(centerProjection.horizontal, centerProjection.vertical)
+    : 0;
+  const selectedProjection = !orientation
+    ? null
+    : relativeMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
+      ? relativeProjection
+      : centerMagnitude >= BODY_MOTION_DIRECTION_THRESHOLD
+        ? centerProjection
+        : null;
   const horizontalMagnitude = selectedProjection ? Math.abs(selectedProjection.horizontal) : 0;
   const verticalMagnitude = selectedProjection ? Math.abs(selectedProjection.vertical) : 0;
   const dominantDirection: BodyMotionShape["dominantDirection"] =
@@ -741,7 +755,7 @@ function extractMotionShape(
   const centerTrajectory = activeFrames.map((frameIndex) => normalized[frameIndex].bodyCenter);
   const trajectory =
     representativeJoint === undefined
-      ? []
+      ? centerTrajectory
       : activeFrames
           .map((frameIndex) => normalized[frameIndex].landmarks[representativeJoint])
           .filter(isObservableLandmark);
@@ -750,6 +764,7 @@ function extractMotionShape(
       index === 0 ? path : path + distance(centerTrajectory[index - 1], point),
     0,
   );
+  if (representativeJoint === undefined) representativePath = centerPath;
   const xRange = trajectory.length
     ? Math.max(...trajectory.map((point) => point.x)) -
       Math.min(...trajectory.map((point) => point.x))
@@ -1014,9 +1029,12 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
     // A representative joint distance prevents the number of available Pose
     // landmarks from inflating motion or speed. A single visible wrist remains
     // sufficient evidence; off-screen joints contribute nothing.
-    const movement = observableJointMovements.length ? Math.max(...observableJointMovements) : 0;
-    const centerMovement = distance(previous.bodyCenter, current.bodyCenter);
-    centerSegmentMovements.push(centerMovement);
+    const armMovement = observableJointMovements.length ? Math.max(...observableJointMovements) : 0;
+    // This is not the former all-landmark center aggregate. It is a trajectory
+    // from the two visibility-qualified shoulders that survive frame selection.
+    const observableShoulderCenterMovement = distance(previous.bodyCenter, current.bodyCenter);
+    centerSegmentMovements.push(observableShoulderCenterMovement);
+    const movement = Math.max(armMovement, observableShoulderCenterMovement);
     segmentMovements.push(movement);
     segmentSpeeds.push(movement / elapsed);
     segmentDurations.push(elapsed);
@@ -1046,9 +1064,21 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
   const meaningfulRegionCount = regionActiveSegmentCounts.filter(
     (count) => count >= BODY_MINIMUM_REGION_ACTIVE_SEGMENTS,
   ).length;
+  const observableShoulderCenterActiveSegments = centerSegmentMovements.filter(
+    (movement) => movement >= BODY_GLOBAL_MOVEMENT_ACTIVITY_THRESHOLD,
+  ).length;
+  const observableShoulderCenterExtent = Math.max(
+    ...normalized.map((frame) => Math.hypot(frame.bodyCenter.x, frame.bodyCenter.y)),
+    0,
+  );
+  const meaningfulShoulderCenterTrajectory =
+    observableShoulderCenterActiveSegments >= BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS &&
+    observableShoulderCenterExtent >= BODY_MEANINGFUL_SPREAD_THRESHOLD;
   const hasMeaningfulMovement =
     activeDurationMs > 0 &&
-    (meaningfulRegionCount > 0 || movementSpread >= BODY_MEANINGFUL_SPREAD_THRESHOLD);
+    (meaningfulRegionCount > 0 ||
+      meaningfulShoulderCenterTrajectory ||
+      movementSpread >= BODY_MEANINGFUL_SPREAD_THRESHOLD);
   const lastActiveIndex = activeIndexes.at(-1);
   const finalSequence: number[] = [];
   for (
