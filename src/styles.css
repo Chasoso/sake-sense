@@ -439,19 +439,28 @@ h4 {
 
 /* Dedicated Body capture experience */
 .experience-screen--body-capture {
-  width: 100%;
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   max-width: none;
-  min-height: 100dvh;
-  padding: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px))
-    max(20px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--ink);
 }
 
 .body-capture-card--dedicated {
   display: grid;
-  width: min(100%, 1080px);
-  gap: 16px;
+  width: 100vw;
+  max-width: none;
+  min-height: 100dvh;
+  gap: 0;
   padding: 0;
-  margin: 0 auto;
+  margin: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -460,10 +469,11 @@ h4 {
 
 .body-capture-card--dedicated .body-camera {
   order: 1;
-  width: 100%;
-  height: calc(100dvh - 34px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-  min-height: 28rem;
-  border-radius: clamp(18px, 4vw, 30px);
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
   background: var(--ink);
 }
 
@@ -505,6 +515,11 @@ h4 {
   border-radius: 999px;
 }
 
+.body-camera__top-overlay .icon-text-button:hover {
+  color: var(--paper);
+  text-decoration: none;
+}
+
 .body-camera__top-overlay .experience-screen__brand {
   padding: 8px 10px;
   color: var(--paper);
@@ -539,6 +554,23 @@ h4 {
 
 .body-camera__bottom-overlay .body-capture-card__actions .button {
   min-height: 3.25rem;
+}
+
+.body-camera__bottom-overlay .button--secondary {
+  color: var(--deep-green-dark);
+  border-color: var(--paper);
+  background: var(--paper);
+}
+
+.body-camera__bottom-overlay .icon-text-button {
+  color: var(--paper);
+  background: rgb(25 40 34 / 72%);
+  border-radius: 999px;
+}
+
+.body-camera__bottom-overlay .icon-text-button:hover {
+  color: var(--paper);
+  text-decoration: none;
 }
 
 .body-camera__bottom-overlay .body-capture-card__privacy-note,
@@ -1037,35 +1069,6 @@ input {
     padding: 20px;
   }
 
-  .experience-screen--body-capture {
-    position: fixed;
-    z-index: 1;
-    inset: 0;
-    width: 100vw;
-    height: 100dvh;
-    min-height: 0;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    background: var(--ink);
-  }
-
-  .body-capture-card--dedicated {
-    width: 100%;
-    min-height: 100dvh;
-    margin: 0;
-    gap: 0;
-  }
-
-  .body-capture-card--dedicated .body-camera {
-    width: 100%;
-    height: 100dvh;
-    min-height: 100dvh;
-    border-radius: 0;
-  }
-
   .body-capture-card--dedicated .body-capture-card__actions {
     gap: 8px;
     padding: 10px;
@@ -1073,14 +1076,6 @@ input {
 
   .body-capture-card--dedicated .body-capture-card__actions .button {
     width: 100%;
-  }
-}
-
-@media (min-width: 701px) {
-  .body-capture-card--dedicated .body-camera {
-    width: min(100%, 62rem);
-    height: min(calc(100dvh - 40px), 52rem);
-    margin-inline: auto;
   }
 }
 

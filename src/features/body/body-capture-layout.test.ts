@@ -14,9 +14,9 @@ describe("Body capture layout states", () => {
     ] as const) {
       expect(getBodyCaptureLayout(status)).toEqual({
         shell: "body-shell",
+        surface: "viewport",
         topOverlay: "surface",
         bottomOverlay: "surface",
-        mobileSurface: "edge-to-edge",
       });
     }
   });
