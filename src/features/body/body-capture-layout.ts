@@ -12,7 +12,13 @@ export function getBodyCaptureLayout(status: BodyCaptureStatus): {
   shell: "body-shell";
   topOverlay: "surface";
   bottomOverlay: "surface";
+  mobileSurface: "edge-to-edge";
 } {
   void status;
-  return { shell: "body-shell", topOverlay: "surface", bottomOverlay: "surface" };
+  return {
+    shell: "body-shell",
+    topOverlay: "surface",
+    bottomOverlay: "surface",
+    mobileSurface: "edge-to-edge",
+  };
 }

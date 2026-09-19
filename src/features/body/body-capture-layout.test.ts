@@ -16,6 +16,7 @@ describe("Body capture layout states", () => {
         shell: "body-shell",
         topOverlay: "surface",
         bottomOverlay: "surface",
+        mobileSurface: "edge-to-edge",
       });
     }
   });
