@@ -8,7 +8,11 @@ export type BodyCaptureStatus =
   | "unavailable";
 
 /** The Body experiment stays in one capture shell until it transitions to the result screen. */
-export function getBodyCaptureLayout(status: BodyCaptureStatus): "body-shell" {
+export function getBodyCaptureLayout(status: BodyCaptureStatus): {
+  shell: "body-shell";
+  topOverlay: "surface";
+  bottomOverlay: "surface";
+} {
   void status;
-  return "body-shell";
+  return { shell: "body-shell", topOverlay: "surface", bottomOverlay: "surface" };
 }

@@ -12,7 +12,11 @@ describe("Body capture layout states", () => {
       "denied",
       "unavailable",
     ] as const) {
-      expect(getBodyCaptureLayout(status)).toBe("body-shell");
+      expect(getBodyCaptureLayout(status)).toEqual({
+        shell: "body-shell",
+        topOverlay: "surface",
+        bottomOverlay: "surface",
+      });
     }
   });
 });

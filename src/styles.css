@@ -446,11 +446,6 @@ h4 {
     max(20px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
 }
 
-.experience-screen--body-capture .experience-screen__nav {
-  width: min(100%, 1080px);
-  margin: 0 auto 12px;
-}
-
 .body-capture-card--dedicated {
   display: grid;
   width: min(100%, 1080px);
@@ -466,8 +461,8 @@ h4 {
 .body-capture-card--dedicated .body-camera {
   order: 1;
   width: 100%;
-  height: min(68dvh, 46rem);
-  min-height: 22rem;
+  height: calc(100dvh - 34px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 28rem;
   border-radius: clamp(18px, 4vw, 30px);
   background: var(--ink);
 }
@@ -479,7 +474,7 @@ h4 {
 
 .body-camera__guide {
   position: absolute;
-  top: max(16px, env(safe-area-inset-top, 0px));
+  top: max(68px, calc(env(safe-area-inset-top, 0px) + 58px));
   left: 16px;
   display: grid;
   gap: 3px;
@@ -490,6 +485,83 @@ h4 {
   border-left: 2px solid var(--gold);
   border-radius: 0 10px 10px 0;
   line-height: 1.45;
+}
+
+.body-camera__top-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: max(10px, env(safe-area-inset-top, 0px)) 12px auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--paper);
+}
+
+.body-camera__top-overlay .icon-text-button {
+  min-height: 2.75rem;
+  padding: 8px 10px;
+  color: inherit;
+  background: rgb(25 40 34 / 70%);
+  border-radius: 999px;
+}
+
+.body-camera__top-overlay .experience-screen__brand {
+  padding: 8px 10px;
+  color: var(--paper);
+  background: rgb(25 40 34 / 70%);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.body-camera__bottom-overlay {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 64px 16px max(14px, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, transparent, rgb(25 40 34 / 88%) 48%);
+}
+
+.body-camera__bottom-overlay .body-capture-card__actions {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  color: var(--paper);
+}
+
+.body-camera__bottom-overlay .body-capture-card__actions .button {
+  min-height: 3.25rem;
+}
+
+.body-camera__bottom-overlay .body-capture-card__privacy-note,
+.body-camera__bottom-overlay .form-error {
+  margin: 0;
+  color: rgb(255 253 249 / 86%);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.body-camera__bottom-overlay .body-replay-button,
+.body-camera__bottom-overlay .body-capture-card__fallback {
+  min-height: 2.75rem;
+  margin: 0;
+}
+
+.body-camera__bottom-overlay .body-capture-card__fallback {
+  padding: 4px 8px;
+  color: rgb(255 253 249 / 76%);
+  font-size: 0.82rem;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .body-camera__guide strong {
@@ -531,6 +603,14 @@ h4 {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+.body-capture-card--dedicated > .body-capture-card__privacy-note,
+.body-capture-card--dedicated > .body-replay-button,
+.body-capture-card--dedicated > .form-error,
+.body-capture-card--dedicated > .body-capture-card__actions,
+.body-capture-card--dedicated > .body-capture-card__fallback {
+  display: none;
 }
 
 .body-capture-card--dedicated .body-capture-card__actions .button {
@@ -967,7 +1047,7 @@ input {
   }
 
   .body-capture-card--dedicated .body-camera {
-    height: clamp(18rem, 58dvh, 42rem);
+    height: calc(100dvh - 34px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     min-height: 0;
   }
 
@@ -984,7 +1064,7 @@ input {
 @media (min-width: 701px) {
   .body-capture-card--dedicated .body-camera {
     width: min(100%, 62rem);
-    height: min(66dvh, 44rem);
+    height: min(calc(100dvh - 40px), 52rem);
     margin-inline: auto;
   }
 }
