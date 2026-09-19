@@ -250,7 +250,7 @@ export function BodyExperiment({
     else setResult(next);
   };
 
-  const isDedicatedCaptureLayout = getBodyCaptureLayout(status) === "capture";
+  const bodyCaptureLayout = getBodyCaptureLayout(status);
 
   if (result) {
     return (
@@ -269,7 +269,7 @@ export function BodyExperiment({
 
   return (
     <main
-      className={`experience-screen${isDedicatedCaptureLayout ? " experience-screen--body-capture" : ""}`}
+      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout}`}
       aria-labelledby="body-experiment-title"
     >
       <nav className="experience-screen__nav" aria-label="画面の移動">
@@ -279,29 +279,13 @@ export function BodyExperiment({
         </button>
         <span className="experience-screen__brand">Sake Sense</span>
       </nav>
-      {isDedicatedCaptureLayout && (
-        <h1 id="body-experiment-title" className="screen-reader-only">
-          この味、体でやってみてください
-        </h1>
-      )}
-      {!isDedicatedCaptureLayout && (
-        <header className="experience-screen__header">
-          <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
-          <p>手だけでも、上半身でも大丈夫です。正解はありません。</p>
-        </header>
-      )}
+      <h1 id="body-experiment-title" className="screen-reader-only">
+        この味、体でやってみてください
+      </h1>
       <section
-        className={`body-capture-card${isDedicatedCaptureLayout ? " body-capture-card--dedicated" : " body-capture-card--setup"}`}
+        className="body-capture-card body-capture-card--dedicated"
         aria-label="身体表現のカメラ入力"
       >
-        {!isDedicatedCaptureLayout && (
-          <div className="body-capture-card__copy">
-            <h2>あなたの動きを見てみる</h2>
-            <p>
-              映像は端末内で処理され、保存・送信されません。3秒ほどの動きだけを一時的に取得します。
-            </p>
-          </div>
-        )}
         <div className="body-camera" data-status={status} aria-live="polite">
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
@@ -315,6 +299,14 @@ export function BodyExperiment({
           {status === "capturing" && <span>動いてください…</span>}
           {status === "captured" && <span>動きを取得しました</span>}
         </div>
+        {(status === "idle" ||
+          status === "loading" ||
+          status === "denied" ||
+          status === "unavailable") && (
+          <p className="body-capture-card__privacy-note">
+            映像は端末内で処理され、保存・送信されません。
+          </p>
+        )}
         {status === "captured" && (
           <button
             className="button button--secondary body-replay-button"

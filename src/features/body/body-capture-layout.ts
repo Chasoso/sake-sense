@@ -7,9 +7,8 @@ export type BodyCaptureStatus =
   | "denied"
   | "unavailable";
 
-/** Keeps the explanatory permission states separate from the camera-first experience. */
-export function getBodyCaptureLayout(status: BodyCaptureStatus): "setup" | "capture" {
-  return status === "ready" || status === "capturing" || status === "captured"
-    ? "capture"
-    : "setup";
+/** The Body experiment stays in one capture shell until it transitions to the result screen. */
+export function getBodyCaptureLayout(status: BodyCaptureStatus): "body-shell" {
+  void status;
+  return "body-shell";
 }

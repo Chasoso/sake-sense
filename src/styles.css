@@ -464,6 +464,7 @@ h4 {
 }
 
 .body-capture-card--dedicated .body-camera {
+  order: 1;
   width: 100%;
   height: min(68dvh, 46rem);
   min-height: 22rem;
@@ -512,17 +513,24 @@ h4 {
   transform: none;
 }
 
+.body-capture-card--dedicated .body-camera[data-status="idle"] > span {
+  inset: 50% 16px auto;
+  text-align: center;
+  transform: translateY(-50%);
+}
+
 .body-capture-card--dedicated .body-capture-card__actions {
+  order: 3;
   position: sticky;
   bottom: max(10px, env(safe-area-inset-bottom, 0px));
   z-index: 2;
   justify-content: center;
-  padding: 12px;
+  padding: 4px 0;
   margin: 0;
-  background: rgb(248 244 236 / 94%);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .body-capture-card--dedicated .body-capture-card__actions .button {
@@ -530,22 +538,48 @@ h4 {
 }
 
 .body-capture-card--dedicated .body-capture-card__fallback {
+  order: 6;
   justify-self: center;
+  padding: 6px 10px;
   margin: 0 0 max(4px, env(safe-area-inset-bottom, 0px));
+  color: var(--muted);
+  font-size: 0.84rem;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .body-capture-card--dedicated .body-replay-button {
+  order: 2;
   justify-self: center;
   min-height: 3rem;
   margin: 0;
 }
 
 .body-capture-card--dedicated .body-features {
+  order: 5;
   padding: 20px;
   margin: 0;
   background: rgb(255 253 249 / 86%);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
+}
+
+.body-capture-card__privacy-note {
+  order: 2;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.body-capture-card--dedicated .form-error {
+  order: 2;
+  margin: 0;
+}
+
+.body-capture-card--dedicated .debug-view {
+  order: 5;
 }
 
 /* Voice and gesture */
