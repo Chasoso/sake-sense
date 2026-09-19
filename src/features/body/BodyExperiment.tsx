@@ -380,32 +380,39 @@ export function BodyExperiment({
             {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
           </p>
         )}
-        {features && (
-          <section className="body-features" aria-labelledby="body-features-title">
-            <h2 id="body-features-title">こんな動きでした</h2>
-            <p className="body-features__replay-status" aria-live="polite">
-              {replayStatus === "ready" && "リプレイには一時的に取得した骨格データだけを使います。"}
-              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
-              {replayStatus === "completed" && "リプレイが完了しました。"}
-            </p>
-            <ul>
-              {humanizeBodyFeatures(features)
-                .slice(0, 4)
-                .map((summary) => (
-                  <li key={summary}>{summary}</li>
-                ))}
-            </ul>
-            <p className="body-features__note">
-              これらは観測した動きの特徴です。味そのものを判定したものではありません。
-            </p>
-          </section>
-        )}
-        {import.meta.env.DEV && motionDiagnostic && (
-          <details className="debug-view" open={false}>
-            <summary>Motion representation diagnostics (development only)</summary>
-            <p>Derived metadata only; raw frames and landmark arrays are intentionally excluded.</p>
-            <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
-          </details>
+        {(features || (import.meta.env.DEV && motionDiagnostic)) && (
+          <div className="body-capture-details">
+            {features && (
+              <section className="body-features" aria-labelledby="body-features-title">
+                <h2 id="body-features-title">こんな動きでした</h2>
+                <p className="body-features__replay-status" aria-live="polite">
+                  {replayStatus === "ready" &&
+                    "リプレイには一時的に取得した骨格データだけを使います。"}
+                  {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
+                  {replayStatus === "completed" && "リプレイが完了しました。"}
+                </p>
+                <ul>
+                  {humanizeBodyFeatures(features)
+                    .slice(0, 4)
+                    .map((summary) => (
+                      <li key={summary}>{summary}</li>
+                    ))}
+                </ul>
+                <p className="body-features__note">
+                  これらは観測した動きの特徴です。味そのものを判定したものではありません。
+                </p>
+              </section>
+            )}
+            {import.meta.env.DEV && motionDiagnostic && (
+              <details className="debug-view" open={false}>
+                <summary>Motion representation diagnostics (development only)</summary>
+                <p>
+                  Derived metadata only; raw frames and landmark arrays are intentionally excluded.
+                </p>
+                <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
+              </details>
+            )}
+          </div>
         )}
         <div className="body-capture-card__actions" aria-live="polite">
           {status === "idle" && (

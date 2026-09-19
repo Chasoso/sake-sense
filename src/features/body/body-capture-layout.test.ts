@@ -15,6 +15,7 @@ describe("Body capture layout states", () => {
       expect(getBodyCaptureLayout(status)).toEqual({
         shell: "body-shell",
         surface: "viewport",
+        details: "contained",
         topOverlay: "surface",
         bottomOverlay: "surface",
       });

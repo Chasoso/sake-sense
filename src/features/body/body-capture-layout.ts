@@ -11,6 +11,7 @@ export type BodyCaptureStatus =
 export function getBodyCaptureLayout(status: BodyCaptureStatus): {
   shell: "body-shell";
   surface: "viewport";
+  details: "contained";
   topOverlay: "surface";
   bottomOverlay: "surface";
 } {
@@ -18,6 +19,7 @@ export function getBodyCaptureLayout(status: BodyCaptureStatus): {
   return {
     shell: "body-shell",
     surface: "viewport",
+    details: "contained",
     topOverlay: "surface",
     bottomOverlay: "surface",
   };
