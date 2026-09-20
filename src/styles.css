@@ -1344,6 +1344,7 @@ input {
 
 .body-result-transition {
   position: relative;
+  width: 100%;
   min-height: 100dvh;
 }
 
@@ -1362,6 +1363,9 @@ input {
   overflow: hidden;
   pointer-events: none;
   background: var(--kinari);
+}
+
+.body-result-transition--result .body-result-transition__waiting {
   animation: body-waiting-resolve 160ms ease-out forwards;
 }
 
@@ -1761,7 +1765,7 @@ input {
     animation: none;
   }
 
-  .body-result-transition__waiting {
+  .body-result-transition--result .body-result-transition__waiting {
     animation: none;
     opacity: 0;
   }

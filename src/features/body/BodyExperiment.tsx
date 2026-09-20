@@ -262,51 +262,46 @@ export function BodyExperiment({
 
   const bodyCaptureLayout = getBodyCaptureLayout(status);
 
-  if (result) {
+  if (status === "captured" && features && (isAnalyzing || result)) {
     return (
       <main
-        className="experience-screen experience-screen--body-result"
-        aria-labelledby="result-title"
+        className={`experience-screen ${result ? "experience-screen--body-result" : "experience-screen--body-transform"}`}
+        aria-labelledby={result ? "result-title" : "body-transform-title"}
       >
-        <div className="body-result-transition">
-          {features && (
-            <div className="body-result-transition__waiting" aria-hidden="true">
-              <ExpressionTransform
-                mode="body"
-                features={features}
-                frames={capturedFrames}
-                presentation="body-screen"
-                decorative
-              />
+        <div className={`body-result-transition${result ? " body-result-transition--result" : ""}`}>
+          <div
+            className="body-result-transition__waiting"
+            aria-hidden={result ? "true" : undefined}
+          >
+            <ExpressionTransform
+              mode="body"
+              features={features}
+              frames={capturedFrames}
+              presentation="body-screen"
+              decorative={Boolean(result)}
+            />
+          </div>
+          {result && (
+            <div className="body-result-transition__content">
+              <nav className="experience-screen__nav" aria-label="画面の移動">
+                <button className="icon-text-button" type="button" onClick={onBack}>
+                  <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+                  <span>最初に戻る</span>
+                </button>
+                <span className="experience-screen__brand">Sake Sense</span>
+              </nav>
+              <Result result={result} onTryAgain={retry} />
             </div>
           )}
-          <div className="body-result-transition__content">
-            <nav className="experience-screen__nav" aria-label="画面の移動">
-              <button className="icon-text-button" type="button" onClick={onBack}>
-                <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-                <span>最初に戻る</span>
-              </button>
-              <span className="experience-screen__brand">Sake Sense</span>
-            </nav>
-            <Result result={result} onTryAgain={retry} />
-          </div>
         </div>
       </main>
     );
   }
 
-  if (isAnalyzing && status === "captured" && features) {
+  if (result) {
     return (
-      <main
-        className="experience-screen experience-screen--body-transform"
-        aria-labelledby="body-transform-title"
-      >
-        <ExpressionTransform
-          mode="body"
-          features={features}
-          frames={capturedFrames}
-          presentation="body-screen"
-        />
+      <main className="experience-screen" aria-labelledby="result-title">
+        <Result result={result} onTryAgain={retry} />
       </main>
     );
   }
