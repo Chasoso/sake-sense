@@ -1334,6 +1334,24 @@ input {
   filter: blur(1px);
 }
 
+.expression-transform__body-wrist-trace {
+  fill: none;
+  stroke: rgb(56 87 65 / 88%);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.2;
+  transition:
+    opacity 260ms ease,
+    stroke-width 260ms ease,
+    filter 260ms ease;
+}
+
+.expression-transform__body-wrist-trace--soft {
+  stroke: rgb(56 87 65 / 58%);
+  stroke-width: 4.8;
+  filter: blur(0.9px);
+}
+
 .expression-transform--body-screen .expression-transform__body-word {
   font-size: clamp(0.84rem, 2vw, 1rem);
 }
@@ -1773,6 +1791,11 @@ input {
   .expression-transform--body-screen .expression-transform__body-trail--soft,
   .expression-transform--body-screen .expression-transform__body-trail--mist,
   .expression-transform--body-screen .expression-transform__body-trail--echo {
+    filter: none;
+    transform: none !important;
+  }
+
+  .expression-transform--body-screen .expression-transform__body-wrist-trace--soft {
     filter: none;
     transform: none !important;
   }

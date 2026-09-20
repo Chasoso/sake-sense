@@ -17,14 +17,27 @@ export type BodyVisualModel = {
 export type BodyTrailGeometry = {
   skeletonPath: string;
   skeletonPoints: Array<{ x: number; y: number }>;
-  primaryPath: string;
-  leftWristPath: string;
-  rightWristPath: string;
-  centerPath: string;
-  primarySource: "leftWrist" | "rightWrist" | "center" | "available";
+  skeletonFrameIndex: number;
+  leftWristSegments: WristTraceSegment[];
+  rightWristSegments: WristTraceSegment[];
+};
+
+export type WristTraceSegment = {
+  path: string;
+  length: number;
+  start: { x: number; y: number };
 };
 
 export const BODY_TRANSFORM_VISIBILITY_THRESHOLD = 0.35;
+
+const SKELETON_LANDMARK_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
+  [11, 1],
+  [12, 1],
+  [13, 1],
+  [14, 1],
+  [15, 3],
+  [16, 3],
+];
 
 function pointForLandmark(frame: BodyPoseFrame, index: number): { x: number; y: number } | null {
   const landmark = frame.landmarks[index];
@@ -57,14 +70,89 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
   }, 0);
 }
 
+function frameVisibilityScore(frame: BodyPoseFrame): {
+  score: number;
+  wristCount: number;
+  shoulderCount: number;
+  visibleCount: number;
+} {
+  let score = 0;
+  let wristCount = 0;
+  let shoulderCount = 0;
+  let visibleCount = 0;
+  SKELETON_LANDMARK_WEIGHTS.forEach(([index, weight]) => {
+    const visibility = frame.landmarks[index]?.visibility ?? 1;
+    if (visibility < BODY_TRANSFORM_VISIBILITY_THRESHOLD) return;
+    score += weight;
+    visibleCount += 1;
+    if (index === 15 || index === 16) wristCount += 1;
+    if (index === 11 || index === 12) shoulderCount += 1;
+  });
+  return { score, wristCount, shoulderCount, visibleCount };
+}
+
+export function selectSkeletonFrameIndex(frames: BodyPoseFrame[]): number {
+  if (!frames.length) return 0;
+  const center = (frames.length - 1) / 2;
+  const middleStart = Math.floor(frames.length * 0.25);
+  const middleEnd = Math.max(middleStart + 1, Math.ceil(frames.length * 0.75));
+  const middleCandidates = frames.map((_, index) => index).slice(middleStart, middleEnd);
+
+  const chooseBest = (candidates: number[]): number | null => {
+    const viable = candidates.filter((index) => {
+      const quality = frameVisibilityScore(frames[index]);
+      return quality.shoulderCount > 0 && quality.visibleCount >= 2;
+    });
+    if (!viable.length) return null;
+    return viable.sort((left, right) => {
+      const leftQuality = frameVisibilityScore(frames[left]);
+      const rightQuality = frameVisibilityScore(frames[right]);
+      return (
+        rightQuality.wristCount - leftQuality.wristCount ||
+        rightQuality.score - leftQuality.score ||
+        Math.abs(left - center) - Math.abs(right - center) ||
+        left - right
+      );
+    })[0];
+  };
+
+  return (
+    chooseBest(middleCandidates) ??
+    chooseBest(frames.map((_, index) => index)) ??
+    Math.floor(center)
+  );
+}
+
+function buildWristTraceSegments(
+  frames: BodyPoseFrame[],
+  startIndex: number,
+  landmarkIndex: number,
+): WristTraceSegment[] {
+  const segments: WristTraceSegment[] = [];
+  let points: Array<{ x: number; y: number }> = [];
+  const flush = () => {
+    const length = pathLength(points);
+    if (points.length >= 2 && length > 2) {
+      segments.push({ path: smoothPath(points), length, start: points[0] });
+    }
+    points = [];
+  };
+
+  frames.slice(startIndex).forEach((frame) => {
+    const point = pointForLandmark(frame, landmarkIndex);
+    if (point) points.push(point);
+    else flush();
+  });
+  flush();
+  return segments;
+}
+
 export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry {
-  const leftWrist: Array<{ x: number; y: number }> = [];
-  const rightWrist: Array<{ x: number; y: number }> = [];
-  const center: Array<{ x: number; y: number }> = [];
   const skeletonPoints: Array<{ x: number; y: number }> = [];
   const skeletonSegments: string[] = [];
 
-  const skeletonFrame = frames[Math.floor(frames.length / 2)] ?? frames[0];
+  const skeletonFrameIndex = selectSkeletonFrameIndex(frames);
+  const skeletonFrame = frames[skeletonFrameIndex];
   if (skeletonFrame) {
     [11, 12, 13, 14, 15, 16].forEach((index) => {
       const point = pointForLandmark(skeletonFrame, index);
@@ -86,44 +174,12 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
     connect(14, 16);
   }
 
-  frames.forEach((frame) => {
-    const left = pointForLandmark(frame, 15);
-    const right = pointForLandmark(frame, 16);
-    const shoulders = [pointForLandmark(frame, 11), pointForLandmark(frame, 12)].filter(
-      (point): point is { x: number; y: number } => point !== null,
-    );
-    if (left) leftWrist.push(left);
-    if (right) rightWrist.push(right);
-    if (shoulders.length) {
-      const shoulderCenter = shoulders.reduce(
-        (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
-        { x: 0, y: 0 },
-      );
-      center.push({
-        x: shoulderCenter.x / shoulders.length,
-        y: shoulderCenter.y / shoulders.length,
-      });
-    }
-  });
-
-  const primaryCandidates = [
-    { name: "leftWrist" as const, points: leftWrist },
-    { name: "rightWrist" as const, points: rightWrist },
-    { name: "center" as const, points: center },
-  ].filter((candidate) => candidate.points.length > 0);
-  const primaryCandidate = primaryCandidates.sort(
-    (a, b) => pathLength(b.points) - pathLength(a.points),
-  )[0];
-  const primary = primaryCandidate?.points ?? [];
-
   return {
     skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
     skeletonPoints,
-    primaryPath: smoothPath(primary),
-    leftWristPath: smoothPath(leftWrist),
-    rightWristPath: smoothPath(rightWrist),
-    centerPath: smoothPath(center),
-    primarySource: primaryCandidate?.name ?? "available",
+    skeletonFrameIndex,
+    leftWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 15),
+    rightWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 16),
   };
 }
 
@@ -221,6 +277,24 @@ export function getBodyIntermediateWords(features: BodyMovementFeatures): string
           : null,
   );
   return words.length ? words : ["動きの輪郭"];
+}
+
+export function getBodyDisplayWords(features: BodyMovementFeatures): string[] {
+  const words: string[] = [];
+  const { motionShape } = features;
+  const append = (word: string | null) => {
+    if (word && !words.includes(word)) words.push(word);
+  };
+  if (motionShape.expansion === "expanding") append("広がる");
+  if (motionShape.expansion === "contracting") append("まとまる");
+  if (motionShape.dominantDirection === "lateral") append("横へ");
+  if (motionShape.dominantDirection === "upward") append("上へ");
+  if (motionShape.dominantDirection === "downward") append("下へ");
+  if (motionShape.repetition === "repeated") append("くり返す");
+  if (features.endingBehavior === "gradual") append("ゆっくり消える");
+  if (features.endingBehavior === "abrupt") append("すっと止まる");
+  if (features.endingBehavior === "continued") append("続く");
+  return words.slice(0, 2);
 }
 
 export function getVoiceIntermediateWords(features: VoiceFeatures): string[] {
