@@ -30,6 +30,15 @@ export type WristTraceSegment = {
 
 export const BODY_TRANSFORM_VISIBILITY_THRESHOLD = 0.35;
 
+const SKELETON_LANDMARK_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
+  [11, 1],
+  [12, 1],
+  [13, 1],
+  [14, 1],
+  [15, 3],
+  [16, 3],
+];
+
 function pointForLandmark(frame: BodyPoseFrame, index: number): { x: number; y: number } | null {
   const landmark = frame.landmarks[index];
   if (!landmark || (landmark.visibility ?? 1) < BODY_TRANSFORM_VISIBILITY_THRESHOLD) return null;
@@ -61,8 +70,57 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
   }, 0);
 }
 
+function frameVisibilityScore(frame: BodyPoseFrame): {
+  score: number;
+  wristCount: number;
+  shoulderCount: number;
+  visibleCount: number;
+} {
+  let score = 0;
+  let wristCount = 0;
+  let shoulderCount = 0;
+  let visibleCount = 0;
+  SKELETON_LANDMARK_WEIGHTS.forEach(([index, weight]) => {
+    const visibility = frame.landmarks[index]?.visibility ?? 1;
+    if (visibility < BODY_TRANSFORM_VISIBILITY_THRESHOLD) return;
+    score += weight;
+    visibleCount += 1;
+    if (index === 15 || index === 16) wristCount += 1;
+    if (index === 11 || index === 12) shoulderCount += 1;
+  });
+  return { score, wristCount, shoulderCount, visibleCount };
+}
+
 export function selectSkeletonFrameIndex(frames: BodyPoseFrame[]): number {
-  return frames.length ? Math.floor(frames.length / 2) : 0;
+  if (!frames.length) return 0;
+  const center = (frames.length - 1) / 2;
+  const middleStart = Math.floor(frames.length * 0.25);
+  const middleEnd = Math.max(middleStart + 1, Math.ceil(frames.length * 0.75));
+  const middleCandidates = frames.map((_, index) => index).slice(middleStart, middleEnd);
+
+  const chooseBest = (candidates: number[]): number | null => {
+    const viable = candidates.filter((index) => {
+      const quality = frameVisibilityScore(frames[index]);
+      return quality.shoulderCount > 0 && quality.visibleCount >= 2;
+    });
+    if (!viable.length) return null;
+    return viable.sort((left, right) => {
+      const leftQuality = frameVisibilityScore(frames[left]);
+      const rightQuality = frameVisibilityScore(frames[right]);
+      return (
+        rightQuality.wristCount - leftQuality.wristCount ||
+        rightQuality.score - leftQuality.score ||
+        Math.abs(left - center) - Math.abs(right - center) ||
+        left - right
+      );
+    })[0];
+  };
+
+  return (
+    chooseBest(middleCandidates) ??
+    chooseBest(frames.map((_, index) => index)) ??
+    Math.floor(center)
+  );
 }
 
 function buildWristTraceSegments(

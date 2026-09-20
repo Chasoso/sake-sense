@@ -42,6 +42,17 @@ const voiceFeatures: VoiceFeatures = {
   endingBehavior: "fading",
 };
 
+function selectionFrame(visibility: Partial<Record<number, number>>): BodyPoseFrame {
+  return {
+    t: 0,
+    landmarks: Array.from({ length: 17 }, (_, index) => ({
+      x: 0.5,
+      y: 0.5,
+      visibility: visibility[index] ?? 0.1,
+    })),
+  };
+}
+
 describe("expression transformation", () => {
   it("progresses through local transformation stages without fake progress", () => {
     expect(getTransformStage(0)).toBe(0);
@@ -63,6 +74,62 @@ describe("expression transformation", () => {
     expect(getBodyTransformProgress(1600)).toBeCloseTo(0.8);
     expect(getBodyTransformProgress(2000)).toBe(1);
     expect(getBodyTransformProgress(6000)).toBe(1);
+  });
+
+  it("selects a visible upper-body frame near the center", () => {
+    const good = { 11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 16: 1 };
+    const oneWrist = { ...good, 16: 0.1 };
+    const frames = [
+      selectionFrame(good),
+      selectionFrame(oneWrist),
+      selectionFrame({ 11: 1, 12: 1 }),
+      selectionFrame(good),
+      selectionFrame(good),
+    ];
+    expect(selectSkeletonFrameIndex(frames)).toBe(3);
+  });
+
+  it("prioritizes both visible wrists over a single visible wrist", () => {
+    const oneWrist = { 11: 1, 12: 1, 13: 1, 14: 1, 15: 1 };
+    const bothWrists = { ...oneWrist, 16: 1 };
+    const frames = [
+      selectionFrame(oneWrist),
+      selectionFrame(oneWrist),
+      selectionFrame(bothWrists),
+      selectionFrame(oneWrist),
+      selectionFrame(oneWrist),
+    ];
+    expect(selectSkeletonFrameIndex(frames)).toBe(2);
+  });
+
+  it("uses center proximity to break visibility score ties", () => {
+    const good = { 11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 16: 1 };
+    const frames = [
+      selectionFrame({}),
+      selectionFrame({}),
+      selectionFrame(good),
+      selectionFrame(good),
+      selectionFrame({}),
+      selectionFrame({}),
+    ];
+    expect(selectSkeletonFrameIndex(frames)).toBe(2);
+  });
+
+  it("falls back to the full capture when the middle window has no skeleton", () => {
+    const good = { 11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 16: 1 };
+    const frames = [
+      selectionFrame(good),
+      selectionFrame({}),
+      selectionFrame({}),
+      selectionFrame({}),
+      selectionFrame(good),
+    ];
+    expect(selectSkeletonFrameIndex(frames)).toBe(0);
+  });
+
+  it("keeps a deterministic fallback for globally poor visibility", () => {
+    const frames = Array.from({ length: 5 }, () => selectionFrame({}));
+    expect(selectSkeletonFrameIndex(frames)).toBe(2);
   });
 
   it("derives stable body words from observable body features", () => {
@@ -210,13 +277,13 @@ describe("expression transformation", () => {
       frame(1, 11),
     ];
     const geometry = getBodyTrailGeometry(frames);
-    expect(selectSkeletonFrameIndex(frames)).toBe(6);
-    expect(geometry.skeletonFrameIndex).toBe(6);
+    expect(selectSkeletonFrameIndex(frames)).toBe(5);
+    expect(geometry.skeletonFrameIndex).toBe(5);
     expect(geometry.leftWristSegments).toHaveLength(2);
     expect(geometry.rightWristSegments).toHaveLength(2);
-    expect(geometry.leftWristSegments[0].start.x).toBeCloseTo(121.6);
+    expect(geometry.leftWristSegments[0].start.x).toBeCloseTo(112);
     expect(geometry.leftWristSegments[1].start).toEqual({ x: 160, y: 112 });
-    expect(geometry.rightWristSegments[0].start.x).toBeCloseTo(198.4);
+    expect(geometry.rightWristSegments[0].start.x).toBeCloseTo(208);
     expect(geometry.rightWristSegments[1].start.x).toBeCloseTo(160);
   });
 });
