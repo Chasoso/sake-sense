@@ -10,6 +10,7 @@ import {
   getTransformProgress,
   getTransformStage,
   getVoiceIntermediateWords,
+  selectSkeletonFrameIndex,
   windowProgress,
 } from "./expression-transform";
 
@@ -135,10 +136,11 @@ describe("expression transformation", () => {
     ];
     const first = getBodyTrailGeometry(frames);
     expect(first).toEqual(getBodyTrailGeometry(frames));
-    expect(first.leftWristPath).toBe("M 160 80");
-    expect(first.rightWristPath).toContain("Q");
-    expect(first.primarySource).toBe("rightWrist");
-    expect(first.primaryPath).not.toContain("64.0 112.0");
+    expect(first.skeletonFrameIndex).toBe(1);
+    expect(first.leftWristSegments).toHaveLength(0);
+    expect(first.rightWristSegments).toHaveLength(1);
+    expect(first.rightWristSegments[0].path).toContain("L");
+    expect(first.rightWristSegments[0].start).toEqual({ x: 224, y: 112 });
   });
 
   it("derives stable voice words from local voice features", () => {
@@ -169,9 +171,52 @@ describe("expression transformation", () => {
       })),
     }));
     const geometry = getBodyTrailGeometry(frames);
-    expect(geometry.leftWristPathLength).toBeGreaterThan(2);
-    expect(geometry.rightWristPathLength).toBeGreaterThan(2);
-    expect(geometry.leftWristPath).toContain("Q");
-    expect(geometry.rightWristPath).toContain("Q");
+    expect(geometry.leftWristSegments[0].length).toBeGreaterThan(2);
+    expect(geometry.rightWristSegments[0].length).toBeGreaterThan(2);
+    expect(geometry.leftWristSegments[0].path).toContain("L");
+    expect(geometry.rightWristSegments[0].path).toContain("L");
+  });
+
+  it("keeps visibility gaps as separate trace segments", () => {
+    const frame = (visibility: number, step: number): BodyPoseFrame => ({
+      t: step * 100,
+      landmarks: Array.from({ length: 17 }, (_, index) => ({
+        x:
+          index === 15
+            ? 0.2 + step * 0.03
+            : index === 16
+              ? 0.8 - step * 0.03
+              : index === 11
+                ? 0.4
+                : index === 12
+                  ? 0.6
+                  : 0.5,
+        y: index === 15 || index === 16 ? 0.7 : index === 11 || index === 12 ? 0.3 : 0.5,
+        visibility: index === 15 || index === 16 ? visibility : 1,
+      })),
+    });
+    const frames = [
+      frame(1, 0),
+      frame(1, 1),
+      frame(1, 2),
+      frame(1, 3),
+      frame(1, 4),
+      frame(1, 5),
+      frame(1, 6),
+      frame(1, 7),
+      frame(0.1, 8),
+      frame(0.1, 9),
+      frame(1, 10),
+      frame(1, 11),
+    ];
+    const geometry = getBodyTrailGeometry(frames);
+    expect(selectSkeletonFrameIndex(frames)).toBe(6);
+    expect(geometry.skeletonFrameIndex).toBe(6);
+    expect(geometry.leftWristSegments).toHaveLength(2);
+    expect(geometry.rightWristSegments).toHaveLength(2);
+    expect(geometry.leftWristSegments[0].start.x).toBeCloseTo(121.6);
+    expect(geometry.leftWristSegments[1].start).toEqual({ x: 160, y: 112 });
+    expect(geometry.rightWristSegments[0].start.x).toBeCloseTo(198.4);
+    expect(geometry.rightWristSegments[1].start.x).toBeCloseTo(160);
   });
 });

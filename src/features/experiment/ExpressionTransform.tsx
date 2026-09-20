@@ -110,34 +110,34 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                   style={{ opacity: skeletonProgress }}
                 />
               ))}
-              {bodyTrail && bodyTrail.leftWristPathLength > 2 ? (
-                <>
+              {bodyTrail?.leftWristSegments.map((segment, index) => (
+                <g key={`left-wrist-${index}`}>
                   <path
                     className="expression-transform__body-wrist-trace"
-                    d={bodyTrail.leftWristPath}
+                    d={segment.path}
                     style={{ opacity: wristTraceProgress }}
                   />
                   <path
                     className="expression-transform__body-wrist-trace expression-transform__body-wrist-trace--soft"
-                    d={bodyTrail.leftWristPath}
+                    d={segment.path}
                     style={{ opacity: wristSoftProgress * 0.56 }}
                   />
-                </>
-              ) : null}
-              {bodyTrail && bodyTrail.rightWristPathLength > 2 ? (
-                <>
+                </g>
+              ))}
+              {bodyTrail?.rightWristSegments.map((segment, index) => (
+                <g key={`right-wrist-${index}`}>
                   <path
                     className="expression-transform__body-wrist-trace"
-                    d={bodyTrail.rightWristPath}
+                    d={segment.path}
                     style={{ opacity: wristTraceProgress }}
                   />
                   <path
                     className="expression-transform__body-wrist-trace expression-transform__body-wrist-trace--soft"
-                    d={bodyTrail.rightWristPath}
+                    d={segment.path}
                     style={{ opacity: wristSoftProgress * 0.56 }}
                   />
-                </>
-              ) : null}
+                </g>
+              ))}
             </svg>
           ) : (
             <svg viewBox="0 0 320 64" role="presentation">
