@@ -8,6 +8,7 @@ import {
 import {
   getBodyIntermediateWords,
   getBodyTrailGeometry,
+  getBodyTransformProgress,
   getBodyVisualModel,
   getTransformProgress,
   getTransformStage,
@@ -21,6 +22,7 @@ type ExpressionTransformProps =
       mode: "body";
       features: BodyMovementFeatures;
       frames: BodyPoseFrame[];
+      presentation?: "body-screen";
       waveHistory?: never;
       voiceFeatures?: never;
     }
@@ -52,8 +54,9 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  const bodyScreen = props.mode === "body" && props.presentation === "body-screen";
   const stage = getTransformStage(elapsed);
-  const progress = getTransformProgress(elapsed);
+  const progress = bodyScreen ? getBodyTransformProgress(elapsed) : getTransformProgress(elapsed);
   const words = useMemo(
     () =>
       props.mode === "body"
@@ -73,7 +76,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
 
   return (
     <section
-      className={`expression-transform expression-transform--${props.mode}`}
+      className={`expression-transform expression-transform--${props.mode}${bodyScreen ? " expression-transform--body-screen" : ""}`}
       data-stage={stage}
       data-direction={bodyVisual?.direction}
       data-expansion={bodyVisual?.expansion}
@@ -82,6 +85,11 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       aria-labelledby={`${props.mode}-transform-title`}
     >
       <div className="expression-transform__heading">
+        {bodyScreen && (
+          <p className="expression-transform__body-screen-copy" aria-live="polite">
+            動きが、ことばへ変わっています
+          </p>
+        )}
         <span className="eyebrow">Sake Sense</span>
         <h2 id={`${props.mode}-transform-title`}>表現が、ことばへ近づいています</h2>
         <p aria-live="polite">{stageCopy(props.mode, stage)}</p>
@@ -89,7 +97,11 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       <div className={props.mode === "body" ? "expression-transform__body-visual" : undefined}>
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
-            <svg viewBox="0 0 320 160" role="presentation">
+            <svg
+              viewBox="0 0 320 160"
+              preserveAspectRatio={bodyScreen ? "none" : undefined}
+              role="presentation"
+            >
               <path
                 className="expression-transform__body-skeleton"
                 d={bodyTrail?.skeletonPath}

@@ -264,7 +264,10 @@ export function BodyExperiment({
 
   if (result) {
     return (
-      <main className="experience-screen" aria-labelledby="result-title">
+      <main
+        className="experience-screen experience-screen--body-result"
+        aria-labelledby="result-title"
+      >
         <nav className="experience-screen__nav" aria-label="画面の移動">
           <button className="icon-text-button" type="button" onClick={onBack}>
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
@@ -273,6 +276,22 @@ export function BodyExperiment({
           <span className="experience-screen__brand">Sake Sense</span>
         </nav>
         <Result result={result} onTryAgain={retry} />
+      </main>
+    );
+  }
+
+  if (isAnalyzing && status === "captured" && features) {
+    return (
+      <main
+        className="experience-screen experience-screen--body-transform"
+        aria-labelledby="body-transform-title"
+      >
+        <ExpressionTransform
+          mode="body"
+          features={features}
+          frames={capturedFrames}
+          presentation="body-screen"
+        />
       </main>
     );
   }
