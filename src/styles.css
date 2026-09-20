@@ -1073,6 +1073,68 @@ input {
   opacity: 0.4;
 }
 
+.expression-transform--body .expression-transform__visual {
+  position: relative;
+  background:
+    radial-gradient(circle at 52% 52%, rgb(255 253 249 / 88%), transparent 58%), var(--soft-surface);
+}
+
+.expression-transform__body-visual {
+  position: relative;
+}
+
+.expression-transform__body-skeleton,
+.expression-transform__body-trail--primary,
+.expression-transform__body-trail--secondary,
+.expression-transform__body-trail--soft,
+.expression-transform__body-trail--mist,
+.expression-transform__body-trail--echo {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 500ms ease,
+    transform 700ms ease,
+    stroke-width 700ms ease;
+}
+
+.expression-transform__body-skeleton {
+  stroke: var(--gold);
+  stroke-width: 1.5;
+}
+
+.expression-transform__body-joint {
+  fill: var(--gold);
+  transition: opacity 500ms ease;
+}
+
+.expression-transform__body-trail--primary {
+  stroke: var(--gold);
+}
+
+.expression-transform__body-trail--secondary {
+  stroke: rgb(85 107 86 / 48%);
+  stroke-width: 2;
+}
+
+.expression-transform__body-trail--soft {
+  stroke: var(--deep-green);
+  filter: blur(0.6px);
+}
+
+.expression-transform__body-trail--mist {
+  stroke: rgb(85 107 86 / 58%);
+  filter: blur(3px);
+}
+
+.expression-transform__body-trail--echo {
+  stroke: rgb(201 169 106 / 58%);
+  stroke-width: 1.5;
+  filter: blur(0.8px);
+}
+
 .expression-transform[data-expansion="expanding"] .expression-transform__abstract-line {
   stroke-width: 5;
 }
@@ -1122,6 +1184,35 @@ input {
 
 .expression-transform__words li[data-visible="true"] {
   opacity: 1;
+  transform: translateY(0);
+}
+
+.expression-transform__words--body {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.expression-transform__body-word {
+  position: absolute;
+  padding: 0;
+  color: var(--deep-green-dark);
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  background: transparent;
+  border: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 600ms ease,
+    transform 600ms ease;
+}
+
+.expression-transform__words--body .expression-transform__body-word {
+  opacity: 0;
+}
+
+.expression-transform__words--body .expression-transform__body-word[data-visible="true"] {
   transform: translateY(0);
 }
 
@@ -1472,5 +1563,12 @@ input {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+
+  .expression-transform--body .expression-transform__body-trail--soft,
+  .expression-transform--body .expression-transform__body-trail--mist,
+  .expression-transform--body .expression-transform__body-trail--echo {
+    filter: none;
+    transform: none !important;
   }
 }

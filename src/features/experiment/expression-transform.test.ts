@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { BodyMovementFeatures } from "../../domain/body";
+import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyIntermediateWords,
+  getBodyTrailGeometry,
   getBodyVisualModel,
   getTransformProgress,
   getTransformStage,
   getVoiceIntermediateWords,
+  windowProgress,
 } from "./expression-transform";
 
 const bodyFeatures: BodyMovementFeatures = {
@@ -70,11 +72,55 @@ describe("expression transformation", () => {
         expansion: "contracting",
       },
     });
-    expect(lateral.abstractPath).not.toBe(upward.abstractPath);
+    expect(lateral.trailSpread).toBeGreaterThan(upward.trailSpread);
     expect(lateral.echoStrength).toBeGreaterThan(upward.echoStrength);
+    expect(lateral.softOffset).not.toEqual(upward.softOffset);
     expect(upward.direction).toBe("upward");
     expect(upward.expansion).toBe("contracting");
     expect(upward.ending).toBe("abrupt");
+  });
+
+  it("keeps layer progress bounded and smooth across its windows", () => {
+    expect(windowProgress(-1, 0, 1)).toBe(0);
+    expect(windowProgress(0.5, 0, 1)).toBeCloseTo(0.5);
+    expect(windowProgress(2, 0, 1)).toBe(1);
+    expect(windowProgress(0.1, 0.2, 0.8)).toBe(0);
+    expect(windowProgress(0.9, 0.2, 0.8)).toBe(1);
+  });
+
+  it("derives deterministic smooth trails and excludes low-visibility points", () => {
+    const frame = (leftVisibility: number, rightVisibility: number): BodyPoseFrame => ({
+      t: 0,
+      landmarks: Array.from({ length: 17 }, (_, index) => ({
+        x: index === 15 ? 0.2 : index === 16 ? 0.8 : index === 11 ? 0.4 : index === 12 ? 0.6 : 0.5,
+        y: index === 15 || index === 16 ? 0.7 : index === 11 || index === 12 ? 0.3 : 0.5,
+        visibility: index === 15 ? leftVisibility : index === 16 ? rightVisibility : 1,
+      })),
+    });
+    const frames = [
+      frame(0.2, 0.9),
+      {
+        ...frame(0.2, 0.9),
+        t: 100,
+        landmarks: frame(0.2, 0.9).landmarks.map((point, index) => ({
+          ...point,
+          x: index === 16 ? 0.7 : point.x,
+        })),
+      },
+      {
+        ...frame(0.2, 0.9),
+        t: 200,
+        landmarks: frame(0.2, 0.9).landmarks.map((point, index) => ({
+          ...point,
+          x: index === 16 ? 0.65 : point.x,
+        })),
+      },
+    ];
+    const first = getBodyTrailGeometry(frames);
+    expect(first).toEqual(getBodyTrailGeometry(frames));
+    expect(first.leftWristPath).toBe("M 160 80");
+    expect(first.rightWristPath).toContain("Q");
+    expect(first.primaryPath).not.toContain("64.0 112.0");
   });
 
   it("derives stable voice words from local voice features", () => {
