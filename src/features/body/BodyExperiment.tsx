@@ -280,6 +280,7 @@ export function BodyExperiment({
   return (
     <main
       className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}${isAnalyzing ? " experience-screen--analyzing" : ""}`}
+      data-capture-status={status}
       aria-labelledby="body-experiment-title"
     >
       <h1 id="body-experiment-title" className="screen-reader-only">
