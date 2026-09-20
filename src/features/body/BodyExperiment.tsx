@@ -20,15 +20,8 @@ import {
   createRealCaptureDiagnostics,
   type MotionExperimentDiagnostic,
 } from "../../experiments/motion-representation/real-capture-diagnostics";
+import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 
-type CaptureStatus =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "capturing"
-  | "captured"
-  | "denied"
-  | "unavailable";
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
 const connections: Array<[number, number]> = [
@@ -78,7 +71,7 @@ export function BodyExperiment({
   onFallback: () => void;
   onBack: () => void;
 }) {
-  const [status, setStatus] = useState<CaptureStatus>("idle");
+  const [status, setStatus] = useState<BodyCaptureStatus>("idle");
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
@@ -257,6 +250,8 @@ export function BodyExperiment({
     else setResult(next);
   };
 
+  const bodyCaptureLayout = getBodyCaptureLayout(status);
+
   if (result) {
     return (
       <main className="experience-screen" aria-labelledby="result-title">
@@ -273,107 +268,148 @@ export function BodyExperiment({
   }
 
   return (
-    <main className="experience-screen" aria-labelledby="body-experiment-title">
-      <nav className="experience-screen__nav" aria-label="画面の移動">
-        <button className="icon-text-button" type="button" onClick={onBack}>
-          <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-          <span>戻る</span>
-        </button>
-        <span className="experience-screen__brand">Sake Sense</span>
-      </nav>
-      <header className="experience-screen__header">
-        <h1 id="body-experiment-title">この味、体でやってみてください。</h1>
-        <p>手だけでも、上半身でも大丈夫です。正解はありません。</p>
-      </header>
-      <section className="body-capture-card" aria-label="身体表現のカメラ入力">
-        <div className="body-capture-card__copy">
-          <h2>あなたの動きを見てみる</h2>
-          <p>
-            映像は端末内で処理され、保存・送信されません。3秒ほどの動きだけを一時的に取得します。
-          </p>
-        </div>
-        <div className="body-camera" data-status={status}>
+    <main
+      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}`}
+      aria-labelledby="body-experiment-title"
+    >
+      <h1 id="body-experiment-title" className="screen-reader-only">
+        この味、体でやってみてください
+      </h1>
+      <section
+        className="body-capture-card body-capture-card--dedicated"
+        data-status={status}
+        aria-label="身体表現のカメラ入力"
+      >
+        <div className="body-camera" data-status={status} aria-live="polite">
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
-          {status === "idle" && <span>カメラを準備してください</span>}
-          {status === "capturing" && <span>動いてください…</span>}
-          {status === "captured" && <span>動きを取得しました</span>}
-        </div>
-        {status === "captured" && (
-          <button
-            className="button button--secondary body-replay-button"
-            type="button"
-            onClick={replay}
-          >
-            <Play size={18} strokeWidth={1.8} aria-hidden="true" />
-            動きをもう一度見る
-          </button>
-        )}
-        {(status === "denied" || status === "unavailable") && (
-          <p className="form-error" role="alert">
-            {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
-          </p>
-        )}
-        {features && (
-          <section className="body-features" aria-labelledby="body-features-title">
-            <h2 id="body-features-title">こんな動きでした</h2>
-            <p className="body-features__replay-status" aria-live="polite">
-              {replayStatus === "ready" && "リプレイには一時的に取得した骨格データだけを使います。"}
-              {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
-              {replayStatus === "completed" && "リプレイが完了しました。"}
-            </p>
-            <ul>
-              {humanizeBodyFeatures(features)
-                .slice(0, 4)
-                .map((summary) => (
-                  <li key={summary}>{summary}</li>
-                ))}
-            </ul>
-            <p className="body-features__note">
-              これらは観測した動きの特徴です。味そのものを判定したものではありません。
-            </p>
-          </section>
-        )}
-        {import.meta.env.DEV && motionDiagnostic && (
-          <details className="debug-view" open={false}>
-            <summary>Motion representation diagnostics (development only)</summary>
-            <p>Derived metadata only; raw frames and landmark arrays are intentionally excluded.</p>
-            <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
-          </details>
-        )}
-        <div className="body-capture-card__actions">
-          {status === "idle" && (
-            <button className="button button--primary" type="button" onClick={prepareCamera}>
-              <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
-              カメラを準備する
+          <nav className="body-camera__top-overlay" aria-label="画面の移動">
+            <button className="body-camera__back" type="button" onClick={onBack}>
+              <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />
+              <span>戻る</span>
             </button>
-          )}
-          {status === "loading" && <span>カメラを準備しています…</span>}
+          </nav>
           {status === "ready" && (
-            <button className="button button--primary" type="button" onClick={startCapture}>
-              3秒の動きを始める
+            <div className="body-camera__guide">
+              <span>動きで表してみてください</span>
+            </div>
+          )}
+          {status === "captured" && (
+            <button
+              className="body-camera__replay-control"
+              type="button"
+              onClick={replay}
+              aria-label="動きをもう一度見る"
+            >
+              <Play size={24} strokeWidth={1.8} aria-hidden="true" />
             </button>
           )}
-          {status === "capturing" && <span>身体表現を取得中…</span>}
-          {status === "captured" && (
+          {status !== "captured" && (
+            <div className="body-camera__bottom-overlay" aria-live="polite">
+              {(status === "idle" ||
+                status === "loading" ||
+                status === "denied" ||
+                status === "unavailable") && (
+                <p className="body-capture-card__privacy-note">
+                  映像は端末内で処理され、保存・送信されません。
+                </p>
+              )}
+              {(status === "denied" || status === "unavailable") && (
+                <p className="form-error" role="alert">
+                  {error || "カメラが利用できません。別の方法で表現する方法を試してください。"}
+                </p>
+              )}
+              <div className="body-capture-card__actions">
+                {status === "idle" && (
+                  <button className="button button--primary" type="button" onClick={prepareCamera}>
+                    <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
+                    カメラを準備する
+                  </button>
+                )}
+                {status === "loading" && <span>カメラを準備しています…</span>}
+                {status === "ready" && (
+                  <div className="body-record-control">
+                    <button
+                      className="body-record-control__button"
+                      type="button"
+                      onClick={startCapture}
+                      aria-label="3秒の動きを始める"
+                    >
+                      <span aria-hidden="true" />
+                    </button>
+                    <span className="body-record-control__label">3秒の動きを始める</span>
+                  </div>
+                )}
+                {status === "capturing" && (
+                  <div className="body-record-control body-record-control--recording">
+                    <span className="body-record-control__button" aria-hidden="true">
+                      <span />
+                    </span>
+                    <span className="body-record-control__label">記録中…</span>
+                  </div>
+                )}
+                {(status === "denied" || status === "unavailable") && (
+                  <button className="icon-text-button" type="button" onClick={retry}>
+                    <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
+                    もう一度試す
+                  </button>
+                )}
+              </div>
+              <button
+                className="button button--secondary body-capture-card__fallback"
+                type="button"
+                onClick={onFallback}
+              >
+                声で表現する
+              </button>
+            </div>
+          )}
+        </div>
+        {(features || (import.meta.env.DEV && motionDiagnostic)) && (
+          <div className="body-capture-details">
+            {features && (
+              <section className="body-features" aria-labelledby="body-features-title">
+                <h2 id="body-features-title">こんな動きでした</h2>
+                <p className="body-features__replay-status" aria-live="polite">
+                  {replayStatus === "ready" &&
+                    "リプレイには一時的に取得した骨格データだけを使います。"}
+                  {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
+                  {replayStatus === "completed" && "リプレイが完了しました。"}
+                </p>
+                <ul>
+                  {humanizeBodyFeatures(features)
+                    .slice(0, 4)
+                    .map((summary) => (
+                      <li key={summary}>{summary}</li>
+                    ))}
+                </ul>
+                <p className="body-features__note">
+                  これらは観測した動きの特徴です。味そのものを判定したものではありません。
+                </p>
+              </section>
+            )}
+            {import.meta.env.DEV && motionDiagnostic && (
+              <details className="debug-view" open={false}>
+                <summary>Motion representation diagnostics (development only)</summary>
+                <p>
+                  Derived metadata only; raw frames and landmark arrays are intentionally excluded.
+                </p>
+                <pre>{JSON.stringify(motionDiagnostic, null, 2)}</pre>
+              </details>
+            )}
+          </div>
+        )}
+        {status === "captured" && (
+          <section className="body-capture-review-actions" aria-label="記録した動きの操作">
             <button className="button button--primary" type="button" onClick={analyze}>
               この動きから言葉を探す
             </button>
-          )}
-          {(status === "captured" || status === "denied" || status === "unavailable") && (
             <button className="icon-text-button" type="button" onClick={retry}>
               <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
-              もう一度試す
+              もう一度やってみる
             </button>
-          )}
-        </div>
-        <button
-          className="button button--secondary body-capture-card__fallback"
-          type="button"
-          onClick={onFallback}
-        >
-          声で表現する
-        </button>
+          </section>
+        )}
       </section>
     </main>
   );
