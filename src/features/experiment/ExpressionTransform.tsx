@@ -23,6 +23,7 @@ type ExpressionTransformProps =
       features: BodyMovementFeatures;
       frames: BodyPoseFrame[];
       presentation?: "body-screen";
+      decorative?: boolean;
       waveHistory?: never;
       voiceFeatures?: never;
     }
@@ -32,6 +33,7 @@ type ExpressionTransformProps =
       waveHistory: SyntheticWavePoint[];
       frames?: never;
       voiceFeatures?: never;
+      decorative?: boolean;
     };
 
 function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
@@ -68,10 +70,10 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const bodyVisual = props.mode === "body" ? getBodyVisualModel(props.features) : null;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const skeletonProgress = 1 - windowProgress(progress, 0, 0.3);
-  const sharpTrailProgress = windowProgress(progress, 0.05, 0.55);
-  const softTrailProgress = windowProgress(progress, 0.2, 0.8);
-  const mistProgress = windowProgress(progress, 0.35, 1);
-  const bodyWordsOpacity = windowProgress(progress, 0.68, 1);
+  const sharpTrailProgress = windowProgress(progress, 0.04, 0.45);
+  const softTrailProgress = windowProgress(progress, 0.12, 0.62);
+  const mistProgress = windowProgress(progress, 0.25, 0.75);
+  const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
 
   return (
@@ -82,6 +84,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       data-expansion={bodyVisual?.expansion}
       data-ending={bodyVisual?.ending}
       aria-busy="true"
+      aria-hidden={props.decorative}
       aria-labelledby={`${props.mode}-transform-title`}
     >
       <div className="expression-transform__heading">
@@ -97,11 +100,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       <div className={props.mode === "body" ? "expression-transform__body-visual" : undefined}>
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
-            <svg
-              viewBox="0 0 320 160"
-              preserveAspectRatio={bodyScreen ? "none" : undefined}
-              role="presentation"
-            >
+            <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="presentation">
               <path
                 className="expression-transform__body-skeleton"
                 d={bodyTrail?.skeletonPath}

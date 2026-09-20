@@ -268,14 +268,29 @@ export function BodyExperiment({
         className="experience-screen experience-screen--body-result"
         aria-labelledby="result-title"
       >
-        <nav className="experience-screen__nav" aria-label="画面の移動">
-          <button className="icon-text-button" type="button" onClick={onBack}>
-            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-            <span>最初に戻る</span>
-          </button>
-          <span className="experience-screen__brand">Sake Sense</span>
-        </nav>
-        <Result result={result} onTryAgain={retry} />
+        <div className="body-result-transition">
+          {features && (
+            <div className="body-result-transition__waiting" aria-hidden="true">
+              <ExpressionTransform
+                mode="body"
+                features={features}
+                frames={capturedFrames}
+                presentation="body-screen"
+                decorative
+              />
+            </div>
+          )}
+          <div className="body-result-transition__content">
+            <nav className="experience-screen__nav" aria-label="画面の移動">
+              <button className="icon-text-button" type="button" onClick={onBack}>
+                <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+                <span>最初に戻る</span>
+              </button>
+              <span className="experience-screen__brand">Sake Sense</span>
+            </nav>
+            <Result result={result} onTryAgain={retry} />
+          </div>
+        </div>
       </main>
     );
   }

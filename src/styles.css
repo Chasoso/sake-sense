@@ -491,8 +491,9 @@ h4 {
 }
 
 .body-capture-card--dedicated[data-status="captured"] .body-camera {
+  --body-visual-height: min(58dvh, 42rem);
   width: 100%;
-  height: min(58dvh, 42rem);
+  height: var(--body-visual-height);
   min-height: 22rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
@@ -1217,6 +1218,7 @@ input {
 }
 
 .experience-screen--body-transform {
+  --body-visual-height: min(58dvh, 42rem);
   display: grid;
   width: 100%;
   max-width: none;
@@ -1282,14 +1284,12 @@ input {
 }
 
 .expression-transform--body-screen .expression-transform__visual {
-  min-height: clamp(280px, 52dvh, 540px);
-  height: clamp(280px, 52dvh, 540px);
+  min-height: var(--body-visual-height);
+  height: var(--body-visual-height);
   margin: 0;
-  border-radius: clamp(24px, 5vw, 48px);
-  background:
-    radial-gradient(circle at 50% 50%, rgb(255 253 249 / 94%), transparent 58%),
-    linear-gradient(145deg, rgb(242 238 226 / 64%), rgb(255 253 249 / 82%));
-  box-shadow: 0 24px 60px rgb(43 43 43 / 7%);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .expression-transform--body-screen .expression-transform__visual svg {
@@ -1340,6 +1340,44 @@ input {
 
 .experience-screen--body-result {
   animation: body-result-arrival 220ms ease-out both;
+}
+
+.body-result-transition {
+  position: relative;
+  min-height: 100dvh;
+}
+
+.body-result-transition__content {
+  position: relative;
+  z-index: 1;
+}
+
+.body-result-transition__waiting {
+  --body-visual-height: min(58dvh, 42rem);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--kinari);
+  animation: body-waiting-resolve 160ms ease-out forwards;
+}
+
+.body-result-transition__waiting .expression-transform {
+  width: 100%;
+  min-height: 100%;
+}
+
+@keyframes body-waiting-resolve {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes body-result-arrival {
@@ -1675,8 +1713,17 @@ input {
   }
 
   .body-capture-card--dedicated[data-status="captured"] .body-camera {
-    height: min(48dvh, 30rem);
+    --body-visual-height: min(48dvh, 30rem);
+    height: var(--body-visual-height);
     min-height: 18rem;
+  }
+
+  .experience-screen--body-transform {
+    --body-visual-height: min(48dvh, 30rem);
+  }
+
+  .body-result-transition__waiting {
+    --body-visual-height: min(48dvh, 30rem);
   }
 
   .body-capture-review-actions {
@@ -1712,6 +1759,11 @@ input {
 
   .experience-screen--body-result {
     animation: none;
+  }
+
+  .body-result-transition__waiting {
+    animation: none;
+    opacity: 0;
   }
 
   .expression-transform--body-screen .expression-transform__body-trail--soft,
