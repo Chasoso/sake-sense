@@ -8,6 +8,7 @@ import {
 import {
   getBodyIntermediateWords,
   getBodyTrailGeometry,
+  getBodyTransformProgress,
   getBodyVisualModel,
   getTransformProgress,
   getTransformStage,
@@ -21,6 +22,8 @@ type ExpressionTransformProps =
       mode: "body";
       features: BodyMovementFeatures;
       frames: BodyPoseFrame[];
+      presentation?: "body-screen";
+      decorative?: boolean;
       waveHistory?: never;
       voiceFeatures?: never;
     }
@@ -30,6 +33,7 @@ type ExpressionTransformProps =
       waveHistory: SyntheticWavePoint[];
       frames?: never;
       voiceFeatures?: never;
+      decorative?: boolean;
     };
 
 function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
@@ -52,8 +56,9 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  const bodyScreen = props.mode === "body" && props.presentation === "body-screen";
   const stage = getTransformStage(elapsed);
-  const progress = getTransformProgress(elapsed);
+  const progress = bodyScreen ? getBodyTransformProgress(elapsed) : getTransformProgress(elapsed);
   const words = useMemo(
     () =>
       props.mode === "body"
@@ -65,23 +70,29 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const bodyVisual = props.mode === "body" ? getBodyVisualModel(props.features) : null;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const skeletonProgress = 1 - windowProgress(progress, 0, 0.3);
-  const sharpTrailProgress = windowProgress(progress, 0.05, 0.55);
-  const softTrailProgress = windowProgress(progress, 0.2, 0.8);
-  const mistProgress = windowProgress(progress, 0.35, 1);
-  const bodyWordsOpacity = windowProgress(progress, 0.68, 1);
+  const sharpTrailProgress = windowProgress(progress, 0.04, 0.45);
+  const softTrailProgress = windowProgress(progress, 0.12, 0.62);
+  const mistProgress = windowProgress(progress, 0.25, 0.75);
+  const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
 
   return (
     <section
-      className={`expression-transform expression-transform--${props.mode}`}
+      className={`expression-transform expression-transform--${props.mode}${bodyScreen ? " expression-transform--body-screen" : ""}`}
       data-stage={stage}
       data-direction={bodyVisual?.direction}
       data-expansion={bodyVisual?.expansion}
       data-ending={bodyVisual?.ending}
       aria-busy="true"
+      aria-hidden={props.decorative}
       aria-labelledby={`${props.mode}-transform-title`}
     >
       <div className="expression-transform__heading">
+        {bodyScreen && (
+          <p className="expression-transform__body-screen-copy" aria-live="polite">
+            動きが、ことばへ変わっています
+          </p>
+        )}
         <span className="eyebrow">Sake Sense</span>
         <h2 id={`${props.mode}-transform-title`}>表現が、ことばへ近づいています</h2>
         <p aria-live="polite">{stageCopy(props.mode, stage)}</p>
@@ -89,7 +100,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       <div className={props.mode === "body" ? "expression-transform__body-visual" : undefined}>
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
-            <svg viewBox="0 0 320 160" role="presentation">
+            <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="presentation">
               <path
                 className="expression-transform__body-skeleton"
                 d={bodyTrail?.skeletonPath}

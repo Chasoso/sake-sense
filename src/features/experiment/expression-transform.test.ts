@@ -4,6 +4,7 @@ import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyIntermediateWords,
   getBodyTrailGeometry,
+  getBodyTransformProgress,
   getBodyVisualModel,
   getTransformProgress,
   getTransformStage,
@@ -52,6 +53,14 @@ describe("expression transformation", () => {
     expect(getTransformProgress(2600)).toBeCloseTo(0.5);
     expect(getTransformProgress(5200)).toBe(1);
     expect(getTransformProgress(12000)).toBe(1);
+  });
+
+  it("reaches the calm Body waiting composition within a typical short response", () => {
+    expect(getBodyTransformProgress(0)).toBe(0);
+    expect(getBodyTransformProgress(1000)).toBeCloseTo(0.5);
+    expect(getBodyTransformProgress(1600)).toBeCloseTo(0.8);
+    expect(getBodyTransformProgress(2000)).toBe(1);
+    expect(getBodyTransformProgress(6000)).toBe(1);
   });
 
   it("derives stable body words from observable body features", () => {
@@ -120,6 +129,7 @@ describe("expression transformation", () => {
     expect(first).toEqual(getBodyTrailGeometry(frames));
     expect(first.leftWristPath).toBe("M 160 80");
     expect(first.rightWristPath).toContain("Q");
+    expect(first.primarySource).toBe("rightWrist");
     expect(first.primaryPath).not.toContain("64.0 112.0");
   });
 

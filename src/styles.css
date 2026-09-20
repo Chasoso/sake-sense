@@ -491,8 +491,9 @@ h4 {
 }
 
 .body-capture-card--dedicated[data-status="captured"] .body-camera {
+  --body-visual-height: min(58dvh, 42rem);
   width: 100%;
-  height: min(58dvh, 42rem);
+  height: var(--body-visual-height);
   min-height: 22rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
@@ -1216,6 +1217,185 @@ input {
   transform: translateY(0);
 }
 
+.experience-screen--body-transform {
+  --body-visual-height: min(58dvh, 42rem);
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  place-items: center;
+  padding: clamp(20px, 4vw, 64px);
+  background:
+    radial-gradient(circle at 50% 42%, rgb(255 253 249 / 96%), transparent 62%), var(--kinari);
+}
+
+.expression-transform--body-screen {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(100%, 920px);
+  min-height: min(86dvh, 760px);
+  max-width: none;
+  padding: clamp(18px, 4vw, 48px);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.expression-transform--body-screen .expression-transform__heading {
+  display: grid;
+  justify-items: center;
+  min-height: 2.2rem;
+  text-align: center;
+}
+
+.expression-transform--body-screen
+  .expression-transform__heading
+  > :not(.expression-transform__body-screen-copy) {
+  display: none;
+}
+
+.expression-transform__body-screen-copy {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: clamp(0.92rem, 2vw, 1.08rem);
+  letter-spacing: 0.08em;
+}
+
+.expression-transform--body-screen .expression-transform__assistive-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.expression-transform--body-screen .expression-transform__body-visual {
+  display: grid;
+  min-height: 0;
+  align-items: center;
+}
+
+.expression-transform--body-screen .expression-transform__visual {
+  min-height: var(--body-visual-height);
+  height: var(--body-visual-height);
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.expression-transform--body-screen .expression-transform__visual svg {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.expression-transform--body-screen .expression-transform__body-skeleton {
+  stroke: rgb(157 119 48 / 92%);
+  stroke-width: 2.2;
+}
+
+.expression-transform--body-screen .expression-transform__body-joint {
+  r: 4.5px;
+  fill: var(--gold);
+}
+
+.expression-transform--body-screen .expression-transform__body-trail--primary {
+  stroke-width: 3.5;
+  stroke: rgb(157 119 48 / 88%);
+}
+
+.expression-transform--body-screen .expression-transform__body-trail--secondary {
+  stroke-width: 3;
+  stroke: rgb(56 87 65 / 62%);
+}
+
+.expression-transform--body-screen .expression-transform__body-trail--soft {
+  stroke: rgb(56 87 65 / 76%);
+  filter: blur(1px);
+}
+
+.expression-transform--body-screen .expression-transform__body-trail--mist {
+  stroke: rgb(56 87 65 / 54%);
+  filter: blur(4px);
+}
+
+.expression-transform--body-screen .expression-transform__body-trail--echo {
+  stroke: rgb(157 119 48 / 52%);
+  stroke-width: 2.2;
+  filter: blur(1px);
+}
+
+.expression-transform--body-screen .expression-transform__body-word {
+  font-size: clamp(0.84rem, 2vw, 1rem);
+}
+
+.experience-screen--body-result {
+  animation: body-result-arrival 220ms ease-out both;
+}
+
+.body-result-transition {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+}
+
+.body-result-transition__content {
+  position: relative;
+  z-index: 1;
+}
+
+.body-result-transition__waiting {
+  --body-visual-height: min(58dvh, 42rem);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--kinari);
+}
+
+.body-result-transition--result .body-result-transition__waiting {
+  animation: body-waiting-resolve 160ms ease-out forwards;
+}
+
+.body-result-transition__waiting .expression-transform {
+  width: 100%;
+  min-height: 100%;
+}
+
+@keyframes body-waiting-resolve {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes body-result-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .expression-transform--gesture {
   min-height: 170px;
   align-content: center;
@@ -1537,8 +1717,17 @@ input {
   }
 
   .body-capture-card--dedicated[data-status="captured"] .body-camera {
-    height: min(48dvh, 30rem);
+    --body-visual-height: min(48dvh, 30rem);
+    height: var(--body-visual-height);
     min-height: 18rem;
+  }
+
+  .experience-screen--body-transform {
+    --body-visual-height: min(48dvh, 30rem);
+  }
+
+  .body-result-transition__waiting {
+    --body-visual-height: min(48dvh, 30rem);
   }
 
   .body-capture-review-actions {
@@ -1568,6 +1757,22 @@ input {
   .expression-transform--body .expression-transform__body-trail--soft,
   .expression-transform--body .expression-transform__body-trail--mist,
   .expression-transform--body .expression-transform__body-trail--echo {
+    filter: none;
+    transform: none !important;
+  }
+
+  .experience-screen--body-result {
+    animation: none;
+  }
+
+  .body-result-transition--result .body-result-transition__waiting {
+    animation: none;
+    opacity: 0;
+  }
+
+  .expression-transform--body-screen .expression-transform__body-trail--soft,
+  .expression-transform--body-screen .expression-transform__body-trail--mist,
+  .expression-transform--body-screen .expression-transform__body-trail--echo {
     filter: none;
     transform: none !important;
   }

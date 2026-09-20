@@ -21,6 +21,7 @@ export type BodyTrailGeometry = {
   leftWristPath: string;
   rightWristPath: string;
   centerPath: string;
+  primarySource: "leftWrist" | "rightWrist" | "center" | "available";
 };
 
 export const BODY_TRANSFORM_VISIBILITY_THRESHOLD = 0.35;
@@ -49,11 +50,17 @@ function smoothPath(points: Array<{ x: number; y: number }>): string {
   return path;
 }
 
+function pathLength(points: Array<{ x: number; y: number }>): number {
+  return points.slice(1).reduce((total, point, index) => {
+    const previous = points[index];
+    return total + Math.hypot(point.x - previous.x, point.y - previous.y);
+  }, 0);
+}
+
 export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry {
   const leftWrist: Array<{ x: number; y: number }> = [];
   const rightWrist: Array<{ x: number; y: number }> = [];
   const center: Array<{ x: number; y: number }> = [];
-  const primary: Array<{ x: number; y: number }> = [];
   const skeletonPoints: Array<{ x: number; y: number }> = [];
   const skeletonSegments: string[] = [];
 
@@ -97,9 +104,17 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
         y: shoulderCenter.y / shoulders.length,
       });
     }
-    if (left && right) primary.push({ x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 });
-    else if (left ?? right) primary.push(left ?? right!);
   });
+
+  const primaryCandidates = [
+    { name: "leftWrist" as const, points: leftWrist },
+    { name: "rightWrist" as const, points: rightWrist },
+    { name: "center" as const, points: center },
+  ].filter((candidate) => candidate.points.length > 0);
+  const primaryCandidate = primaryCandidates.sort(
+    (a, b) => pathLength(b.points) - pathLength(a.points),
+  )[0];
+  const primary = primaryCandidate?.points ?? [];
 
   return {
     skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
@@ -108,6 +123,7 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
     leftWristPath: smoothPath(leftWrist),
     rightWristPath: smoothPath(rightWrist),
     centerPath: smoothPath(center),
+    primarySource: primaryCandidate?.name ?? "available",
   };
 }
 
@@ -120,6 +136,13 @@ export function windowProgress(progress: number, start: number, end: number): nu
 export function getTransformProgress(elapsedMs: number): number {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
   return Math.min(elapsedMs / 5200, 1);
+}
+
+export const BODY_TRANSFORM_DURATION_MS = 2000;
+
+export function getBodyTransformProgress(elapsedMs: number): number {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
+  return Math.min(elapsedMs / BODY_TRANSFORM_DURATION_MS, 1);
 }
 
 export function getTransformStage(elapsedMs: number): TransformStage {
