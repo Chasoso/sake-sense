@@ -3,6 +3,7 @@ import type { BodyMovementFeatures } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyIntermediateWords,
+  getBodyVisualModel,
   getTransformStage,
   getVoiceIntermediateWords,
 } from "./expression-transform";
@@ -47,6 +48,26 @@ describe("expression transformation", () => {
     const words = getBodyIntermediateWords(bodyFeatures);
     expect(words).toEqual(["横へ", "くり返す", "広がる", "ゆっくり消える"]);
     expect(words.join(" ")).not.toMatch(/あと味|切れ|淡麗|濃醇|kire|atoaji/);
+  });
+
+  it("changes the body abstract model for direction, repetition, expansion, and ending", () => {
+    const lateral = getBodyVisualModel(bodyFeatures);
+    const upward = getBodyVisualModel({
+      ...bodyFeatures,
+      endingBehavior: "abrupt",
+      motionShape: {
+        ...bodyFeatures.motionShape,
+        dominantDirection: "upward",
+        repetition: "single",
+        expansion: "contracting",
+      },
+    });
+    expect(lateral.abstractPath).not.toBe(upward.abstractPath);
+    expect(lateral.repetitionCount).toBe(3);
+    expect(upward.repetitionCount).toBe(1);
+    expect(upward.direction).toBe("upward");
+    expect(upward.expansion).toBe("contracting");
+    expect(upward.ending).toBe("abrupt");
   });
 
   it("derives stable voice words from local voice features", () => {

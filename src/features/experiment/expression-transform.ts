@@ -3,11 +3,58 @@ import type { VoiceFeatures } from "../../domain/voice";
 
 export type TransformStage = 0 | 1 | 2 | 3;
 
+export type BodyVisualModel = {
+  direction: "lateral" | "upward" | "downward" | "neutral";
+  directionVector: { x: number; y: number };
+  repetitionCount: number;
+  expansion: "expanding" | "contracting" | "steady";
+  ending: "abrupt" | "gradual" | "continued" | "unknown";
+  abstractPath: string;
+};
+
 export function getTransformStage(elapsedMs: number): TransformStage {
   if (!Number.isFinite(elapsedMs) || elapsedMs < 1500) return 0;
   if (elapsedMs < 3000) return 1;
   if (elapsedMs < 4500) return 2;
   return 3;
+}
+
+export function getBodyVisualModel(features: BodyMovementFeatures): BodyVisualModel {
+  const direction =
+    features.motionShape.dominantDirection === "unknown"
+      ? "neutral"
+      : features.motionShape.dominantDirection;
+  const directionVector =
+    direction === "lateral"
+      ? { x: 1, y: 0 }
+      : direction === "upward"
+        ? { x: 0, y: -1 }
+        : direction === "downward"
+          ? { x: 0, y: 1 }
+          : { x: 0.7, y: -0.2 };
+  const expansion =
+    features.motionShape.expansion === "unknown" ? "steady" : features.motionShape.expansion;
+  const repetitionCount = features.motionShape.repetition === "repeated" ? 3 : 1;
+  const ending = features.endingBehavior;
+  const center = { x: 160, y: 80 };
+  const distance = expansion === "expanding" ? 58 : expansion === "contracting" ? 24 : 42;
+  const end = {
+    x: center.x + directionVector.x * distance,
+    y: center.y + directionVector.y * distance,
+  };
+  const control = {
+    x: center.x + directionVector.x * distance * 0.45 - directionVector.y * 26,
+    y: center.y + directionVector.y * distance * 0.45 + directionVector.x * 26,
+  };
+  const abstractPath = `M ${center.x} ${center.y} Q ${control.x.toFixed(1)} ${control.y.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+  return {
+    direction,
+    directionVector,
+    repetitionCount,
+    expansion,
+    ending,
+    abstractPath,
+  };
 }
 
 function appendUnique(words: string[], word: string | null): void {

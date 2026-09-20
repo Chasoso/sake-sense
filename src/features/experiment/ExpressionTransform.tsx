@@ -7,6 +7,7 @@ import {
 } from "../../domain/voice";
 import {
   getBodyIntermediateWords,
+  getBodyVisualModel,
   getTransformStage,
   getVoiceIntermediateWords,
   type TransformStage,
@@ -45,6 +46,25 @@ function bodyTrajectoryPath(frames: BodyPoseFrame[]): string {
     .join(" ");
 }
 
+function bodySkeletonPath(frames: BodyPoseFrame[]): string {
+  const frame = frames[Math.floor(frames.length / 2)] ?? frames[0];
+  if (!frame) return "M 120 48 L 200 48 M 160 48 L 160 116 M 120 48 L 92 108 M 200 48 L 228 108";
+  const point = (index: number) => {
+    const landmark = frame.landmarks[index];
+    return landmark ? `${(landmark.x * 320).toFixed(1)} ${(landmark.y * 160).toFixed(1)}` : null;
+  };
+  const shoulderLeft = point(11);
+  const shoulderRight = point(12);
+  const wristLeft = point(15);
+  const wristRight = point(16);
+  const lines = [
+    shoulderLeft && shoulderRight ? `M ${shoulderLeft} L ${shoulderRight}` : null,
+    shoulderLeft && wristLeft ? `M ${shoulderLeft} L ${wristLeft}` : null,
+    shoulderRight && wristRight ? `M ${shoulderRight} L ${wristRight}` : null,
+  ].filter(Boolean);
+  return lines.length ? lines.join(" ") : "M 120 48 L 200 48 M 160 48 L 160 116";
+}
+
 function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
   if (stage === 0) return mode === "body" ? "あなたの動きから" : "あなたの声から";
   if (stage === 1) return "輪郭をたどる";
@@ -74,12 +94,17 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     [props.mode, props.features],
   );
   const bodyPath = props.mode === "body" ? bodyTrajectoryPath(props.frames) : "";
+  const skeletonPath = props.mode === "body" ? bodySkeletonPath(props.frames) : "";
+  const bodyVisual = props.mode === "body" ? getBodyVisualModel(props.features) : null;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
 
   return (
     <section
       className={`expression-transform expression-transform--${props.mode}`}
       data-stage={stage}
+      data-direction={bodyVisual?.direction}
+      data-expansion={bodyVisual?.expansion}
+      data-ending={bodyVisual?.ending}
       aria-busy="true"
       aria-labelledby={`${props.mode}-transform-title`}
     >
@@ -91,9 +116,19 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       <div className="expression-transform__visual" aria-hidden="true">
         {props.mode === "body" ? (
           <svg viewBox="0 0 320 160" role="presentation">
+            <path className="expression-transform__skeleton" d={skeletonPath} />
             <path className="expression-transform__trajectory" d={bodyPath} />
-            <path className="expression-transform__abstract-line" d={bodyPath} />
-            <circle className="expression-transform__orbit" cx="160" cy="80" r="34" />
+            <path className="expression-transform__abstract-line" d={bodyVisual?.abstractPath} />
+            {Array.from({ length: bodyVisual?.repetitionCount ?? 1 }, (_, index) => (
+              <path
+                className="expression-transform__abstract-repeat"
+                d={bodyVisual?.abstractPath}
+                key={index}
+                style={{
+                  transform: `translate(${index * 8 - ((bodyVisual?.repetitionCount ?? 1) - 1) * 4}px, ${index % 2 ? 7 : -7}px)`,
+                }}
+              />
+            ))}
           </svg>
         ) : (
           <svg viewBox="0 0 320 64" role="presentation">
@@ -107,7 +142,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       </div>
       <ul className="expression-transform__words" aria-label="表現から見えている特徴">
         {words.map((word) => (
-          <li key={word} data-visible={stage >= 2}>
+          <li key={word} data-visible={stage >= 3}>
             {word}
           </li>
         ))}

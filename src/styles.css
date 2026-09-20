@@ -795,6 +795,19 @@ h4 {
   transform: none;
 }
 
+.body-capture-card--dedicated[data-analysis-state="analyzing"] {
+  display: block;
+}
+
+.body-capture-card--dedicated[data-analysis-state="analyzing"] > .body-camera {
+  display: none;
+}
+
+.body-capture-card--dedicated[data-analysis-state="analyzing"] > .expression-transform {
+  max-width: none;
+  margin: 0;
+}
+
 .body-capture-card--dedicated .body-capture-card__actions {
   order: 3;
   position: sticky;
@@ -1006,8 +1019,9 @@ input {
 }
 
 .expression-transform__trajectory,
+.expression-transform__skeleton,
 .expression-transform__abstract-line,
-.expression-transform__orbit,
+.expression-transform__abstract-repeat,
 .expression-transform__pulse {
   transform-box: fill-box;
   transform-origin: center;
@@ -1024,6 +1038,14 @@ input {
   stroke-width: 3;
 }
 
+.expression-transform__skeleton {
+  fill: none;
+  stroke: var(--gold);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
 .expression-transform__abstract-line {
   fill: none;
   stroke: var(--deep-green);
@@ -1031,11 +1053,15 @@ input {
   stroke-width: 4;
 }
 
-.expression-transform__orbit {
+.expression-transform__abstract-repeat {
   fill: none;
-  stroke: var(--gold);
-  stroke-dasharray: 3 8;
-  stroke-width: 2;
+  stroke: var(--deep-green);
+  stroke-linecap: round;
+  stroke-width: 3;
+  opacity: 0;
+  transition:
+    opacity 700ms ease,
+    transform 900ms ease;
 }
 
 .expression-transform__pulse {
@@ -1043,12 +1069,23 @@ input {
   opacity: 0.4;
 }
 
+.expression-transform[data-stage="0"] .expression-transform__trajectory,
 .expression-transform[data-stage="0"] .expression-transform__abstract-line,
-.expression-transform[data-stage="0"] .expression-transform__orbit,
+.expression-transform[data-stage="0"] .expression-transform__abstract-repeat,
 .expression-transform[data-stage="0"] .expression-transform__pulse,
-.expression-transform[data-stage="1"] .expression-transform__orbit,
+.expression-transform[data-stage="1"] .expression-transform__abstract-repeat,
 .expression-transform[data-stage="1"] .expression-transform__pulse {
   opacity: 0;
+}
+
+.expression-transform[data-stage="1"] .expression-transform__skeleton,
+.expression-transform[data-stage="2"] .expression-transform__skeleton,
+.expression-transform[data-stage="3"] .expression-transform__skeleton {
+  opacity: 0;
+}
+
+.expression-transform[data-stage="1"] .expression-transform__trajectory {
+  opacity: 0.9;
 }
 
 .expression-transform[data-stage="0"] .expression-transform__abstract-line {
@@ -1066,12 +1103,37 @@ input {
 }
 
 .expression-transform[data-stage="2"] .expression-transform__abstract-line,
-.expression-transform[data-stage="2"] .expression-transform__orbit,
+.expression-transform[data-stage="2"] .expression-transform__abstract-repeat,
 .expression-transform[data-stage="2"] .expression-transform__pulse,
 .expression-transform[data-stage="3"] .expression-transform__abstract-line,
-.expression-transform[data-stage="3"] .expression-transform__orbit,
+.expression-transform[data-stage="3"] .expression-transform__abstract-repeat,
 .expression-transform[data-stage="3"] .expression-transform__pulse {
   opacity: 0.72;
+}
+
+.expression-transform[data-expansion="expanding"] .expression-transform__abstract-line {
+  stroke-width: 5;
+}
+
+.expression-transform[data-expansion="contracting"] .expression-transform__abstract-line {
+  stroke-width: 2;
+}
+
+.expression-transform[data-direction="lateral"] .expression-transform__abstract-line,
+.expression-transform[data-direction="lateral"] .expression-transform__abstract-repeat {
+  transform-origin: center left;
+}
+
+.expression-transform[data-ending="abrupt"] .expression-transform__abstract-line {
+  stroke-linecap: square;
+}
+
+.expression-transform[data-ending="gradual"] .expression-transform__abstract-line {
+  opacity: 0.45;
+}
+
+.expression-transform[data-ending="continued"] .expression-transform__abstract-line {
+  stroke-dasharray: 2 7;
 }
 
 .expression-transform[data-stage="3"] .expression-transform__trajectory {

@@ -279,7 +279,7 @@ export function BodyExperiment({
 
   return (
     <main
-      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}`}
+      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}${isAnalyzing ? " experience-screen--analyzing" : ""}`}
       aria-labelledby="body-experiment-title"
     >
       <h1 id="body-experiment-title" className="screen-reader-only">
@@ -288,6 +288,7 @@ export function BodyExperiment({
       <section
         className="body-capture-card body-capture-card--dedicated"
         data-status={status}
+        data-analysis-state={isAnalyzing ? "analyzing" : "idle"}
         aria-label="身体表現のカメラ入力"
       >
         <div className="body-camera" data-status={status} aria-live="polite">
@@ -375,7 +376,7 @@ export function BodyExperiment({
             </div>
           )}
         </div>
-        {(features || (import.meta.env.DEV && motionDiagnostic)) && (
+        {!isAnalyzing && (features || (import.meta.env.DEV && motionDiagnostic)) && (
           <div className="body-capture-details">
             {features && (
               <section className="body-features" aria-labelledby="body-features-title">
