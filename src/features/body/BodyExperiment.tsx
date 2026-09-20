@@ -294,6 +294,16 @@ export function BodyExperiment({
               <span>動きで表してみてください</span>
             </div>
           )}
+          {status === "captured" && (
+            <button
+              className="body-camera__replay-control"
+              type="button"
+              onClick={replay}
+              aria-label="動きをもう一度見る"
+            >
+              <Play size={24} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          )}
           {status !== "captured" && (
             <div className="body-camera__bottom-overlay" aria-live="polite">
               {(status === "idle" ||
@@ -355,25 +365,6 @@ export function BodyExperiment({
             </div>
           )}
         </div>
-        {status === "captured" && (
-          <section className="body-capture-review-actions" aria-label="記録した動きの操作">
-            <button
-              className="button button--secondary body-replay-button"
-              type="button"
-              onClick={replay}
-            >
-              <Play size={18} strokeWidth={1.8} aria-hidden="true" />
-              動きをもう一度見る
-            </button>
-            <button className="button button--primary" type="button" onClick={analyze}>
-              この動きから言葉を探す
-            </button>
-            <button className="icon-text-button" type="button" onClick={retry}>
-              <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
-              もう一度試す
-            </button>
-          </section>
-        )}
         {(features || (import.meta.env.DEV && motionDiagnostic)) && (
           <div className="body-capture-details">
             {features && (
@@ -407,6 +398,17 @@ export function BodyExperiment({
               </details>
             )}
           </div>
+        )}
+        {status === "captured" && (
+          <section className="body-capture-review-actions" aria-label="記録した動きの操作">
+            <button className="button button--primary" type="button" onClick={analyze}>
+              この動きから言葉を探す
+            </button>
+            <button className="icon-text-button" type="button" onClick={retry}>
+              <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
+              もう一度やってみる
+            </button>
+          </section>
         )}
       </section>
     </main>

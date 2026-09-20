@@ -406,10 +406,6 @@ h4 {
   margin-top: 24px;
 }
 
-.body-replay-button {
-  margin-top: 16px;
-}
-
 .body-features {
   margin-top: 28px;
   padding-top: 24px;
@@ -509,21 +505,25 @@ h4 {
 }
 
 .body-capture-review-actions {
-  order: 2;
+  order: 4;
   display: grid;
-  grid-template-columns: auto minmax(14rem, 1fr) auto;
-  align-items: center;
+  justify-items: center;
   gap: 12px;
-  width: 100%;
-  padding: 2px 0 8px;
+  width: min(100%, 34rem);
+  padding: 28px 0 8px;
+  margin: 0 auto;
 }
 
 .body-capture-review-actions .button--primary {
-  justify-self: stretch;
+  width: 100%;
+  min-height: 3.5rem;
+  background: var(--deep-green);
+  box-shadow: 0 10px 22px rgb(64 83 65 / 18%);
 }
 
 .body-capture-review-actions .icon-text-button {
   color: var(--deep-green-dark);
+  font-size: 0.88rem;
 }
 
 .body-capture-card--dedicated .body-camera video,
@@ -540,6 +540,34 @@ h4 {
   background:
     linear-gradient(to bottom, rgb(21 31 26 / 42%), transparent 22%),
     linear-gradient(to top, rgb(21 31 26 / 36%), transparent 34%);
+}
+
+.body-camera__replay-control {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  padding: 0 0 0 3px;
+  color: var(--body-overlay-text);
+  background: rgb(25 40 34 / 58%);
+  border: 1px solid rgb(255 253 249 / 72%);
+  border-radius: 50%;
+  box-shadow: 0 8px 22px rgb(20 30 25 / 24%);
+  transform: translate(-50%, -50%);
+}
+
+.body-camera__replay-control:hover {
+  background: rgb(25 40 34 / 72%);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.body-camera__replay-control:focus-visible {
+  outline: 3px solid var(--body-overlay-text);
+  outline-offset: 4px;
 }
 
 .body-camera__guide {
@@ -735,7 +763,6 @@ h4 {
   text-align: center;
 }
 
-.body-camera__bottom-overlay .body-replay-button,
 .body-camera__bottom-overlay .body-capture-card__fallback {
   min-height: 2.75rem;
   margin: 0;
@@ -783,7 +810,6 @@ h4 {
 }
 
 .body-capture-card--dedicated > .body-capture-card__privacy-note,
-.body-capture-card--dedicated > .body-replay-button,
 .body-capture-card--dedicated > .form-error,
 .body-capture-card--dedicated > .body-capture-card__actions,
 .body-capture-card--dedicated > .body-capture-card__fallback {
@@ -804,13 +830,6 @@ h4 {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
-}
-
-.body-capture-card--dedicated .body-replay-button {
-  order: 2;
-  justify-self: center;
-  min-height: 3rem;
-  margin: 0;
 }
 
 .body-capture-card--dedicated .body-features {
@@ -1234,14 +1253,17 @@ input {
   }
 
   .body-capture-review-actions {
-    grid-template-columns: 1fr;
     justify-items: stretch;
   }
 
-  .body-capture-review-actions .button,
-  .body-capture-review-actions .icon-text-button {
+  .body-capture-review-actions .button {
     width: 100%;
     justify-content: center;
+  }
+
+  .body-capture-review-actions .icon-text-button {
+    width: auto;
+    justify-self: center;
   }
 }
 
