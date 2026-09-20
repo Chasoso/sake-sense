@@ -6,10 +6,9 @@ import {
   type VoiceFeatures,
 } from "../../domain/voice";
 import {
-  getBodyIntermediateWords,
+  getBodyDisplayWords,
   getBodyTrailGeometry,
   getBodyTransformProgress,
-  getBodyVisualModel,
   getTransformProgress,
   getTransformStage,
   getVoiceIntermediateWords,
@@ -62,17 +61,15 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const words = useMemo(
     () =>
       props.mode === "body"
-        ? getBodyIntermediateWords(props.features)
+        ? getBodyDisplayWords(props.features)
         : getVoiceIntermediateWords(props.features),
     [props.mode, props.features],
   );
   const bodyTrail = props.mode === "body" ? getBodyTrailGeometry(props.frames) : null;
-  const bodyVisual = props.mode === "body" ? getBodyVisualModel(props.features) : null;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const skeletonProgress = 1 - windowProgress(progress, 0, 0.3);
-  const sharpTrailProgress = windowProgress(progress, 0.04, 0.45);
-  const softTrailProgress = windowProgress(progress, 0.12, 0.62);
-  const mistProgress = windowProgress(progress, 0.25, 0.75);
+  const wristTraceProgress = windowProgress(progress, 0.08, 0.42);
+  const wristSoftProgress = windowProgress(progress, 0.5, 0.78);
   const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
 
@@ -80,9 +77,6 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     <section
       className={`expression-transform expression-transform--${props.mode}${bodyScreen ? " expression-transform--body-screen" : ""}`}
       data-stage={stage}
-      data-direction={bodyVisual?.direction}
-      data-expansion={bodyVisual?.expansion}
-      data-ending={bodyVisual?.ending}
       aria-busy="true"
       aria-hidden={props.decorative}
       aria-labelledby={`${props.mode}-transform-title`}
@@ -116,67 +110,34 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                   style={{ opacity: skeletonProgress }}
                 />
               ))}
-              <path
-                className="expression-transform__body-trail--primary"
-                d={bodyTrail?.primaryPath}
-                style={{
-                  opacity: sharpTrailProgress * (1 - mistProgress * 0.35),
-                  strokeWidth: 2 + sharpTrailProgress * 2,
-                }}
-              />
-              <path
-                className="expression-transform__body-trail--secondary"
-                d={bodyTrail?.leftWristPath}
-                style={{
-                  opacity: softTrailProgress * 0.34,
-                  transform: `translate(${bodyVisual?.softOffset.x ?? 0}px, ${bodyVisual?.softOffset.y ?? 0}px)`,
-                }}
-              />
-              <path
-                className="expression-transform__body-trail--secondary"
-                d={bodyTrail?.rightWristPath}
-                style={{
-                  opacity: softTrailProgress * 0.34,
-                  transform: `translate(${-(bodyVisual?.softOffset.x ?? 0)}px, ${-(bodyVisual?.softOffset.y ?? 0)}px)`,
-                }}
-              />
-              <path
-                className="expression-transform__body-trail--secondary"
-                d={bodyTrail?.centerPath}
-                style={{
-                  opacity: softTrailProgress * 0.22,
-                  transform: `translate(${(bodyVisual?.softOffset.x ?? 0) * 0.5}px, ${(bodyVisual?.softOffset.y ?? 0) * 0.5}px)`,
-                }}
-              />
-              <path
-                className="expression-transform__body-trail--soft"
-                d={bodyTrail?.primaryPath}
-                style={{
-                  opacity: softTrailProgress * 0.58,
-                  strokeWidth: 5 + softTrailProgress * 5,
-                  transform: `translate(${bodyVisual?.softOffset.x ?? 0}px, ${bodyVisual?.softOffset.y ?? 0}px) scale(${1 + (bodyVisual?.trailSpread ?? 1) * progress * 0.04})`,
-                }}
-              />
-              <path
-                className="expression-transform__body-trail--mist"
-                d={bodyTrail?.primaryPath}
-                style={{
-                  opacity: mistProgress * (0.32 - (bodyVisual?.endingFade ?? 0) * 0.16),
-                  strokeWidth: 10 + mistProgress * 8,
-                  transform: `translate(${(bodyVisual?.softOffset.x ?? 0) * 1.7}px, ${(bodyVisual?.softOffset.y ?? 0) * 1.7}px) scale(${1 + (bodyVisual?.trailSpread ?? 1) * 0.08})`,
-                }}
-              />
-              {[-1, 1].map((offset) => (
-                <path
-                  className="expression-transform__body-trail--echo"
-                  d={bodyTrail?.primaryPath}
-                  key={offset}
-                  style={{
-                    opacity: mistProgress * (bodyVisual?.echoStrength ?? 0.06),
-                    transform: `translate(${offset * 8}px, ${offset * -6}px)`,
-                  }}
-                />
-              ))}
+              {bodyTrail && bodyTrail.leftWristPathLength > 2 ? (
+                <>
+                  <path
+                    className="expression-transform__body-wrist-trace"
+                    d={bodyTrail.leftWristPath}
+                    style={{ opacity: wristTraceProgress }}
+                  />
+                  <path
+                    className="expression-transform__body-wrist-trace expression-transform__body-wrist-trace--soft"
+                    d={bodyTrail.leftWristPath}
+                    style={{ opacity: wristSoftProgress * 0.56 }}
+                  />
+                </>
+              ) : null}
+              {bodyTrail && bodyTrail.rightWristPathLength > 2 ? (
+                <>
+                  <path
+                    className="expression-transform__body-wrist-trace"
+                    d={bodyTrail.rightWristPath}
+                    style={{ opacity: wristTraceProgress }}
+                  />
+                  <path
+                    className="expression-transform__body-wrist-trace expression-transform__body-wrist-trace--soft"
+                    d={bodyTrail.rightWristPath}
+                    style={{ opacity: wristSoftProgress * 0.56 }}
+                  />
+                </>
+              ) : null}
             </svg>
           ) : (
             <svg viewBox="0 0 320 64" role="presentation">
@@ -200,7 +161,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
             className="expression-transform__words expression-transform__words--body"
             aria-label="表現から見えている特徴"
           >
-            {words.slice(0, 3).map((word, index) => (
+            {words.slice(0, 2).map((word, index) => (
               <li
                 className="expression-transform__body-word"
                 key={word}

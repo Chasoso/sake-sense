@@ -21,6 +21,8 @@ export type BodyTrailGeometry = {
   leftWristPath: string;
   rightWristPath: string;
   centerPath: string;
+  leftWristPathLength: number;
+  rightWristPathLength: number;
   primarySource: "leftWrist" | "rightWrist" | "center" | "available";
 };
 
@@ -123,6 +125,8 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
     leftWristPath: smoothPath(leftWrist),
     rightWristPath: smoothPath(rightWrist),
     centerPath: smoothPath(center),
+    leftWristPathLength: pathLength(leftWrist),
+    rightWristPathLength: pathLength(rightWrist),
     primarySource: primaryCandidate?.name ?? "available",
   };
 }
@@ -221,6 +225,21 @@ export function getBodyIntermediateWords(features: BodyMovementFeatures): string
           : null,
   );
   return words.length ? words : ["動きの輪郭"];
+}
+
+export function getBodyDisplayWords(features: BodyMovementFeatures): string[] {
+  const words = getBodyIntermediateWords(features);
+  const directionCount = features.motionShape.dominantDirection === "unknown" ? 0 : 1;
+  const repetitionCount = features.motionShape.repetition === "repeated" ? 1 : 0;
+  const expansionIndex = directionCount + repetitionCount;
+  const endingWord = features.endingBehavior === "unknown" ? null : (words.at(-1) ?? null);
+  const priority = [
+    words[expansionIndex],
+    words[0],
+    features.motionShape.repetition === "repeated" ? words[directionCount] : null,
+    endingWord,
+  ].filter((word): word is string => Boolean(word));
+  return [...new Set(priority)].slice(0, 2);
 }
 
 export function getVoiceIntermediateWords(features: VoiceFeatures): string[] {

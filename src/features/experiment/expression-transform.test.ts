@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
 import {
+  getBodyDisplayWords,
   getBodyIntermediateWords,
   getBodyTrailGeometry,
   getBodyTransformProgress,
@@ -67,6 +68,13 @@ describe("expression transformation", () => {
     const words = getBodyIntermediateWords(bodyFeatures);
     expect(words).toEqual(["横へ", "くり返す", "広がる", "ゆっくり消える"]);
     expect(words.join(" ")).not.toMatch(/あと味|切れ|淡麗|濃醇|kire|atoaji/);
+  });
+
+  it("limits Body screen words to two deterministic local observations", () => {
+    const words = getBodyDisplayWords(bodyFeatures);
+    expect(words).toHaveLength(2);
+    expect(words).toEqual(getBodyDisplayWords(bodyFeatures));
+    expect(words.join(" ")).not.toMatch(/kire|atoaji|濃醇|淡麗/);
   });
 
   it("changes the body abstract model for direction, repetition, expansion, and ending", () => {
@@ -140,5 +148,30 @@ describe("expression transformation", () => {
       "間をあけて",
       "ゆっくり消える",
     ]);
+  });
+
+  it("keeps both wrist traces for opposite-hand movement", () => {
+    const frames = [0, 1, 2].map((step) => ({
+      t: step * 100,
+      landmarks: Array.from({ length: 17 }, (_, index) => ({
+        x:
+          index === 15
+            ? 0.25 + step * 0.08
+            : index === 16
+              ? 0.75 - step * 0.08
+              : index === 11
+                ? 0.4
+                : index === 12
+                  ? 0.6
+                  : 0.5,
+        y: index === 15 || index === 16 ? 0.7 : index === 11 || index === 12 ? 0.3 : 0.5,
+        visibility: 1,
+      })),
+    }));
+    const geometry = getBodyTrailGeometry(frames);
+    expect(geometry.leftWristPathLength).toBeGreaterThan(2);
+    expect(geometry.rightWristPathLength).toBeGreaterThan(2);
+    expect(geometry.leftWristPath).toContain("Q");
+    expect(geometry.rightWristPath).toContain("Q");
   });
 });
