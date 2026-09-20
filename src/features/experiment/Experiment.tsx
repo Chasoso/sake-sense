@@ -31,6 +31,7 @@ import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
+import { ExpressionTransform } from "./ExpressionTransform";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -65,6 +66,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
   >("idle");
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const capturedPointerId = useRef<number | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
@@ -243,21 +245,27 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
     (gestureFeatures.pointCount >= 2 && gestureFeatures.pathLength > 0);
 
   const analyze = async () => {
-    const next = runLocalExperiment(expression, strokes, voiceFeatures);
-    if ("error" in next) {
-      setError(next.error);
-      setResult(null);
-    } else {
-      setError("");
-      if (voiceFeatures?.durationMs) {
-        const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
-        const provider = endpoint?.trim()
-          ? createHttpSensoryBridgeProvider(endpoint.trim())
-          : createFixtureSensoryBridgeProvider();
-        setResult(await runVoiceSemanticExperiment(next, voiceFeatures, provider));
+    if (isAnalyzing || !canAnalyze) return;
+    setIsAnalyzing(true);
+    try {
+      const next = runLocalExperiment(expression, strokes, voiceFeatures);
+      if ("error" in next) {
+        setError(next.error);
+        setResult(null);
       } else {
-        setResult(next);
+        setError("");
+        if (voiceFeatures?.durationMs) {
+          const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
+          const provider = endpoint?.trim()
+            ? createHttpSensoryBridgeProvider(endpoint.trim())
+            : createFixtureSensoryBridgeProvider();
+          setResult(await runVoiceSemanticExperiment(next, voiceFeatures, provider));
+        } else {
+          setResult(next);
+        }
       }
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -275,6 +283,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
     setExpression("");
     setStrokes([]);
     setResult(null);
+    setIsAnalyzing(false);
     setError("");
     wavePhase.current = 0;
     waveAmplitude.current = 0;
@@ -400,20 +409,37 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
         </div>
       </details>
 
-      <div className="experiment__actions">
-        <button
-          className="button button--primary"
-          type="button"
-          onClick={analyze}
-          disabled={!canAnalyze}
+      {isAnalyzing && voiceFeatures && (
+        <ExpressionTransform mode="voice" features={voiceFeatures} waveHistory={waveHistory} />
+      )}
+      {isAnalyzing && !voiceFeatures && (
+        <section
+          className="expression-transform expression-transform--gesture"
+          aria-live="polite"
+          aria-busy="true"
         >
-          この表現から言葉を探す
-        </button>
-        <button className="icon-text-button" type="button" onClick={reset}>
-          <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
-          リセット
-        </button>
-      </div>
+          <p className="expression-transform__eyebrow">表現の輪郭をたどっています</p>
+          <h2>動きが、ことばへ近づいています</h2>
+          <p className="expression-transform__status">もうすぐ結果が表示されます…</p>
+        </section>
+      )}
+
+      {!isAnalyzing && (
+        <div className="experiment__actions">
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={analyze}
+            disabled={!canAnalyze || isAnalyzing}
+          >
+            この表現から言葉を探す
+          </button>
+          <button className="icon-text-button" type="button" onClick={reset}>
+            <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
+            リセット
+          </button>
+        </div>
+      )}
 
       {error && (
         <p className="form-error" role="alert">
