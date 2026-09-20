@@ -4,6 +4,7 @@ import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyIntermediateWords,
   getBodyVisualModel,
+  getTransformProgress,
   getTransformStage,
   getVoiceIntermediateWords,
 } from "./expression-transform";
@@ -44,6 +45,13 @@ describe("expression transformation", () => {
     expect(getTransformStage(4500)).toBe(3);
   });
 
+  it("uses a continuous bounded progress value and holds for slow responses", () => {
+    expect(getTransformProgress(0)).toBe(0);
+    expect(getTransformProgress(2600)).toBeCloseTo(0.5);
+    expect(getTransformProgress(5200)).toBe(1);
+    expect(getTransformProgress(12000)).toBe(1);
+  });
+
   it("derives stable body words from observable body features", () => {
     const words = getBodyIntermediateWords(bodyFeatures);
     expect(words).toEqual(["横へ", "くり返す", "広がる", "ゆっくり消える"]);
@@ -63,8 +71,7 @@ describe("expression transformation", () => {
       },
     });
     expect(lateral.abstractPath).not.toBe(upward.abstractPath);
-    expect(lateral.repetitionCount).toBe(3);
-    expect(upward.repetitionCount).toBe(1);
+    expect(lateral.echoStrength).toBeGreaterThan(upward.echoStrength);
     expect(upward.direction).toBe("upward");
     expect(upward.expansion).toBe("contracting");
     expect(upward.ending).toBe("abrupt");

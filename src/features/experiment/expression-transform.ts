@@ -6,11 +6,18 @@ export type TransformStage = 0 | 1 | 2 | 3;
 export type BodyVisualModel = {
   direction: "lateral" | "upward" | "downward" | "neutral";
   directionVector: { x: number; y: number };
-  repetitionCount: number;
   expansion: "expanding" | "contracting" | "steady";
   ending: "abrupt" | "gradual" | "continued" | "unknown";
   abstractPath: string;
+  trailSpread: number;
+  echoStrength: number;
+  endingFade: number;
 };
+
+export function getTransformProgress(elapsedMs: number): number {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
+  return Math.min(elapsedMs / 5200, 1);
+}
 
 export function getTransformStage(elapsedMs: number): TransformStage {
   if (!Number.isFinite(elapsedMs) || elapsedMs < 1500) return 0;
@@ -34,7 +41,6 @@ export function getBodyVisualModel(features: BodyMovementFeatures): BodyVisualMo
           : { x: 0.7, y: -0.2 };
   const expansion =
     features.motionShape.expansion === "unknown" ? "steady" : features.motionShape.expansion;
-  const repetitionCount = features.motionShape.repetition === "repeated" ? 3 : 1;
   const ending = features.endingBehavior;
   const center = { x: 160, y: 80 };
   const distance = expansion === "expanding" ? 58 : expansion === "contracting" ? 24 : 42;
@@ -47,13 +53,18 @@ export function getBodyVisualModel(features: BodyMovementFeatures): BodyVisualMo
     y: center.y + directionVector.y * distance * 0.45 + directionVector.x * 26,
   };
   const abstractPath = `M ${center.x} ${center.y} Q ${control.x.toFixed(1)} ${control.y.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+  const trailSpread = expansion === "expanding" ? 1.08 : expansion === "contracting" ? 0.94 : 1;
+  const echoStrength = features.motionShape.repetition === "repeated" ? 0.18 : 0.06;
+  const endingFade = ending === "abrupt" ? 0.72 : ending === "gradual" ? 0.42 : 0.18;
   return {
     direction,
     directionVector,
-    repetitionCount,
     expansion,
     ending,
     abstractPath,
+    trailSpread,
+    echoStrength,
+    endingFade,
   };
 }
 
