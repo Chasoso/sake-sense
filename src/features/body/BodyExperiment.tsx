@@ -21,6 +21,7 @@ import {
   type MotionExperimentDiagnostic,
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
+import { ExpressionTransform } from "../experiment/ExpressionTransform";
 
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
@@ -78,6 +79,7 @@ export function BodyExperiment({
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
   const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
   const [replayStatus, setReplayStatus] = useState<ReplayStatus>("idle");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -192,6 +194,7 @@ export function BodyExperiment({
     setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
+    setIsAnalyzing(false);
     setError("");
     setStatus("capturing");
     startedAtRef.current = performance.now();
@@ -208,6 +211,7 @@ export function BodyExperiment({
     setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
+    setIsAnalyzing(false);
     setStatus("idle");
     void prepareCamera();
   };
@@ -240,14 +244,20 @@ export function BodyExperiment({
 
   const analyze = async () => {
     stopReplay();
-    if (!features) return;
+    if (!features || isAnalyzing) return;
+    setError("");
+    setIsAnalyzing(true);
     const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
     const provider = endpoint?.trim()
       ? createHttpSensoryBridgeProvider(endpoint.trim())
       : createFixtureSensoryBridgeProvider();
-    const next = await runBodySemanticExperiment(features, provider);
-    if ("error" in next) setError(next.error);
-    else setResult(next);
+    try {
+      const next = await runBodySemanticExperiment(features, provider);
+      if ("error" in next) setError(next.error);
+      else setResult(next);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const bodyCaptureLayout = getBodyCaptureLayout(status);
@@ -269,7 +279,7 @@ export function BodyExperiment({
 
   return (
     <main
-      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}`}
+      className={`experience-screen experience-screen--body-capture experience-screen--${bodyCaptureLayout.shell}${isAnalyzing ? " experience-screen--analyzing" : ""}`}
       aria-labelledby="body-experiment-title"
     >
       <h1 id="body-experiment-title" className="screen-reader-only">
@@ -278,6 +288,7 @@ export function BodyExperiment({
       <section
         className="body-capture-card body-capture-card--dedicated"
         data-status={status}
+        data-analysis-state={isAnalyzing ? "analyzing" : "idle"}
         aria-label="身体表現のカメラ入力"
       >
         <div className="body-camera" data-status={status} aria-live="polite">
@@ -365,7 +376,7 @@ export function BodyExperiment({
             </div>
           )}
         </div>
-        {(features || (import.meta.env.DEV && motionDiagnostic)) && (
+        {!isAnalyzing && (features || (import.meta.env.DEV && motionDiagnostic)) && (
           <div className="body-capture-details">
             {features && (
               <section className="body-features" aria-labelledby="body-features-title">
@@ -399,7 +410,10 @@ export function BodyExperiment({
             )}
           </div>
         )}
-        {status === "captured" && (
+        {status === "captured" && isAnalyzing && features && (
+          <ExpressionTransform mode="body" features={features} frames={capturedFrames} />
+        )}
+        {status === "captured" && !isAnalyzing && (
           <section className="body-capture-review-actions" aria-label="記録した動きの操作">
             <button className="button button--primary" type="button" onClick={analyze}>
               この動きから言葉を探す

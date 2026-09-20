@@ -795,6 +795,19 @@ h4 {
   transform: none;
 }
 
+.body-capture-card--dedicated[data-analysis-state="analyzing"] {
+  display: block;
+}
+
+.body-capture-card--dedicated[data-analysis-state="analyzing"] > .body-camera {
+  display: none;
+}
+
+.body-capture-card--dedicated[data-analysis-state="analyzing"] > .expression-transform {
+  max-width: none;
+  margin: 0;
+}
+
 .body-capture-card--dedicated .body-capture-card__actions {
   order: 3;
   position: sticky;
@@ -948,6 +961,215 @@ input {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+.expression-transform {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  padding: 24px;
+  margin: 22px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgb(43 43 43 / 5%);
+}
+
+.expression-transform__eyebrow {
+  margin: 0;
+  color: var(--deep-green);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.expression-transform h2 {
+  margin: 0;
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  font-weight: 600;
+}
+
+.expression-transform__status {
+  min-height: 1.6em;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.expression-transform__visual {
+  width: 100%;
+  min-height: 132px;
+  margin: 4px 0;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--soft-surface);
+}
+
+.expression-transform__visual svg {
+  display: block;
+  width: 100%;
+  height: 132px;
+}
+
+.expression-transform__visual line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.expression-transform__trajectory,
+.expression-transform__skeleton,
+.expression-transform__abstract-line,
+.expression-transform__abstract-repeat,
+.expression-transform__pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 700ms ease,
+    transform 900ms ease;
+}
+
+.expression-transform__trajectory {
+  fill: none;
+  stroke: var(--gold);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.expression-transform__skeleton {
+  fill: none;
+  stroke: var(--gold);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.expression-transform__abstract-line {
+  fill: none;
+  stroke: var(--deep-green);
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.expression-transform__abstract-repeat {
+  fill: none;
+  stroke: var(--deep-green);
+  stroke-linecap: round;
+  stroke-width: 3;
+  opacity: 0;
+  transition:
+    opacity 700ms ease,
+    transform 900ms ease;
+}
+
+.expression-transform__pulse {
+  fill: var(--gold);
+  opacity: 0.4;
+}
+
+.expression-transform[data-stage="0"] .expression-transform__trajectory,
+.expression-transform[data-stage="0"] .expression-transform__abstract-line,
+.expression-transform[data-stage="0"] .expression-transform__abstract-repeat,
+.expression-transform[data-stage="0"] .expression-transform__pulse,
+.expression-transform[data-stage="1"] .expression-transform__abstract-repeat,
+.expression-transform[data-stage="1"] .expression-transform__pulse {
+  opacity: 0;
+}
+
+.expression-transform[data-stage="1"] .expression-transform__skeleton,
+.expression-transform[data-stage="2"] .expression-transform__skeleton,
+.expression-transform[data-stage="3"] .expression-transform__skeleton {
+  opacity: 0;
+}
+
+.expression-transform[data-stage="1"] .expression-transform__trajectory {
+  opacity: 0.9;
+}
+
+.expression-transform[data-stage="0"] .expression-transform__abstract-line {
+  opacity: 0;
+  transform: scaleX(0.6);
+}
+
+.expression-transform[data-stage="1"] .expression-transform__abstract-line {
+  opacity: 0.35;
+  transform: scaleX(0.8);
+}
+
+.expression-transform[data-stage="2"] .expression-transform__trajectory {
+  opacity: 0.45;
+}
+
+.expression-transform[data-stage="2"] .expression-transform__abstract-line,
+.expression-transform[data-stage="2"] .expression-transform__abstract-repeat,
+.expression-transform[data-stage="2"] .expression-transform__pulse,
+.expression-transform[data-stage="3"] .expression-transform__abstract-line,
+.expression-transform[data-stage="3"] .expression-transform__abstract-repeat,
+.expression-transform[data-stage="3"] .expression-transform__pulse {
+  opacity: 0.72;
+}
+
+.expression-transform[data-expansion="expanding"] .expression-transform__abstract-line {
+  stroke-width: 5;
+}
+
+.expression-transform[data-expansion="contracting"] .expression-transform__abstract-line {
+  stroke-width: 2;
+}
+
+.expression-transform[data-direction="lateral"] .expression-transform__abstract-line,
+.expression-transform[data-direction="lateral"] .expression-transform__abstract-repeat {
+  transform-origin: center left;
+}
+
+.expression-transform[data-ending="abrupt"] .expression-transform__abstract-line {
+  stroke-linecap: square;
+}
+
+.expression-transform[data-ending="gradual"] .expression-transform__abstract-line {
+  opacity: 0.45;
+}
+
+.expression-transform[data-ending="continued"] .expression-transform__abstract-line {
+  stroke-dasharray: 2 7;
+}
+
+.expression-transform[data-stage="3"] .expression-transform__trajectory {
+  opacity: 0.18;
+}
+
+.expression-transform__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.expression-transform__words li {
+  padding: 5px 10px;
+  color: var(--deep-green-dark);
+  background: var(--soft-surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 500ms ease,
+    transform 500ms ease;
+}
+
+.expression-transform__words li[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.expression-transform--gesture {
+  min-height: 170px;
+  align-content: center;
 }
 
 .gesture-pad {
