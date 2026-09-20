@@ -277,6 +277,7 @@ export function BodyExperiment({
       </h1>
       <section
         className="body-capture-card body-capture-card--dedicated"
+        data-status={status}
         aria-label="身体表現のカメラ入力"
       >
         <div className="body-camera" data-status={status} aria-live="polite">
@@ -293,88 +294,85 @@ export function BodyExperiment({
               <span>動きで表してみてください</span>
             </div>
           )}
-          {status === "capturing" && <span>動いてください…</span>}
-          <div className="body-camera__bottom-overlay" aria-live="polite">
-            {(status === "idle" ||
-              status === "loading" ||
-              status === "denied" ||
-              status === "unavailable") && (
-              <p className="body-capture-card__privacy-note">
-                映像は端末内で処理され、保存・送信されません。
-              </p>
-            )}
-            {(status === "denied" || status === "unavailable") && (
-              <p className="form-error" role="alert">
-                {error || "カメラが利用できません。別の方法で表現する方法を試してください。"}
-              </p>
-            )}
-            {status === "captured" && (
+          {status !== "captured" && (
+            <div className="body-camera__bottom-overlay" aria-live="polite">
+              {(status === "idle" ||
+                status === "loading" ||
+                status === "denied" ||
+                status === "unavailable") && (
+                <p className="body-capture-card__privacy-note">
+                  映像は端末内で処理され、保存・送信されません。
+                </p>
+              )}
+              {(status === "denied" || status === "unavailable") && (
+                <p className="form-error" role="alert">
+                  {error || "カメラが利用できません。別の方法で表現する方法を試してください。"}
+                </p>
+              )}
+              <div className="body-capture-card__actions">
+                {status === "idle" && (
+                  <button className="button button--primary" type="button" onClick={prepareCamera}>
+                    <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
+                    カメラを準備する
+                  </button>
+                )}
+                {status === "loading" && <span>カメラを準備しています…</span>}
+                {status === "ready" && (
+                  <div className="body-record-control">
+                    <button
+                      className="body-record-control__button"
+                      type="button"
+                      onClick={startCapture}
+                      aria-label="3秒の動きを始める"
+                    >
+                      <span aria-hidden="true" />
+                    </button>
+                    <span className="body-record-control__label">3秒の動きを始める</span>
+                  </div>
+                )}
+                {status === "capturing" && (
+                  <div className="body-record-control body-record-control--recording">
+                    <span className="body-record-control__button" aria-hidden="true">
+                      <span />
+                    </span>
+                    <span className="body-record-control__label">記録中…</span>
+                  </div>
+                )}
+                {(status === "denied" || status === "unavailable") && (
+                  <button className="icon-text-button" type="button" onClick={retry}>
+                    <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
+                    もう一度試す
+                  </button>
+                )}
+              </div>
               <button
-                className="button button--secondary body-replay-button"
+                className="button button--secondary body-capture-card__fallback"
                 type="button"
-                onClick={replay}
+                onClick={onFallback}
               >
-                <Play size={18} strokeWidth={1.8} aria-hidden="true" />
-                動きをもう一度見る
+                声で表現する
               </button>
-            )}
-            <div className="body-capture-card__actions">
-              {status === "idle" && (
-                <button className="button button--primary" type="button" onClick={prepareCamera}>
-                  <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
-                  カメラを準備する
-                </button>
-              )}
-              {status === "loading" && <span>カメラを準備しています…</span>}
-              {status === "ready" && (
-                <button className="button button--primary" type="button" onClick={startCapture}>
-                  3秒の動きを始める
-                </button>
-              )}
-              {status === "capturing" && <span>身体表現を記録中…</span>}
-              {status === "captured" && (
-                <button className="button button--primary" type="button" onClick={analyze}>
-                  この動きから言葉を探す
-                </button>
-              )}
-              {(status === "captured" || status === "denied" || status === "unavailable") && (
-                <button className="icon-text-button" type="button" onClick={retry}>
-                  <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
-                  もう一度試す
-                </button>
-              )}
             </div>
-            <button
-              className="button button--secondary body-capture-card__fallback"
-              type="button"
-              onClick={onFallback}
-            >
-              声で表現する
-            </button>
-          </div>
+          )}
         </div>
-        {(status === "idle" ||
-          status === "loading" ||
-          status === "denied" ||
-          status === "unavailable") && (
-          <p className="body-capture-card__privacy-note">
-            映像は端末内で処理され、保存・送信されません。
-          </p>
-        )}
         {status === "captured" && (
-          <button
-            className="button button--secondary body-replay-button"
-            type="button"
-            onClick={replay}
-          >
-            <Play size={18} strokeWidth={1.8} aria-hidden="true" />
-            動きをもう一度見る
-          </button>
-        )}
-        {(status === "denied" || status === "unavailable") && (
-          <p className="form-error" role="alert">
-            {error || "カメラが利用できません。声や指の動きで表現する方法を試してください。"}
-          </p>
+          <section className="body-capture-review-actions" aria-label="記録した動きの操作">
+            <button
+              className="button button--secondary body-replay-button"
+              type="button"
+              onClick={replay}
+            >
+              <Play size={18} strokeWidth={1.8} aria-hidden="true" />
+              動きをもう一度見る
+            </button>
+            <button className="button button--primary" type="button" onClick={analyze}>
+              この動きから言葉を探す
+            </button>
+            <button className="icon-text-button" type="button" onClick={retry}>
+              <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
+              もう一度試す
+            </button>
+          </section>
         )}
         {(features || (import.meta.env.DEV && motionDiagnostic)) && (
           <div className="body-capture-details">
@@ -410,39 +408,6 @@ export function BodyExperiment({
             )}
           </div>
         )}
-        <div className="body-capture-card__actions" aria-live="polite">
-          {status === "idle" && (
-            <button className="button button--primary" type="button" onClick={prepareCamera}>
-              <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
-              カメラを準備する
-            </button>
-          )}
-          {status === "loading" && <span>カメラを準備しています…</span>}
-          {status === "ready" && (
-            <button className="button button--primary" type="button" onClick={startCapture}>
-              3秒の動きを始める
-            </button>
-          )}
-          {status === "capturing" && <span>身体表現を取得中…</span>}
-          {status === "captured" && (
-            <button className="button button--primary" type="button" onClick={analyze}>
-              この動きから言葉を探す
-            </button>
-          )}
-          {(status === "captured" || status === "denied" || status === "unavailable") && (
-            <button className="icon-text-button" type="button" onClick={retry}>
-              <RotateCcw size={17} strokeWidth={1.8} aria-hidden="true" />
-              もう一度試す
-            </button>
-          )}
-        </div>
-        <button
-          className="button button--secondary body-capture-card__fallback"
-          type="button"
-          onClick={onFallback}
-        >
-          声で表現する
-        </button>
       </section>
     </main>
   );

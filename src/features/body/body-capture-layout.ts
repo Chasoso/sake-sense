@@ -10,17 +10,18 @@ export type BodyCaptureStatus =
 /** The Body experiment stays in one capture shell until it transitions to the result screen. */
 export function getBodyCaptureLayout(status: BodyCaptureStatus): {
   shell: "body-shell";
-  surface: "viewport";
+  surface: "viewport" | "review";
   details: "contained";
   topOverlay: "surface";
-  bottomOverlay: "surface";
+  bottomOverlay: "surface" | "review-actions";
 } {
-  void status;
+  const isCaptured = status === "captured";
+
   return {
     shell: "body-shell",
-    surface: "viewport",
+    surface: isCaptured ? "review" : "viewport",
     details: "contained",
     topOverlay: "surface",
-    bottomOverlay: "surface",
+    bottomOverlay: isCaptured ? "review-actions" : "surface",
   };
 }
