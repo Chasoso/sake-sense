@@ -283,21 +283,17 @@ export function BodyExperiment({
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
-            <button className="icon-text-button" type="button" onClick={onBack}>
-              <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <button className="body-camera__back" type="button" onClick={onBack}>
+              <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />
               <span>戻る</span>
             </button>
-            <span className="experience-screen__brand">Sake Sense</span>
           </nav>
           {status === "ready" && (
             <div className="body-camera__guide">
-              <strong>この味を、体で表現してみてください</strong>
-              <span>手だけでも大丈夫です</span>
+              <span>動きで表してみてください</span>
             </div>
           )}
-          {status === "idle" && <span>カメラを準備してください</span>}
           {status === "capturing" && <span>動いてください…</span>}
-          {status === "captured" && <span>動きを取得しました</span>}
           <div className="body-camera__bottom-overlay" aria-live="polite">
             {(status === "idle" ||
               status === "loading" ||

@@ -465,13 +465,19 @@ h4 {
 }
 
 .body-capture-card--dedicated .body-camera {
+  --body-overlay-text: #fffdf9;
+  --body-overlay-muted: rgb(255 253 249 / 78%);
   order: 1;
   width: 100vw;
   height: 100dvh;
   min-height: 100dvh;
   border: 0;
   border-radius: 0;
-  background: var(--ink);
+  background:
+    radial-gradient(circle at 50% 34%, rgb(221 205 170 / 24%), transparent 42%),
+    linear-gradient(145deg, #6e756b, #46534b 64%, #303c36),
+    url("./assets/brand/bg-paper-texture.png");
+  background-blend-mode: screen, normal, soft-light;
 }
 
 .body-capture-details {
@@ -485,50 +491,70 @@ h4 {
   min-height: 0;
 }
 
+.body-capture-card--dedicated .body-camera::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(to bottom, rgb(21 31 26 / 42%), transparent 22%),
+    linear-gradient(to top, rgb(21 31 26 / 36%), transparent 34%);
+}
+
 .body-camera__guide {
   position: absolute;
+  z-index: 2;
   top: max(68px, calc(env(safe-area-inset-top, 0px) + 58px));
-  left: 16px;
-  display: grid;
-  gap: 3px;
+  left: 20px;
   max-width: min(18rem, calc(100% - 32px));
-  padding: 10px 12px;
-  color: var(--paper);
-  background: rgb(25 40 34 / 76%);
-  border-left: 2px solid var(--gold);
-  border-radius: 0 10px 10px 0;
+  padding: 0;
+  color: var(--body-overlay-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.82rem;
   line-height: 1.45;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 12px rgb(20 30 25 / 72%);
 }
 
 .body-camera__top-overlay {
   position: absolute;
   z-index: 2;
-  inset: max(10px, env(safe-area-inset-top, 0px)) 12px auto;
+  inset: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  color: var(--paper);
+  justify-content: flex-start;
+  min-height: max(54px, calc(env(safe-area-inset-top, 0px) + 44px));
+  padding: max(12px, env(safe-area-inset-top, 0px)) 20px 18px;
+  color: var(--body-overlay-text);
+  background: linear-gradient(to bottom, rgb(20 30 25 / 52%), transparent);
 }
 
-.body-camera__top-overlay .icon-text-button {
-  min-height: 2.75rem;
-  padding: 8px 10px;
-  color: inherit;
-  background: rgb(25 40 34 / 70%);
-  border-radius: 999px;
+.body-camera__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  color: var(--body-overlay-text);
+  background: transparent;
+  border: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 10px rgb(20 30 25 / 70%);
 }
 
-.body-camera__top-overlay .icon-text-button:hover {
-  color: var(--paper);
+.body-camera__back:hover {
+  color: var(--body-overlay-text);
+  opacity: 0.78;
   text-decoration: none;
 }
 
-.body-camera__top-overlay .experience-screen__brand {
-  padding: 8px 10px;
-  color: var(--paper);
-  background: rgb(25 40 34 / 70%);
-  border-radius: 999px;
-  font-size: 0.85rem;
+.body-camera__back:focus-visible {
+  outline: 2px solid var(--body-overlay-text);
+  outline-offset: 4px;
 }
 
 .body-camera__bottom-overlay {
@@ -539,9 +565,9 @@ h4 {
   left: 0;
   display: grid;
   justify-items: center;
-  gap: 8px;
-  padding: 64px 16px max(14px, env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to bottom, transparent, rgb(25 40 34 / 88%) 48%);
+  gap: 10px;
+  padding: 46px 20px max(18px, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, transparent, rgb(26 38 32 / 74%) 48%, rgb(26 38 32 / 88%));
 }
 
 .body-camera__bottom-overlay .body-capture-card__actions {
@@ -552,48 +578,64 @@ h4 {
   gap: 10px;
   padding: 0;
   margin: 0;
-  color: var(--paper);
+  color: var(--body-overlay-text);
 }
 
 .body-camera__bottom-overlay .body-capture-card__actions .button {
+  min-width: min(100%, 17rem);
   min-height: 3.25rem;
+  padding: 13px 24px;
+  border-color: rgb(255 253 249 / 32%);
+  border-radius: var(--radius-button);
+  box-shadow: 0 8px 20px rgb(20 30 25 / 20%);
+}
+
+.body-camera__bottom-overlay .button--primary {
+  color: var(--body-overlay-text);
+  background: #536b57;
+}
+
+.body-camera__bottom-overlay .button--primary:hover:not(:disabled) {
+  background: #405941;
 }
 
 .body-camera__bottom-overlay .button--secondary {
   color: var(--deep-green-dark);
-  border-color: var(--paper);
-  background: var(--paper);
+  border-color: rgb(255 253 249 / 72%);
+  background: rgb(255 253 249 / 94%);
 }
 
 .body-camera__bottom-overlay .icon-text-button {
-  color: var(--paper);
-  background: rgb(25 40 34 / 72%);
-  border-radius: 999px;
+  color: var(--body-overlay-text);
+  background: transparent;
+  border-radius: 0;
+  font-size: 0.84rem;
 }
 
 .body-camera__bottom-overlay .icon-text-button:hover {
-  color: var(--paper);
+  color: var(--body-overlay-text);
+  opacity: 0.78;
   text-decoration: none;
 }
 
-.body-camera__top-overlay .icon-text-button:disabled,
+.body-camera__back:disabled,
 .body-camera__bottom-overlay .button:disabled,
 .body-camera__bottom-overlay .icon-text-button:disabled {
   opacity: 0.72;
 }
 
-.body-camera__top-overlay .icon-text-button:focus-visible,
+.body-camera__back:focus-visible,
 .body-camera__bottom-overlay .button:focus-visible,
 .body-camera__bottom-overlay .icon-text-button:focus-visible {
-  outline-color: var(--paper);
+  outline-color: var(--body-overlay-text);
   outline-offset: 2px;
 }
 
 .body-camera__bottom-overlay .body-capture-card__privacy-note,
 .body-camera__bottom-overlay .form-error {
   margin: 0;
-  color: rgb(255 253 249 / 86%);
-  font-size: 0.82rem;
+  color: var(--body-overlay-muted);
+  font-size: 0.76rem;
   text-align: center;
 }
 
@@ -605,38 +647,29 @@ h4 {
 
 .body-camera__bottom-overlay .body-capture-card__fallback {
   padding: 4px 8px;
-  color: rgb(255 253 249 / 76%);
+  color: var(--body-overlay-muted);
   font-size: 0.82rem;
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
 
-.body-camera__guide strong {
-  font-family: "Noto Serif JP", "Yu Mincho", serif;
-  font-size: 0.96rem;
-  font-weight: 600;
-}
-
 .body-camera__guide span {
-  color: rgb(255 253 249 / 84%);
-  font-size: 0.82rem;
+  color: inherit;
 }
 
 .body-capture-card--dedicated .body-camera > span {
+  position: absolute;
+  z-index: 2;
   inset: auto 16px 16px;
   width: auto;
   padding: 8px 10px;
-  color: var(--paper);
-  background: rgb(25 40 34 / 76%);
-  border-radius: 8px;
+  color: var(--body-overlay-text);
+  background: rgb(25 40 34 / 48%);
+  border-radius: var(--radius-button);
+  font-size: 0.8rem;
+  text-shadow: 0 1px 10px rgb(20 30 25 / 70%);
   transform: none;
-}
-
-.body-capture-card--dedicated .body-camera[data-status="idle"] > span {
-  inset: 50% 16px auto;
-  text-align: center;
-  transform: translateY(-50%);
 }
 
 .body-capture-card--dedicated .body-capture-card__actions {
