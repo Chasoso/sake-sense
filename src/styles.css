@@ -43,9 +43,13 @@
 }
 
 .body-segmentation-spike canvas {
+  position: static;
+  inset: auto;
   display: block;
   width: 100%;
   height: auto;
+  min-height: 0;
+  transform: none;
   background: #071d18;
 }
 
@@ -405,8 +409,8 @@ h4 {
   background: var(--soft-surface);
 }
 
-.body-camera video,
-.body-camera canvas {
+.body-camera > video,
+.body-camera > canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -414,12 +418,11 @@ h4 {
   object-fit: cover;
 }
 
-.body-camera video,
-.body-camera canvas {
+.body-camera > video {
   transform: scaleX(-1);
 }
 
-.body-camera canvas {
+.body-camera > canvas {
   position: absolute;
   inset: 0;
 }
@@ -566,8 +569,8 @@ h4 {
   font-size: 0.88rem;
 }
 
-.body-capture-card--dedicated .body-camera video,
-.body-capture-card--dedicated .body-camera canvas {
+.body-capture-card--dedicated .body-camera > video,
+.body-capture-card--dedicated .body-camera > canvas {
   min-height: 0;
 }
 
