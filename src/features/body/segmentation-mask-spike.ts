@@ -829,6 +829,10 @@ export type SegmentationSpikeMetrics = {
   thresholdMs: number;
   foregroundComponentMs: number;
   foregroundComponentCount: number;
+  poseGuideMs: number;
+  poseGuideCount: number;
+  validArmChainCount: number;
+  visiblePoseLandmarkCount: number;
   preprocessingMs: number;
   contourMs: number;
   selectionMs: number;

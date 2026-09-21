@@ -54,6 +54,11 @@ import {
   RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
+import {
+  buildUpperBodyPoseGuides,
+  drawPoseGuides,
+  HYBRID_GUIDE_LINE_WIDTH_SCALE,
+} from "./body-hybrid-renderer";
 
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
@@ -127,6 +132,8 @@ export function BodyExperiment({
   const thresholdMaskRef = useRef<HTMLCanvasElement>(null);
   const rawContourRef = useRef<HTMLCanvasElement>(null);
   const innerContourRef = useRef<HTMLCanvasElement>(null);
+  const poseStructureRef = useRef<HTMLCanvasElement>(null);
+  const hybridContourRef = useRef<HTMLCanvasElement>(null);
   const spatialContourRef = useRef<HTMLCanvasElement>(null);
   const temporalOnlyContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
@@ -231,6 +238,11 @@ export function BodyExperiment({
       }
       const mask = detection.segmentationMasks?.[0];
       if (mask) {
+        const poseGuideStartedAt = readSegmentationSpikeClock();
+        const poseGuides = buildUpperBodyPoseGuides(
+          detection.landmarks[0] ? toBodyLandmarks(detection.landmarks[0]) : null,
+        );
+        const poseGuideMs = readSegmentationSpikeClock() - poseGuideStartedAt;
         const values = mask.getAsFloat32Array();
         const rawCanvas = rawMaskRef.current;
         const thresholdCanvas = thresholdMaskRef.current;
@@ -383,6 +395,53 @@ export function BodyExperiment({
             );
           }
         }
+        if (poseStructureRef.current) {
+          const context = poseStructureRef.current.getContext("2d");
+          if (context) {
+            drawPoseGuides(
+              context,
+              poseGuides,
+              poseStructureRef.current.width,
+              poseStructureRef.current.height,
+              { lineWidth: 3 * HYBRID_GUIDE_LINE_WIDTH_SCALE },
+            );
+          }
+        }
+        if (hybridContourRef.current) {
+          const context = hybridContourRef.current.getContext("2d");
+          if (context) {
+            drawContours(
+              context,
+              stabilization.contour ? [stabilization.contour] : [],
+              hybridContourRef.current.width,
+              hybridContourRef.current.height,
+              "#ead7a0",
+              mask.width,
+              mask.height,
+            );
+            drawContours(
+              context,
+              innerContours,
+              hybridContourRef.current.width,
+              hybridContourRef.current.height,
+              `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
+              mask.width,
+              mask.height,
+              INNER_CONTOUR_LINE_WIDTH_SCALE,
+              false,
+            );
+            drawPoseGuides(
+              context,
+              poseGuides,
+              hybridContourRef.current.width,
+              hybridContourRef.current.height,
+              {
+                clear: false,
+                lineWidth: 3 * HYBRID_GUIDE_LINE_WIDTH_SCALE,
+              },
+            );
+          }
+        }
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
         setSegmentationMetrics({
@@ -394,6 +453,14 @@ export function BodyExperiment({
           thresholdMs,
           foregroundComponentMs,
           foregroundComponentCount: foregroundComponents.length,
+          poseGuideMs,
+          poseGuideCount:
+            Number(Boolean(poseGuides.leftArm)) +
+            Number(Boolean(poseGuides.rightArm)) +
+            Number(Boolean(poseGuides.shoulderLine)) +
+            Number(Boolean(poseGuides.head)),
+          validArmChainCount: poseGuides.validArmChainCount,
+          visiblePoseLandmarkCount: poseGuides.visibleLandmarkCount,
           preprocessingMs: 0,
           contourMs,
           selectionMs,
@@ -463,6 +530,26 @@ export function BodyExperiment({
               stabilization.contour,
               contourRef.current.width,
               contourRef.current.height,
+            );
+        }
+        if (poseStructureRef.current) {
+          const context = poseStructureRef.current.getContext("2d");
+          if (context)
+            drawPoseGuides(
+              context,
+              null,
+              poseStructureRef.current.width,
+              poseStructureRef.current.height,
+            );
+        }
+        if (hybridContourRef.current) {
+          const context = hybridContourRef.current.getContext("2d");
+          if (context)
+            drawPoseGuides(
+              context,
+              null,
+              hybridContourRef.current.width,
+              hybridContourRef.current.height,
             );
         }
       }
@@ -764,10 +851,18 @@ export function BodyExperiment({
                 <canvas ref={contourRef} width="320" height="180" />
                 <figcaption>Temporally stabilized contour</figcaption>
               </figure>
+              <figure>
+                <canvas ref={poseStructureRef} width="320" height="180" />
+                <figcaption>Pose structure reference</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={hybridContourRef} width="320" height="180" />
+                <figcaption>Hybrid contour + pose guidance</figcaption>
+              </figure>
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nForeground components: ${segmentationMetrics.foregroundComponentMs.toFixed(1)} ms (${segmentationMetrics.foregroundComponentCount})\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nForeground components: ${segmentationMetrics.foregroundComponentMs.toFixed(1)} ms (${segmentationMetrics.foregroundComponentCount})\nPose guides: ${segmentationMetrics.poseGuideMs.toFixed(1)} ms (${segmentationMetrics.poseGuideCount}, arms ${segmentationMetrics.validArmChainCount}, visible ${segmentationMetrics.visiblePoseLandmarkCount})\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">
