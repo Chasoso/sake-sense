@@ -1,5 +1,6 @@
 import { bodyInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
 import { applyReviewedGrounding } from "./grounding.mjs";
+import { validateSensoryInterpretation } from "./sensory-interpretation.mjs";
 import dictionaryData from "../../../src/domain/data/sensory-dictionary.v0.1.json" with { type: "json" };
 
 const bodyValues = {
@@ -158,6 +159,14 @@ export function validateModelResponse(value, allowedIds, request) {
     "invalid model response reason",
     SemanticBridgeProviderValidationError,
   );
+  if (value.sensoryInterpretation !== undefined) {
+    const interpretation = validateSensoryInterpretation(value.sensoryInterpretation);
+    assert(
+      interpretation.ok,
+      interpretation.ok ? "" : interpretation.error,
+      SemanticBridgeProviderValidationError,
+    );
+  }
   assert(
     value.sensoryExpressions.every((expression) => hasJapaneseText(expression)) &&
       hasJapaneseText(value.reason),

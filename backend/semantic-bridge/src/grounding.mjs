@@ -124,6 +124,9 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
     .filter((id, index, ids) => allowedIds.has(id) && ids.indexOf(id) === index);
 
   return {
+    ...(modelResponse.sensoryInterpretation
+      ? { sensoryInterpretation: modelResponse.sensoryInterpretation }
+      : {}),
     sensoryExpressions: modelResponse.sensoryExpressions,
     candidateTermIds,
     observedFeatures,
