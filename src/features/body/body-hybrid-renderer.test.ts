@@ -6,7 +6,9 @@ import {
   buildInternalBodyBoundaries,
   buildUpperBodyPoseGuides,
   filterBoundaryToPersonMask,
+  HYBRID_FOREARM_HALF_WIDTH_PX,
   HYBRID_POSE_MIN_VISIBILITY,
+  HYBRID_UPPER_ARM_HALF_WIDTH_PX,
   suppressBoundaryNearOuterContour,
 } from "./body-hybrid-renderer";
 
@@ -106,11 +108,74 @@ describe("body hybrid renderer helpers", () => {
         16: { visibility: 0 },
       }),
     );
-    const candidates = buildArmBoundaryCandidates(guides.leftArm);
+    const candidates = buildArmBoundaryCandidates(guides.leftArm, 320, 180);
     expect(candidates).toHaveLength(4);
     expect(candidates[0].start.y).not.toBeCloseTo(candidates[2].start.y);
     expect(candidates[0].start.y).toBeCloseTo(candidates[0].end.y);
-    expect(candidates).toEqual(buildArmBoundaryCandidates(guides.leftArm));
+    expect(candidates).toEqual(buildArmBoundaryCandidates(guides.leftArm, 320, 180));
+  });
+
+  it.each([
+    {
+      name: "horizontal",
+      points: [
+        { x: 0.2, y: 0.5 },
+        { x: 0.5, y: 0.5 },
+        { x: 0.8, y: 0.5 },
+      ],
+      widthPx: HYBRID_UPPER_ARM_HALF_WIDTH_PX,
+    },
+    {
+      name: "vertical",
+      points: [
+        { x: 0.5, y: 0.2 },
+        { x: 0.5, y: 0.5 },
+        { x: 0.5, y: 0.8 },
+      ],
+      widthPx: HYBRID_UPPER_ARM_HALF_WIDTH_PX,
+    },
+  ])("keeps the $name boundary offset in source pixels", ({ points, widthPx }) => {
+    const candidates = buildArmBoundaryCandidates({ points }, 320, 180);
+    const candidate = candidates[0].start;
+    const distancePx = Math.hypot(
+      (candidate.x - points[0].x) * 320,
+      (candidate.y - points[0].y) * 180,
+    );
+    expect(distancePx).toBeCloseTo(widthPx);
+  });
+
+  it("keeps diagonal candidates perpendicular in non-square source pixels", () => {
+    const points = [
+      { x: 0.2, y: 0.2 },
+      { x: 0.5, y: 0.5 },
+    ];
+    const candidates = buildArmBoundaryCandidates({ points }, 320, 180);
+    const centerVector = { x: 0.3 * 320, y: 0.3 * 180 };
+    const offsetVector = {
+      x: (candidates[0].start.x - points[0].x) * 320,
+      y: (candidates[0].start.y - points[0].y) * 180,
+    };
+    expect(centerVector.x * offsetVector.x + centerVector.y * offsetVector.y).toBeCloseTo(0);
+    expect(Math.hypot(offsetVector.x, offsetVector.y)).toBeCloseTo(HYBRID_UPPER_ARM_HALF_WIDTH_PX);
+  });
+
+  it("preserves normalized geometry when the source raster scales uniformly", () => {
+    const points = [
+      { x: 0.2, y: 0.2 },
+      { x: 0.5, y: 0.5 },
+    ];
+    expect(buildArmBoundaryCandidates({ points }, 320, 180)).toEqual(
+      buildArmBoundaryCandidates({ points }, 640, 360),
+    );
+  });
+
+  it("returns no candidates for a zero-sized source", () => {
+    const points = [
+      { x: 0.2, y: 0.2 },
+      { x: 0.5, y: 0.5 },
+    ];
+    expect(buildArmBoundaryCandidates({ points }, 0, 0)).toEqual([]);
+    expect(HYBRID_FOREARM_HALF_WIDTH_PX).toBeGreaterThan(0);
   });
 
   it("keeps only candidate portions inside the person mask", () => {

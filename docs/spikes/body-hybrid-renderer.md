@@ -35,10 +35,19 @@ The guide geometry is normalized to the same source coordinate system as the
 contour canvas. It is generated per frame and is not added to
 `BodyPoseFrame[]`, feature extraction, semantic requests, or persistent state.
 
-Upper-arm and forearm half-widths are named constants
-(`HYBRID_UPPER_ARM_HALF_WIDTH = 0.025` and
-`HYBRID_FOREARM_HALF_WIDTH = 0.02`). Candidate portions outside the binary
-person mask are discarded, and portions within
+The previous implementation offset normalized x/y coordinates directly. Since
+normalized x and y map to different numbers of source pixels on a non-square
+mask, diagonal arms could receive a skewed perpendicular offset. Candidates
+are now converted to source pixel coordinates first, offset with a pixel-space
+normal, and converted back to normalized coordinates only for the existing
+mask/drawing pipeline.
+
+Upper-arm and forearm half-widths are reference-pixel constants
+(`HYBRID_UPPER_ARM_HALF_WIDTH_PX = 8` and
+`HYBRID_FOREARM_HALF_WIDTH_PX = 6`). They scale with the reference raster
+(`320 x 180`) so a uniformly scaled source preserves the same normalized
+geometry; this is display raster scaling, not body-size estimation. Candidate
+portions outside the binary person mask are discarded, and portions within
 `HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025` of the outer contour are
 suppressed. The retained internal boundary uses
 `HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45` and a thinner line than the outer

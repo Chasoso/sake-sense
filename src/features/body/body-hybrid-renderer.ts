@@ -4,8 +4,11 @@ import type { BinaryMask, Contour } from "./segmentation-mask-spike";
 export const HYBRID_POSE_MIN_VISIBILITY = 0.6;
 export const HYBRID_GUIDE_OPACITY = 0.3;
 export const HYBRID_GUIDE_LINE_WIDTH_SCALE = 0.5;
-export const HYBRID_UPPER_ARM_HALF_WIDTH = 0.025;
-export const HYBRID_FOREARM_HALF_WIDTH = 0.02;
+/** Reference raster dimensions used to scale display-only pixel widths. */
+export const HYBRID_REFERENCE_SOURCE_WIDTH = 320;
+export const HYBRID_REFERENCE_SOURCE_HEIGHT = 180;
+export const HYBRID_UPPER_ARM_HALF_WIDTH_PX = 8;
+export const HYBRID_FOREARM_HALF_WIDTH_PX = 6;
 export const HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025;
 export const HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45;
 export const HYBRID_INTERNAL_BOUNDARY_LINE_WIDTH_SCALE = 0.6;
@@ -100,29 +103,53 @@ export function buildArmGuideSegments(arm: HybridArmGuide): ArmGuideSegment[] {
   });
 }
 
-function offsetSegment(segment: ArmGuideSegment, halfWidth: number): InternalBoundarySegment[] {
-  const dx = segment.end.x - segment.start.x;
-  const dy = segment.end.y - segment.start.y;
+function offsetSegment(
+  segment: ArmGuideSegment,
+  halfWidthPx: number,
+  sourceWidth: number,
+  sourceHeight: number,
+): InternalBoundarySegment[] {
+  const startPx = { x: segment.start.x * sourceWidth, y: segment.start.y * sourceHeight };
+  const endPx = { x: segment.end.x * sourceWidth, y: segment.end.y * sourceHeight };
+  const dx = endPx.x - startPx.x;
+  const dy = endPx.y - startPx.y;
   const length = Math.hypot(dx, dy);
   if (length === 0) return [];
   const normal = { x: -dy / length, y: dx / length };
   return [-1, 1].map((side) => ({
     start: {
-      x: segment.start.x + normal.x * halfWidth * side,
-      y: segment.start.y + normal.y * halfWidth * side,
+      x: (startPx.x + normal.x * halfWidthPx * side) / sourceWidth,
+      y: (startPx.y + normal.y * halfWidthPx * side) / sourceHeight,
     },
     end: {
-      x: segment.end.x + normal.x * halfWidth * side,
-      y: segment.end.y + normal.y * halfWidth * side,
+      x: (endPx.x + normal.x * halfWidthPx * side) / sourceWidth,
+      y: (endPx.y + normal.y * halfWidthPx * side) / sourceHeight,
     },
   }));
 }
 
+function referencePixelScale(sourceWidth: number, sourceHeight: number): number {
+  return Math.min(
+    sourceWidth / HYBRID_REFERENCE_SOURCE_WIDTH,
+    sourceHeight / HYBRID_REFERENCE_SOURCE_HEIGHT,
+  );
+}
+
 /** Creates both sides of each arm segment; these are candidates, not visible guides. */
-export function buildArmBoundaryCandidates(arm: HybridArmGuide | null): InternalBoundarySegment[] {
-  if (!arm) return [];
+export function buildArmBoundaryCandidates(
+  arm: HybridArmGuide | null,
+  sourceWidth: number,
+  sourceHeight: number,
+): InternalBoundarySegment[] {
+  if (!arm || sourceWidth <= 0 || sourceHeight <= 0) return [];
+  const scale = referencePixelScale(sourceWidth, sourceHeight);
   return buildArmGuideSegments(arm).flatMap((segment, index) =>
-    offsetSegment(segment, index === 0 ? HYBRID_UPPER_ARM_HALF_WIDTH : HYBRID_FOREARM_HALF_WIDTH),
+    offsetSegment(
+      segment,
+      (index === 0 ? HYBRID_UPPER_ARM_HALF_WIDTH_PX : HYBRID_FOREARM_HALF_WIDTH_PX) * scale,
+      sourceWidth,
+      sourceHeight,
+    ),
   );
 }
 
@@ -230,8 +257,8 @@ export function buildInternalBodyBoundaries(
 ): InternalBoundarySegment[] {
   if (!guides || !mask || !outerContour) return [];
   const candidates = [
-    ...buildArmBoundaryCandidates(guides.leftArm),
-    ...buildArmBoundaryCandidates(guides.rightArm),
+    ...buildArmBoundaryCandidates(guides.leftArm, mask.width, mask.height),
+    ...buildArmBoundaryCandidates(guides.rightArm, mask.width, mask.height),
   ];
   return suppressBoundaryNearOuterContour(
     filterBoundaryToPersonMask(candidates, mask),

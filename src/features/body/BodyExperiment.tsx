@@ -319,8 +319,8 @@ export function BodyExperiment({
         if (stabilization.reset) contourResetCountRef.current += 1;
         const boundaryCandidateStartedAt = readSegmentationSpikeClock();
         const boundaryCandidates = [
-          ...buildArmBoundaryCandidates(poseGuides.leftArm),
-          ...buildArmBoundaryCandidates(poseGuides.rightArm),
+          ...buildArmBoundaryCandidates(poseGuides.leftArm, mask.width, mask.height),
+          ...buildArmBoundaryCandidates(poseGuides.rightArm, mask.width, mask.height),
         ];
         const candidateGenerationMs = readSegmentationSpikeClock() - boundaryCandidateStartedAt;
         const boundaryMaskStartedAt = readSegmentationSpikeClock();
