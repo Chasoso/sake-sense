@@ -26,54 +26,134 @@ function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function hasOnlyKeys(value, keys) {
-  return isRecord(value) && Object.keys(value).every((key) => keys.includes(key));
-}
-
 function isNonEmptyJapaneseText(value) {
   return typeof value === "string" && value.trim().length > 0 && /[ぁ-んァ-ヶ一-龯]/u.test(value);
 }
 
-function validProfile(value, values, required) {
-  if (!isRecord(value)) return !required && value === undefined;
-  if (!hasOnlyKeys(value, Object.keys(values))) return false;
-  if (required && Object.keys(value).length !== Object.keys(values).length) return false;
-  return Object.entries(value).every(
-    ([key, entry]) => typeof entry === "string" && values[key]?.includes(entry),
-  );
+function invalid(code, path, error) {
+  return { ok: false, code, path, error };
 }
 
 export function validateSensoryInterpretation(value) {
   if (!isRecord(value) || typeof value.outcome !== "string") {
-    return { ok: false, error: "invalid sensory interpretation shape" };
+    return invalid("invalid_type", "outcome", "invalid sensory interpretation shape");
   }
   if (!semanticOutcomes.includes(value.outcome)) {
-    return { ok: false, error: "invalid semantic outcome" };
+    return invalid("invalid_enum", "outcome", "invalid semantic outcome");
   }
 
   if (value.outcome === "interpreted") {
-    if (
-      !hasOnlyKeys(value, [
-        "outcome",
+    const keys = ["outcome", "sensoryExpression", "semanticProfile", "experimentalProfile"];
+    const unexpectedKey = Object.keys(value).find((key) => !keys.includes(key));
+    if (unexpectedKey)
+      return invalid("unexpected_key", unexpectedKey, "invalid interpreted sensory profile");
+    if (!Object.prototype.hasOwnProperty.call(value, "sensoryExpression")) {
+      return invalid(
+        "missing_required_field",
         "sensoryExpression",
+        "invalid interpreted sensory profile",
+      );
+    }
+    if (!isNonEmptyJapaneseText(value.sensoryExpression)) {
+      return invalid("invalid_type", "sensoryExpression", "invalid interpreted sensory profile");
+    }
+    if (!Object.prototype.hasOwnProperty.call(value, "semanticProfile")) {
+      return invalid(
+        "missing_required_field",
         "semanticProfile",
-        "experimentalProfile",
-      ]) ||
-      !isNonEmptyJapaneseText(value.sensoryExpression) ||
-      !validProfile(value.semanticProfile, primarySemanticProfileValues, true) ||
-      !validProfile(value.experimentalProfile, experimentalSemanticProfileValues, false)
-    ) {
-      return { ok: false, error: "invalid interpreted sensory profile" };
+        "invalid interpreted sensory profile",
+      );
+    }
+    if (!isRecord(value.semanticProfile)) {
+      return invalid("invalid_type", "semanticProfile", "invalid interpreted sensory profile");
+    }
+    const unexpectedPrimaryKey = Object.keys(value.semanticProfile).find(
+      (key) => !Object.prototype.hasOwnProperty.call(primarySemanticProfileValues, key),
+    );
+    if (unexpectedPrimaryKey) {
+      return invalid(
+        "unexpected_key",
+        `semanticProfile.${unexpectedPrimaryKey}`,
+        "invalid interpreted sensory profile",
+      );
+    }
+    const missingPrimaryKey = Object.keys(primarySemanticProfileValues).find(
+      (key) => !Object.prototype.hasOwnProperty.call(value.semanticProfile, key),
+    );
+    if (missingPrimaryKey) {
+      return invalid(
+        "missing_required_field",
+        `semanticProfile.${missingPrimaryKey}`,
+        "invalid interpreted sensory profile",
+      );
+    }
+    const invalidPrimaryKey = Object.keys(primarySemanticProfileValues).find(
+      (key) => !primarySemanticProfileValues[key].includes(value.semanticProfile[key]),
+    );
+    if (invalidPrimaryKey) {
+      return invalid(
+        "invalid_enum",
+        `semanticProfile.${invalidPrimaryKey}`,
+        "invalid interpreted sensory profile",
+      );
+    }
+    if (value.experimentalProfile !== undefined) {
+      if (!isRecord(value.experimentalProfile)) {
+        return invalid(
+          "invalid_type",
+          "experimentalProfile",
+          "invalid interpreted sensory profile",
+        );
+      }
+      const unexpectedExperimentalKey = Object.keys(value.experimentalProfile).find(
+        (key) => !Object.prototype.hasOwnProperty.call(experimentalSemanticProfileValues, key),
+      );
+      if (unexpectedExperimentalKey) {
+        return invalid(
+          "unexpected_key",
+          `experimentalProfile.${unexpectedExperimentalKey}`,
+          "invalid interpreted sensory profile",
+        );
+      }
+      const invalidExperimentalKey = Object.keys(value.experimentalProfile).find(
+        (key) => !experimentalSemanticProfileValues[key].includes(value.experimentalProfile[key]),
+      );
+      if (invalidExperimentalKey) {
+        return invalid(
+          "invalid_enum",
+          `experimentalProfile.${invalidExperimentalKey}`,
+          "invalid interpreted sensory profile",
+        );
+      }
     }
     return { ok: true, value };
   }
 
+  const unexpectedKey = Object.keys(value).find(
+    (key) => !["outcome", "sensoryExpression"].includes(key),
+  );
+  if (unexpectedKey)
+    return invalid(
+      "unexpected_key",
+      unexpectedKey,
+      `invalid ${value.outcome} sensory interpretation`,
+    );
   if (
-    !hasOnlyKeys(value, ["outcome", "sensoryExpression"]) ||
-    (value.outcome === "ambiguous" && !isNonEmptyJapaneseText(value.sensoryExpression)) ||
-    (value.sensoryExpression !== undefined && !isNonEmptyJapaneseText(value.sensoryExpression))
+    value.outcome === "ambiguous" &&
+    !Object.prototype.hasOwnProperty.call(value, "sensoryExpression")
   ) {
-    return { ok: false, error: `invalid ${value.outcome} sensory interpretation` };
+    return invalid(
+      "missing_required_field",
+      "sensoryExpression",
+      `invalid ${value.outcome} sensory interpretation`,
+    );
+  }
+  if (value.sensoryExpression !== undefined && !isNonEmptyJapaneseText(value.sensoryExpression)) {
+    return invalid(
+      "invalid_type",
+      "sensoryExpression",
+      `invalid ${value.outcome} sensory interpretation`,
+    );
   }
   return { ok: true, value };
 }

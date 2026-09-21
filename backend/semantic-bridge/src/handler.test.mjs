@@ -312,9 +312,140 @@ describe("production semantic bridge Lambda", () => {
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
     expect(response.body).not.toContain("empty model response");
-    expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({ category: "provider_validation_failure" }),
-    );
+    expect(JSON.parse(logger.error.mock.calls[0][0])).toMatchObject({
+      category: "provider_validation_failure",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+      validation: { code: "malformed_output", path: "$" },
+      providerOutputSummary: { kind: "undefined" },
+    });
+  });
+
+  it("logs structured validation diagnostics without provider text", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      logger,
+      invoke: vi.fn(async () => ({
+        sensoryInterpretation: {
+          outcome: "interpreted",
+          sensoryExpression: "理由",
+          semanticProfile: { timeQuality: "sustained" },
+        },
+        sensoryExpressions: ["理由"],
+        candidateTermIds: [],
+        reason: "理由",
+        extraPayload: "DO_NOT_LOG_PROVIDER_VALUE",
+      })),
+    });
+
+    const response = await handler({
+      body: bodyRequest,
+      requestContext: { requestId: "req-95" },
+    });
+    expect(response.statusCode).toBe(502);
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log).toMatchObject({
+      category: "provider_validation_failure",
+      requestId: "req-95",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+      validation: {
+        code: "unexpected_key",
+        path: "$.extraPayload",
+      },
+      providerOutputSummary: {
+        kind: "object",
+        topLevelKeys: [
+          "candidateTermIds",
+          "extraPayload",
+          "reason",
+          "sensoryExpressions",
+          "sensoryInterpretation",
+        ],
+        outcome: "interpreted",
+        semanticProfileKeys: ["timeQuality"],
+        sensoryExpressionPresent: true,
+      },
+    });
+    expect(logger.error.mock.calls[0][0]).not.toContain("SENSORY_TEXT_SHOULD_NOT_APPEAR");
+    expect(logger.error.mock.calls[0][0]).not.toContain("DO_NOT_LOG_PROVIDER_VALUE");
+  });
+
+  it("classifies enum, key, type, and malformed provider failures", async () => {
+    const cases = [
+      {
+        response: {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          reason: "理由",
+          sensoryInterpretation: { outcome: "invalid" },
+        },
+        code: "invalid_enum",
+        path: "sensoryInterpretation.outcome",
+      },
+      {
+        response: {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          reason: "理由",
+          sensoryInterpretation: { outcome: "interpreted", unexpected: true },
+        },
+        code: "unexpected_key",
+        path: "sensoryInterpretation.unexpected",
+      },
+      {
+        response: {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          reason: "理由",
+          sensoryInterpretation: "bad",
+        },
+        code: "invalid_type",
+        path: "sensoryInterpretation.outcome",
+      },
+      { response: ["bad"], code: "invalid_type", path: "$" },
+    ];
+
+    for (const case_ of cases) {
+      const logger = { info: vi.fn(), error: vi.fn() };
+      const handler = createHandler({
+        env,
+        logger,
+        invoke: vi.fn(async () => case_.response),
+      });
+      expect((await handler({ body: bodyRequest })).statusCode).toBe(502);
+      expect(JSON.parse(logger.error.mock.calls[0][0]).validation).toEqual({
+        code: case_.code,
+        path: case_.path,
+      });
+    }
+  });
+
+  it("summarizes voice input without logging raw numeric detail or text", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      logger,
+      invoke: vi.fn(async () => ({
+        sensoryExpressions: [],
+        candidateTermIds: [],
+        reason: "理由",
+        sensoryInterpretation: null,
+      })),
+    });
+    await handler({
+      body: voiceRequest,
+      requestContext: { requestId: "voice-95" },
+    });
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log.inputSummary).toEqual({
+      durationMsBucket: "medium",
+      intensityBucket: "medium",
+      pauseCount: 1,
+      endingBehavior: "fading",
+    });
+    expect(logger.error.mock.calls[0][0]).not.toContain("SENSORY_TEXT_SHOULD_NOT_APPEAR");
   });
 
   it("classifies provider invocation failures separately and sanitizes details", async () => {
