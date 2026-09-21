@@ -1,5 +1,6 @@
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
+import { getCurvedBodyGeometry, type BodyCurve, type BodyPoint } from "../body/body-pose-renderer";
 
 export type TransformStage = 0 | 1 | 2 | 3;
 
@@ -17,6 +18,7 @@ export type BodyVisualModel = {
 export type BodyTrailGeometry = {
   skeletonPath: string;
   skeletonPoints: Array<{ x: number; y: number }>;
+  head: { center: BodyPoint; radiusX: number; radiusY: number } | null;
   skeletonFrameIndex: number;
   leftWristSegments: WristTraceSegment[];
   rightWristSegments: WristTraceSegment[];
@@ -68,6 +70,10 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
     const previous = points[index];
     return total + Math.hypot(point.x - previous.x, point.y - previous.y);
   }, 0);
+}
+
+function curvePath(bodyCurve: BodyCurve, width: number, height: number): string {
+  return `M ${(bodyCurve.start.x * width).toFixed(1)} ${(bodyCurve.start.y * height).toFixed(1)} Q ${(bodyCurve.control.x * width).toFixed(1)} ${(bodyCurve.control.y * height).toFixed(1)} ${(bodyCurve.end.x * width).toFixed(1)} ${(bodyCurve.end.y * height).toFixed(1)}`;
 }
 
 function frameVisibilityScore(frame: BodyPoseFrame): {
@@ -153,30 +159,24 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
 
   const skeletonFrameIndex = selectSkeletonFrameIndex(frames);
   const skeletonFrame = frames[skeletonFrameIndex];
+  const curvedGeometry = skeletonFrame ? getCurvedBodyGeometry(skeletonFrame.landmarks) : null;
   if (skeletonFrame) {
-    [11, 12, 13, 14, 15, 16].forEach((index) => {
-      const point = pointForLandmark(skeletonFrame, index);
-      if (point) skeletonPoints.push(point);
+    [
+      curvedGeometry?.shoulders,
+      curvedGeometry?.leftArm,
+      curvedGeometry?.rightArm,
+      curvedGeometry?.leftTorso,
+      curvedGeometry?.rightTorso,
+      curvedGeometry?.hips,
+    ].forEach((bodyCurve) => {
+      if (bodyCurve) skeletonSegments.push(curvePath(bodyCurve, 320, 160));
     });
-    const point = (index: number) => pointForLandmark(skeletonFrame, index);
-    const connect = (from: number, to: number) => {
-      const start = point(from);
-      const end = point(to);
-      if (start && end)
-        skeletonSegments.push(
-          `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`,
-        );
-    };
-    connect(11, 12);
-    connect(11, 13);
-    connect(13, 15);
-    connect(12, 14);
-    connect(14, 16);
   }
 
   return {
     skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
     skeletonPoints,
+    head: curvedGeometry?.head ?? null,
     skeletonFrameIndex,
     leftWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 15),
     rightWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 16),

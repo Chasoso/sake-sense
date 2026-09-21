@@ -4,12 +4,12 @@ import { runBodySemanticExperiment, type ExperimentResult } from "../../domain/e
 import {
   extractBodyMovementFeatures,
   humanizeBodyFeatures,
-  type BodyLandmark,
   type BodyMovementFeatures,
   type BodyPoseFrame,
 } from "../../domain/body";
 import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
 import { createBodyPoseLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
+import { createBodyPoseRenderer } from "./body-pose-renderer";
 import { Result } from "../experiment/Experiment";
 import {
   createFixtureSensoryBridgeProvider,
@@ -24,46 +24,6 @@ import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-lay
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
-
-const connections: Array<[number, number]> = [
-  [11, 12],
-  [11, 13],
-  [13, 15],
-  [12, 14],
-  [14, 16],
-  [11, 23],
-  [12, 24],
-  [23, 24],
-  [23, 25],
-  [25, 27],
-  [24, 26],
-  [26, 28],
-];
-
-function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): void {
-  const context = canvas.getContext("2d");
-  if (!context) return;
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  if (!landmarks) return;
-  context.strokeStyle = "#e2b96c";
-  context.fillStyle = "#f1cb84";
-  context.lineWidth = 3;
-  connections.forEach(([fromIndex, toIndex]) => {
-    const from = landmarks[fromIndex];
-    const to = landmarks[toIndex];
-    if (!from || !to) return;
-    context.beginPath();
-    context.moveTo(from.x * canvas.width, from.y * canvas.height);
-    context.lineTo(to.x * canvas.width, to.y * canvas.height);
-    context.stroke();
-  });
-  landmarks.forEach((landmark) => {
-    if ((landmark.visibility ?? 1) < 0.35) return;
-    context.beginPath();
-    context.arc(landmark.x * canvas.width, landmark.y * canvas.height, 4, 0, Math.PI * 2);
-    context.fill();
-  });
-}
 
 export function BodyExperiment({
   onFallback,
@@ -87,15 +47,21 @@ export function BodyExperiment({
   const animationRef = useRef<number | null>(null);
   const replayAnimationRef = useRef<number | null>(null);
   const replayStartedAtRef = useRef(0);
+  const poseRendererRef = useRef<ReturnType<typeof createBodyPoseRenderer> | null>(null);
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
   const sampleAttemptsRef = useRef(0);
   const invalidFrameCountRef = useRef(0);
 
-  const clearPoseCanvas = () => {
+  const getPoseRenderer = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    drawPose(canvas, null);
+    if (!canvas) return null;
+    if (!poseRendererRef.current) poseRendererRef.current = createBodyPoseRenderer(canvas);
+    return poseRendererRef.current;
+  };
+
+  const clearPoseCanvas = () => {
+    getPoseRenderer()?.reset();
   };
 
   const stopCapture = () => {
@@ -117,6 +83,8 @@ export function BodyExperiment({
     () => () => {
       stopCapture();
       stopReplay();
+      poseRendererRef.current?.reset();
+      poseRendererRef.current = null;
       framesRef.current = [];
     },
     [],
@@ -158,7 +126,7 @@ export function BodyExperiment({
     if (landmarks) {
       const bodyLandmarks = toBodyLandmarks(landmarks);
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
-      drawPose(canvasRef.current!, bodyLandmarks);
+      getPoseRenderer()?.draw(bodyLandmarks);
     } else invalidFrameCountRef.current += 1;
     if (elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
@@ -192,6 +160,7 @@ export function BodyExperiment({
     sampleAttemptsRef.current = 0;
     invalidFrameCountRef.current = 0;
     setReplayStatus("idle");
+    getPoseRenderer()?.reset();
     setFeatures(null);
     setResult(null);
     setIsAnalyzing(false);
@@ -220,6 +189,7 @@ export function BodyExperiment({
     if (!capturedFrames.length) return;
     stopReplay();
     setReplayStatus("replaying");
+    getPoseRenderer()?.reset();
     replayStartedAtRef.current = performance.now();
     const renderReplay = (timestamp: number) => {
       const canvas = canvasRef.current;
@@ -229,10 +199,11 @@ export function BodyExperiment({
       }
       const elapsed = timestamp - replayStartedAtRef.current;
       const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) drawPose(canvas, capturedFrames[frameIndex].landmarks);
+      if (frameIndex >= 0) getPoseRenderer()?.draw(capturedFrames[frameIndex].landmarks);
       if (elapsed >= getReplayDurationMs(capturedFrames)) {
         const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) drawPose(canvas, finalFrame.landmarks);
+        if (finalFrame) getPoseRenderer()?.draw(finalFrame.landmarks);
+        getPoseRenderer()?.reset(false);
         replayAnimationRef.current = null;
         setReplayStatus("completed");
         return;
