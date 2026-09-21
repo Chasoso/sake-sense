@@ -13,10 +13,15 @@ stabilized outer contour + selected inner contours
   -> optional low-opacity pose guidance
 ```
 
-The current guidance uses the nose/ears as an anonymous head reference and the
-shoulder, elbow, and wrist landmarks for independent left/right arm flow. A
-shoulder line is included when both shoulders are visible. No dots, fingers,
-face details, lower-body skeleton, or fabricated joints are drawn.
+The current hybrid pane uses pose only to derive internal arm-boundary
+candidates. The visible result contains the stabilized outer contour and
+selected inner contours, then retains only candidate boundary portions that
+are inside the person mask and sufficiently far from the outer contour. This
+keeps segmentation responsible for the external edge and avoids double lines.
+
+The pose diagnostic pane still shows the earlier quiet shoulder/arm/head
+reference for comparison, but the Hybrid pane no longer draws the shoulder
+line, arm centerlines, or head ellipse.
 
 ## Visibility and fallback
 
@@ -29,6 +34,15 @@ layer, leaving the contour-only rendering available.
 The guide geometry is normalized to the same source coordinate system as the
 contour canvas. It is generated per frame and is not added to
 `BodyPoseFrame[]`, feature extraction, semantic requests, or persistent state.
+
+Upper-arm and forearm half-widths are named constants
+(`HYBRID_UPPER_ARM_HALF_WIDTH = 0.025` and
+`HYBRID_FOREARM_HALF_WIDTH = 0.02`). Candidate portions outside the binary
+person mask are discarded, and portions within
+`HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025` of the outer contour are
+suppressed. The retained internal boundary uses
+`HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45` and a thinner line than the outer
+contour.
 
 ## Comparison preview
 
@@ -57,9 +71,7 @@ twisted, upper-body crop, and frame-edge scenarios remain maintainer checks.
 The implementation is suitable for direct comparison, but no production
 renderer decision is made before Human Experience validation.
 
-Arm guides now render explicit shoulder-to-elbow and elbow-to-wrist segments.
-The previous single quadratic Bézier used the elbow only as a control point and
-could therefore shortcut the anatomical waypoint; the revised geometry always
-passes through the elbow. Partial shoulder-to-elbow chains retain the same
-behavior without fabricating a wrist. The head ellipse remains a Human
-Experience item and is intentionally unchanged in this revision.
+Human Experience previously found visible centerlines and shoulder lines too
+diagnostic. The focused revision therefore uses the pose centerline only for
+candidate offset calculation; it is not drawn in Hybrid. The head ellipse is
+also absent from Hybrid and remains a diagnostic-pane / Human Experience item.

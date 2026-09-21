@@ -1,8 +1,14 @@
 import type { BodyLandmark } from "../../domain/body";
+import type { BinaryMask, Contour } from "./segmentation-mask-spike";
 
 export const HYBRID_POSE_MIN_VISIBILITY = 0.6;
 export const HYBRID_GUIDE_OPACITY = 0.3;
 export const HYBRID_GUIDE_LINE_WIDTH_SCALE = 0.5;
+export const HYBRID_UPPER_ARM_HALF_WIDTH = 0.025;
+export const HYBRID_FOREARM_HALF_WIDTH = 0.02;
+export const HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025;
+export const HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45;
+export const HYBRID_INTERNAL_BOUNDARY_LINE_WIDTH_SCALE = 0.6;
 
 const NOSE = 0;
 const LEFT_EAR = 7;
@@ -25,6 +31,8 @@ export type ArmGuideSegment = {
   start: HybridPoint;
   end: HybridPoint;
 };
+
+export type InternalBoundarySegment = ArmGuideSegment;
 
 export type HybridHeadGuide = {
   center: HybridPoint;
@@ -90,6 +98,168 @@ export function buildArmGuideSegments(arm: HybridArmGuide): ArmGuideSegment[] {
     const end = arm.points[index + 1];
     return end ? [{ start, end }] : [];
   });
+}
+
+function offsetSegment(segment: ArmGuideSegment, halfWidth: number): InternalBoundarySegment[] {
+  const dx = segment.end.x - segment.start.x;
+  const dy = segment.end.y - segment.start.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return [];
+  const normal = { x: -dy / length, y: dx / length };
+  return [-1, 1].map((side) => ({
+    start: {
+      x: segment.start.x + normal.x * halfWidth * side,
+      y: segment.start.y + normal.y * halfWidth * side,
+    },
+    end: {
+      x: segment.end.x + normal.x * halfWidth * side,
+      y: segment.end.y + normal.y * halfWidth * side,
+    },
+  }));
+}
+
+/** Creates both sides of each arm segment; these are candidates, not visible guides. */
+export function buildArmBoundaryCandidates(arm: HybridArmGuide | null): InternalBoundarySegment[] {
+  if (!arm) return [];
+  return buildArmGuideSegments(arm).flatMap((segment, index) =>
+    offsetSegment(segment, index === 0 ? HYBRID_UPPER_ARM_HALF_WIDTH : HYBRID_FOREARM_HALF_WIDTH),
+  );
+}
+
+function sampleSegment(segment: InternalBoundarySegment, sampleCount = 8): HybridPoint[] {
+  return Array.from({ length: sampleCount + 1 }, (_, index) => {
+    const ratio = index / sampleCount;
+    return {
+      x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
+      y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
+    };
+  });
+}
+
+function splitByPredicate(
+  segments: InternalBoundarySegment[],
+  predicate: (point: HybridPoint) => boolean,
+): InternalBoundarySegment[] {
+  return segments.flatMap((segment) => {
+    const retained: InternalBoundarySegment[] = [];
+    let runStart: HybridPoint | null = null;
+    let previous: HybridPoint | null = null;
+    sampleSegment(segment).forEach((point) => {
+      if (!predicate(point)) {
+        if (runStart && previous && runStart !== previous) {
+          retained.push({ start: runStart, end: previous });
+        }
+        runStart = null;
+        previous = null;
+        return;
+      }
+      runStart ??= point;
+      previous = point;
+    });
+    if (runStart && previous && runStart !== previous) {
+      retained.push({ start: runStart, end: previous });
+    }
+    return retained;
+  });
+}
+
+function maskContains(mask: BinaryMask, point: HybridPoint): boolean {
+  if (point.x < 0 || point.y < 0 || point.x > 1 || point.y > 1) return false;
+  const x = Math.min(mask.width - 1, Math.floor(point.x * mask.width));
+  const y = Math.min(mask.height - 1, Math.floor(point.y * mask.height));
+  return mask.data[y * mask.width + x] === 1;
+}
+
+/** Removes candidate portions that leave the current primary-person mask. */
+export function filterBoundaryToPersonMask(
+  candidates: InternalBoundarySegment[],
+  mask: BinaryMask | null,
+): InternalBoundarySegment[] {
+  if (!mask) return [];
+  return splitByPredicate(candidates, (point) => maskContains(mask, point));
+}
+
+function distanceToContour(
+  point: HybridPoint,
+  contour: Contour,
+  width: number,
+  height: number,
+): number {
+  return contour.reduce((minimum, contourPoint, index) => {
+    const nextPoint = contour[(index + 1) % contour.length];
+    const start = { x: contourPoint.x / width, y: contourPoint.y / height };
+    const end = { x: nextPoint.x / width, y: nextPoint.y / height };
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const projection =
+      lengthSquared === 0
+        ? 0
+        : Math.min(
+            Math.max(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0),
+            1,
+          );
+    return Math.min(
+      minimum,
+      Math.hypot(point.x - (start.x + dx * projection), point.y - (start.y + dy * projection)),
+    );
+  }, Number.POSITIVE_INFINITY);
+}
+
+/** Suppresses only portions that remain close to the already-visible outer edge. */
+export function suppressBoundaryNearOuterContour(
+  candidates: InternalBoundarySegment[],
+  outerContour: Contour | null,
+  sourceWidth: number,
+  sourceHeight: number,
+  suppressionDistance = HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE,
+): InternalBoundarySegment[] {
+  if (!outerContour || outerContour.length === 0) return candidates.slice();
+  return splitByPredicate(
+    candidates,
+    (point) =>
+      distanceToContour(point, outerContour, sourceWidth, sourceHeight) >= suppressionDistance,
+  );
+}
+
+/** Builds the display-only internal arm separation from pose and segmentation evidence. */
+export function buildInternalBodyBoundaries(
+  guides: UpperBodyPoseGuides | null,
+  mask: BinaryMask | null,
+  outerContour: Contour | null,
+): InternalBoundarySegment[] {
+  if (!guides || !mask || !outerContour) return [];
+  const candidates = [
+    ...buildArmBoundaryCandidates(guides.leftArm),
+    ...buildArmBoundaryCandidates(guides.rightArm),
+  ];
+  return suppressBoundaryNearOuterContour(
+    filterBoundaryToPersonMask(candidates, mask),
+    outerContour,
+    mask.width,
+    mask.height,
+  );
+}
+
+export function drawInternalBodyBoundaries(
+  context: CanvasRenderingContext2D,
+  segments: InternalBoundarySegment[],
+  width: number,
+  height: number,
+  options: { color?: string; lineWidth?: number } = {},
+): void {
+  context.save();
+  context.strokeStyle = options.color ?? `rgba(234, 215, 160, ${HYBRID_INTERNAL_BOUNDARY_OPACITY})`;
+  context.lineWidth = options.lineWidth ?? 2;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  segments.forEach((segment) => {
+    context.beginPath();
+    context.moveTo(segment.start.x * width, segment.start.y * height);
+    context.lineTo(segment.end.x * width, segment.end.y * height);
+    context.stroke();
+  });
+  context.restore();
 }
 
 /** Builds lightweight, visibility-filtered pose guidance without mutating landmarks. */

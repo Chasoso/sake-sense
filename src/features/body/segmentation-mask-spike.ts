@@ -833,6 +833,11 @@ export type SegmentationSpikeMetrics = {
   poseGuideCount: number;
   validArmChainCount: number;
   visiblePoseLandmarkCount: number;
+  candidateGenerationMs: number;
+  boundaryMaskMs: number;
+  boundarySuppressionMs: number;
+  candidateBoundaryCount: number;
+  retainedInternalBoundaryCount: number;
   preprocessingMs: number;
   contourMs: number;
   selectionMs: number;

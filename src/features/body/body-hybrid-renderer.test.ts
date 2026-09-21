@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { BodyLandmark } from "../../domain/body";
 import {
+  buildArmBoundaryCandidates,
   buildArmGuideSegments,
+  buildInternalBodyBoundaries,
   buildUpperBodyPoseGuides,
+  filterBoundaryToPersonMask,
   HYBRID_POSE_MIN_VISIBILITY,
+  suppressBoundaryNearOuterContour,
 } from "./body-hybrid-renderer";
 
 function landmarks(overrides: Record<number, Partial<BodyLandmark>> = {}): BodyLandmark[] {
@@ -89,5 +93,57 @@ describe("body hybrid renderer helpers", () => {
       visibleLandmarkCount: 0,
       validArmChainCount: 0,
     });
+  });
+
+  it("creates both offset candidates for each available arm segment", () => {
+    const guides = buildUpperBodyPoseGuides(
+      landmarks({
+        11: { x: 0.3, y: 0.5 },
+        13: { x: 0.5, y: 0.5 },
+        15: { x: 0.7, y: 0.5 },
+        12: { visibility: 0 },
+        14: { visibility: 0 },
+        16: { visibility: 0 },
+      }),
+    );
+    const candidates = buildArmBoundaryCandidates(guides.leftArm);
+    expect(candidates).toHaveLength(4);
+    expect(candidates[0].start.y).not.toBeCloseTo(candidates[2].start.y);
+    expect(candidates[0].start.y).toBeCloseTo(candidates[0].end.y);
+    expect(candidates).toEqual(buildArmBoundaryCandidates(guides.leftArm));
+  });
+
+  it("keeps only candidate portions inside the person mask", () => {
+    const mask = {
+      width: 10,
+      height: 10,
+      data: new Uint8Array(100).fill(1),
+    };
+    const candidates = [
+      { start: { x: -0.2, y: 0.5 }, end: { x: -0.1, y: 0.5 } },
+      { start: { x: 0.2, y: 0.5 }, end: { x: 0.8, y: 0.5 } },
+    ];
+    expect(filterBoundaryToPersonMask(candidates, mask)).toEqual([candidates[1]]);
+    expect(filterBoundaryToPersonMask(candidates, null)).toEqual([]);
+  });
+
+  it("suppresses outer-edge candidates while retaining internal candidates", () => {
+    const outerContour = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+      { x: 0, y: 100 },
+    ];
+    const candidates = [
+      { start: { x: 0.2, y: 0.01 }, end: { x: 0.8, y: 0.01 } },
+      { start: { x: 0.2, y: 0.5 }, end: { x: 0.8, y: 0.5 } },
+    ];
+    const retained = suppressBoundaryNearOuterContour(candidates, outerContour, 100, 100, 0.05);
+    expect(retained).toEqual([candidates[1]]);
+  });
+
+  it("falls back to no internal boundaries without mask or outer contour", () => {
+    const guides = buildUpperBodyPoseGuides(landmarks());
+    expect(buildInternalBodyBoundaries(guides, null, null)).toEqual([]);
   });
 });
