@@ -21,6 +21,50 @@
   text-rendering: optimizeLegibility;
 }
 
+.body-segmentation-spike {
+  position: static;
+  z-index: auto;
+  width: min(100%, 1080px);
+  margin: 24px auto 0;
+  overflow: auto;
+  padding: 0.75rem;
+  color: #ead7a0;
+  background: rgb(8 29 24 / 88%);
+  font-size: 0.72rem;
+}
+
+.body-segmentation-spike__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.body-segmentation-spike figure {
+  margin: 0;
+}
+
+.body-segmentation-spike canvas {
+  position: static;
+  inset: auto;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  transform: none;
+  background: #071d18;
+}
+
+.body-segmentation-spike figcaption,
+.body-segmentation-spike__note,
+.body-segmentation-spike__poses {
+  margin: 0.25rem 0 0;
+}
+
+.body-segmentation-spike__metrics {
+  margin: 0.6rem 0 0;
+  white-space: pre-wrap;
+}
+
 *,
 *::before,
 *::after {
@@ -366,8 +410,8 @@ h4 {
   background: var(--soft-surface);
 }
 
-.body-camera video,
-.body-camera canvas {
+.body-camera > video,
+.body-camera > canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -375,12 +419,11 @@ h4 {
   object-fit: cover;
 }
 
-.body-camera video,
-.body-camera canvas {
+.body-camera > video {
   transform: scaleX(-1);
 }
 
-.body-camera canvas {
+.body-camera > canvas {
   position: absolute;
   inset: 0;
 }
@@ -527,8 +570,8 @@ h4 {
   font-size: 0.88rem;
 }
 
-.body-capture-card--dedicated .body-camera video,
-.body-capture-card--dedicated .body-camera canvas {
+.body-capture-card--dedicated .body-camera > video,
+.body-capture-card--dedicated .body-camera > canvas {
   min-height: 0;
 }
 
