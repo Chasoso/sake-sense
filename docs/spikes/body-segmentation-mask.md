@@ -1,6 +1,6 @@
 # Body segmentation mask spike (#77)
 
-Status: architecture spike, Human Experience pending.
+Status: architecture spike complete; Human Experience completed.
 
 ## API compatibility
 
@@ -37,29 +37,38 @@ mask, or contour is persisted, downloaded, uploaded, or passed to the
 semantic bridge. `BodyPoseFrame[]` and `extractBodyMovementFeatures()` remain
 unchanged. The returned MediaPipe result is closed after its values are read.
 
-## Required human checks
+## Human Experience result
 
-The maintainer should run the preview with:
+Maintainer Human Experience testing is complete for the spike scenarios,
+including neutral, arms open, one arm up, asymmetric/twisted movement,
+upper-body-only framing, and movement near the camera frame edge.
 
-- neutral
-- arms open
-- one arm up
-- asymmetric/twisted pose
-- upper-body-only framing
-- movement at the camera frame edge
+The segmentation mask itself was judged **promising**:
 
-Record whether arms and torso remain present, whether the boundary flickers,
-and whether the main thread remains responsive during the existing capture.
+- the visible head, torso, and arms were retained well enough to justify
+  continuing with a segmentation-based Body outline direction;
+- the raw mask provides a materially better basis for body thickness and
+  external silhouette than the landmark-width heuristic explored in #72 / PR #76;
+- the dev-only preview remained responsive enough for this feasibility spike;
+- no privacy or semantic boundary needs to change.
 
-## Initial finding
+The current Gold contour is **not** suitable as the final contour algorithm.
+Its centroid-angle boundary ordering produces shortcut / fan-like artifacts on
+concave human shapes. That limitation is isolated from mask feasibility and is
+tracked separately in #79.
 
-The installed API is compatible and the local-only preview is technically
-available. Automated tests cover thresholding and deterministic boundary
-extraction, but they cannot establish mask quality or smartphone performance.
+Performance numbers shown by the development preview should be treated as
+end-to-end diagnostic values rather than a pure Pose Landmarker benchmark,
+because the preview also performs canvas drawing and React metric updates.
 
-Preliminary recommendation: **B — promising, but needs another focused
-spike / Human Experience review before replacing the #76 renderer**.
+## Finding
 
-Human Experience and smartphone performance are pending. In particular,
-partial framing and edge-of-frame behavior must be observed before deciding
-whether a segmentation-based renderer should proceed.
+Recommendation: **proceed with segmentation-based contour research**.
+
+#77 establishes that Pose Landmarker segmentation masks are a viable foundation
+for further Body visual work. The next focused step is #79, which evaluates
+true ordered contour extraction and lightweight smoothing, preferably using
+the raw probability mask as the source rather than treating the current
+thresholded-pixel contour as production quality.
+
+This spike does not replace the production Body renderer.
