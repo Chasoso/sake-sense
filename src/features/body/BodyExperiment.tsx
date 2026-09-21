@@ -35,6 +35,7 @@ import {
   smoothContour,
   drawRawMask,
   drawThresholdedMask,
+  averageClosedContour,
   ContourStabilizer,
   ensureContourWinding,
   resampleClosedContour,
@@ -258,8 +259,11 @@ export function BodyExperiment({
         const resamplingStartedAt = readSegmentationSpikeClock();
         const resampledContour = finalContour ? resampleClosedContour(finalContour) : [];
         const resamplingMs = readSegmentationSpikeClock() - resamplingStartedAt;
+        const spatialAveragingStartedAt = readSegmentationSpikeClock();
+        const spatialAveragedContour = averageClosedContour(resampledContour);
+        const spatialAveragingMs = readSegmentationSpikeClock() - spatialAveragingStartedAt;
         const windingStartedAt = readSegmentationSpikeClock();
-        const preparedContour = ensureContourWinding(resampledContour, "clockwise");
+        const preparedContour = ensureContourWinding(spatialAveragedContour, "clockwise");
         const windingMs = readSegmentationSpikeClock() - windingStartedAt;
         const stabilization = contourStabilizerRef.current.update(preparedContour);
         if (stabilization.reset) contourResetCountRef.current += 1;
@@ -282,7 +286,7 @@ export function BodyExperiment({
           if (context) {
             drawContour(
               context,
-              finalContour,
+              spatialAveragedContour,
               spatialContourRef.current.width,
               spatialContourRef.current.height,
               "rgba(234, 215, 160, 0.82)",
@@ -320,6 +324,7 @@ export function BodyExperiment({
           simplificationMs,
           smoothingMs,
           resamplingMs,
+          spatialAveragingMs,
           windingMs,
           alignmentMs: stabilization.alignmentMs,
           temporalSmoothingMs: stabilization.temporalSmoothingMs,
@@ -652,7 +657,7 @@ export function BodyExperiment({
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">

@@ -11,6 +11,7 @@ development segmentation preview now uses this presentation-only pipeline:
 raw ordered contour
   -> existing spatial simplification/smoothing
   -> 96-point closed arc-length resampling
+  -> circular spatial averaging
   -> clockwise winding normalization
   -> cyclic start-index alignment to the previous displayed contour
   -> point-wise EMA temporal smoothing
@@ -20,6 +21,18 @@ raw ordered contour
 `CONTOUR_RESAMPLE_POINT_COUNT` is `96`. Resampling does not duplicate the
 closing point and does not mutate the source contour. Winding is normalized to
 the screen-coordinate clockwise convention before correspondence is computed.
+
+The additional spatial refinement is a one-pass circular moving average with
+`CONTOUR_SPATIAL_AVERAGING_RADIUS = 1`: previous and next points have weight
+`1`, while the current point has weight `2` (`0.25 / 0.5 / 0.25` after
+normalization). It runs after fixed-count resampling and preserves the 96-point
+cardinality. The dev panes make Raw, Spatial, and Temporal results directly
+comparable; turning this refinement off for a manual comparison only requires
+changing this named radius to `0` in the spike.
+
+This is deliberately conservative. A larger radius or another pass could
+round away thin arms, shoulders, head shape, or torso indentation, so those
+oversmoothing risks remain part of Human Experience review.
 
 ## Temporal rules
 
@@ -38,8 +51,13 @@ the screen-coordinate clockwise convention before correspondence is computed.
   the new contour rather than blending with stale geometry.
 
 The preview exposes raw traced, spatially smoothed, and temporally stabilized
-contours side by side, along with resampling, winding, alignment, temporal,
-reset, offset, correction-distance, FPS, and point-count diagnostics.
+contours side by side, along with resampling, spatial averaging, winding,
+alignment, temporal, reset, offset, correction-distance, FPS, and point-count
+diagnostics.
+
+Temporal stabilization itself is unchanged: the 96-point winding-normalized
+contour is cyclically aligned, then smoothed with EMA alpha `0.75`, with the
+existing missing-frame hold/reset and discontinuity snap rules.
 
 ## Performance and quality
 

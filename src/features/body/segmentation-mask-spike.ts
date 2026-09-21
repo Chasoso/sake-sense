@@ -3,6 +3,7 @@ export const RAW_MASK_ISO_LEVEL = 0.5;
 export const CONTOUR_SIMPLIFY_TOLERANCE = 0.8;
 export const CONTOUR_SMOOTHING_PASSES = 1;
 export const CONTOUR_RESAMPLE_POINT_COUNT = 96;
+export const CONTOUR_SPATIAL_AVERAGING_RADIUS = 1;
 export const CONTOUR_TEMPORAL_ALPHA = 0.75;
 export const CONTOUR_REACQUIRE_RESET_FRAME_COUNT = 3;
 export const CONTOUR_DISCONTINUITY_DISTANCE = 48;
@@ -264,6 +265,30 @@ export function smoothContour(contour: Contour, passes = CONTOUR_SMOOTHING_PASSE
     current = next;
   }
   return current;
+}
+
+/** Applies a light circular moving average while preserving contour cardinality. */
+export function averageClosedContour(
+  contour: Contour,
+  radius = CONTOUR_SPATIAL_AVERAGING_RADIUS,
+): Contour {
+  if (contour.length < 3 || radius < 1) return contour.map((point) => ({ ...point }));
+  const result: Contour = [];
+  for (let index = 0; index < contour.length; index += 1) {
+    let weightSum = 0;
+    let x = 0;
+    let y = 0;
+    for (let offset = -radius; offset <= radius; offset += 1) {
+      const point = contour[(index + offset + contour.length) % contour.length];
+      const distance = Math.abs(offset);
+      const weight = distance === 0 ? 2 : 1;
+      x += point.x * weight;
+      y += point.y * weight;
+      weightSum += weight;
+    }
+    result.push({ x: x / weightSum, y: y / weightSum });
+  }
+  return result;
 }
 
 function withoutDuplicateClosingPoint(contour: Contour): Contour {
@@ -582,6 +607,7 @@ export type SegmentationSpikeMetrics = {
   selectionMs: number;
   simplificationMs: number;
   smoothingMs: number;
+  spatialAveragingMs: number;
   resamplingMs: number;
   windingMs: number;
   alignmentMs: number;

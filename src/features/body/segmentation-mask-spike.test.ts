@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignContourToReference,
+  averageClosedContour,
   ContourStabilizer,
   createPaddedMask,
   ensureContourWinding,
@@ -193,6 +194,22 @@ describe("segmentation mask spike helpers", () => {
     expect(resampled).toHaveLength(20);
     expect(Math.max(...distances) - Math.min(...distances)).toBeLessThan(0.1);
     expect(referenceContour).toEqual(snapshot);
+  });
+
+  it("applies a circular spatial average without changing point count", () => {
+    const noisy = [
+      { x: 0, y: 0 },
+      { x: 4.6, y: 0.3 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ];
+    const snapshot = structuredClone(noisy);
+    const averaged = averageClosedContour(noisy);
+    expect(averaged).toHaveLength(noisy.length);
+    expect(averaged).toEqual(averageClosedContour(noisy));
+    expect(noisy).toEqual(snapshot);
+    expect(averaged[1].x).toBeLessThan(noisy[1].x);
+    expect(averaged[1].x).toBeGreaterThan(noisy[0].x);
   });
 
   it("normalizes both winding directions deterministically", () => {
