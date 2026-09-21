@@ -26,9 +26,11 @@ development-only panes for the same detected frame:
 3. Binary mask using `SEGMENTATION_THRESHOLD = 0.5`
 4. Gold boundary contour on a dark green background
 
-Boundary extraction is intentionally lightweight: exposed foreground pixels
-are collected and ordered around their centroid. No production contour
-algorithm, temporal reconstruction, or new vision dependency is included.
+The original boundary ordering was intentionally lightweight and is retained
+only as historical context for this spike. It is not a production contour
+algorithm. Issue #79 evaluates raw-mask iso-contours in the separate
+`body-contour-extraction.md` preview; no production contour algorithm,
+temporal reconstruction, or new vision dependency is included.
 
 ## Privacy and semantic boundary
 

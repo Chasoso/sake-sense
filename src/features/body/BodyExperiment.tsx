@@ -28,12 +28,17 @@ import {
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 import {
-  drawGoldContour,
+  drawContour,
+  extractIsoContours,
+  selectPrimaryContour,
+  simplifyContour,
+  smoothContour,
   drawRawMask,
   drawThresholdedMask,
   SEGMENTATION_THRESHOLD,
   readSegmentationSpikeClock,
   thresholdSegmentationMask,
+  RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
 
@@ -107,6 +112,7 @@ export function BodyExperiment({
   const segmentationCameraRef = useRef<HTMLCanvasElement>(null);
   const rawMaskRef = useRef<HTMLCanvasElement>(null);
   const thresholdMaskRef = useRef<HTMLCanvasElement>(null);
+  const rawContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -226,11 +232,45 @@ export function BodyExperiment({
           if (context) drawThresholdedMask(context, binary);
         }
         const contourStartedAt = readSegmentationSpikeClock();
+        const contours = extractIsoContours(values, mask.width, mask.height, RAW_MASK_ISO_LEVEL);
+        const contourMs = readSegmentationSpikeClock() - contourStartedAt;
+        const selectionStartedAt = readSegmentationSpikeClock();
+        const primaryContour = selectPrimaryContour(contours);
+        const selectionMs = readSegmentationSpikeClock() - selectionStartedAt;
+        const simplificationStartedAt = readSegmentationSpikeClock();
+        const simplifiedContour = primaryContour ? simplifyContour(primaryContour) : null;
+        const simplificationMs = readSegmentationSpikeClock() - simplificationStartedAt;
+        const smoothingStartedAt = readSegmentationSpikeClock();
+        const finalContour = simplifiedContour ? smoothContour(simplifiedContour) : null;
+        const smoothingMs = readSegmentationSpikeClock() - smoothingStartedAt;
+        if (rawContourRef.current) {
+          const context = rawContourRef.current.getContext("2d");
+          if (context) {
+            drawContour(
+              context,
+              primaryContour,
+              rawContourRef.current.width,
+              rawContourRef.current.height,
+              "rgba(234, 215, 160, 0.7)",
+              mask.width,
+              mask.height,
+            );
+          }
+        }
         if (contourCanvas) {
           const context = contourCanvas.getContext("2d");
-          if (context) drawGoldContour(context, binary, contourCanvas.width, contourCanvas.height);
+          if (context) {
+            drawContour(
+              context,
+              finalContour,
+              contourCanvas.width,
+              contourCanvas.height,
+              "#ead7a0",
+              mask.width,
+              mask.height,
+            );
+          }
         }
-        const contourMs = readSegmentationSpikeClock() - contourStartedAt;
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
         setSegmentationMetrics({
@@ -240,7 +280,13 @@ export function BodyExperiment({
             elapsedMs > 0 ? (segmentationFrameCountRef.current * 1000) / elapsedMs : 0,
           poseMaskMs,
           thresholdMs,
+          preprocessingMs: 0,
           contourMs,
+          selectionMs,
+          simplificationMs,
+          smoothingMs,
+          rawContourPointCount: primaryContour?.length ?? 0,
+          finalContourPointCount: finalContour?.length ?? 0,
         });
       }
     }
@@ -520,13 +566,17 @@ export function BodyExperiment({
                 <figcaption>Thresholded mask</figcaption>
               </figure>
               <figure>
+                <canvas ref={rawContourRef} width="320" height="180" />
+                <figcaption>Raw traced contour</figcaption>
+              </figure>
+              <figure>
                 <canvas ref={contourRef} width="320" height="180" />
-                <figcaption>Gold contour</figcaption>
+                <figcaption>Final gold contour</figcaption>
               </figure>
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSmooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">
