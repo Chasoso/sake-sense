@@ -91,12 +91,35 @@ function evaluateSupport(request) {
   return { evaluation: evaluateMatchedCases(matches), matches };
 }
 
+function legacyPresentation(evaluation) {
+  if (evaluation.resultKind === "expression") {
+    return {
+      sensoryExpressions: evaluation.expressionIds.flatMap((id) => {
+        const expression = expressionById.get(id);
+        return expression?.displayText ? [expression.displayText] : [];
+      }),
+      reason: "既存のレビュー済みルールに基づく既定の感覚表現です。",
+    };
+  }
+  if (evaluation.resultKind === "interpretation-state") {
+    return {
+      sensoryExpressions: [],
+      reason: "既存のレビュー済みルールでは候補を一つに確定しません。",
+    };
+  }
+  return {
+    sensoryExpressions: [],
+    reason: "既存のレビュー済みルールでは安全な感覚表現を確定しません。",
+  };
+}
+
 /**
  * The model may translate wording, but reviewed support cases and approved
  * expression links are the only source of normal term candidates.
  */
 export function applyReviewedGrounding(modelResponse, request, allowedIds) {
   const { evaluation, matches } = evaluateSupport(request);
+  const presentation = legacyPresentation(evaluation);
   const matchedCases = matches.filter((case_) => evaluation.matchedCaseIds.includes(case_.id));
   const selectedCases =
     evaluation.resultKind === "expression"
@@ -127,7 +150,7 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
     ...(modelResponse.sensoryInterpretation
       ? { sensoryInterpretation: modelResponse.sensoryInterpretation }
       : {}),
-    sensoryExpressions: modelResponse.sensoryExpressions,
+    sensoryExpressions: presentation.sensoryExpressions,
     candidateTermIds,
     observedFeatures,
     interpretationEvidence,
@@ -140,6 +163,6 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
     interpretationStateId: evaluation.interpretationStateId ?? null,
     groundingCaseIds: evaluation.matchedCaseIds,
     groundingExpressionIds: evaluation.expressionIds,
-    reason: modelResponse.reason,
+    reason: presentation.reason,
   };
 }

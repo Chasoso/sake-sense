@@ -2,10 +2,14 @@ import { responseSchema, systemInstruction } from "./schema.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
 export function buildConverseInput(request, env) {
+  const interpretationInput = {
+    modality: request.modality,
+    input: request.input,
+  };
   return {
     modelId: env.BEDROCK_MODEL_ID,
     system: [{ text: systemInstruction }],
-    messages: [{ role: "user", content: [{ text: JSON.stringify(request) }] }],
+    messages: [{ role: "user", content: [{ text: JSON.stringify(interpretationInput) }] }],
     inferenceConfig: { maxTokens: 256, temperature: 0.2 },
     outputConfig: {
       textFormat: {

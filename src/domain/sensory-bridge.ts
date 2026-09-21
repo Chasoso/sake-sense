@@ -387,9 +387,17 @@ export function applyReviewedSemanticGrounding(
   const approvedCandidateTermIds = getApprovedCandidateTermIdsForSupport(support).filter((id) =>
     request.allowedTermIds.includes(id),
   );
+  const legacySensoryExpressions = getSensoryExpressionDisplayTextsForSupport(support);
+  const legacyReason =
+    support.resultKind === "expression"
+      ? "既存のレビュー済みルールに基づく既定の感覚表現です。"
+      : support.resultKind === "interpretation-state"
+        ? "既存のレビュー済みルールでは候補を一つに確定しません。"
+        : "既存のレビュー済みルールでは安全な感覚表現を確定しません。";
 
   return {
     ...response,
+    sensoryExpressions: legacySensoryExpressions,
     candidateTermIds: approvedCandidateTermIds,
     observedFeatures,
     interpretationEvidence,
@@ -402,6 +410,7 @@ export function applyReviewedSemanticGrounding(
     interpretationStateId: support.interpretationStateId ?? null,
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
+    reason: legacyReason,
   };
 }
 
