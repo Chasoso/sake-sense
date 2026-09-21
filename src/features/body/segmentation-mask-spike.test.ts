@@ -204,12 +204,18 @@ describe("segmentation mask spike helpers", () => {
       { x: 0, y: 3 },
     ];
     const snapshot = structuredClone(noisy);
-    const averaged = averageClosedContour(noisy);
+    const averaged = averageClosedContour(noisy, 1);
     expect(averaged).toHaveLength(noisy.length);
-    expect(averaged).toEqual(averageClosedContour(noisy));
+    expect(averaged).toEqual(averageClosedContour(noisy, 1));
     expect(noisy).toEqual(snapshot);
     expect(averaged[1].x).toBeLessThan(noisy[1].x);
     expect(averaged[1].x).toBeGreaterThan(noisy[0].x);
+  });
+
+  it("leaves the contour geometry unchanged when spatial averaging is disabled", () => {
+    const snapshot = structuredClone(referenceContour);
+    expect(averageClosedContour(referenceContour, 0)).toEqual(referenceContour);
+    expect(referenceContour).toEqual(snapshot);
   });
 
   it("normalizes both winding directions deterministically", () => {

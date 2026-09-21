@@ -118,8 +118,10 @@ export function BodyExperiment({
   const thresholdMaskRef = useRef<HTMLCanvasElement>(null);
   const rawContourRef = useRef<HTMLCanvasElement>(null);
   const spatialContourRef = useRef<HTMLCanvasElement>(null);
+  const temporalOnlyContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
   const contourStabilizerRef = useRef(new ContourStabilizer());
+  const temporalOnlyStabilizerRef = useRef(new ContourStabilizer());
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -139,6 +141,7 @@ export function BodyExperiment({
 
   const resetDisplayedContour = () => {
     contourStabilizerRef.current.reset();
+    temporalOnlyStabilizerRef.current.reset();
   };
 
   const clearPoseCanvas = () => {
@@ -265,6 +268,9 @@ export function BodyExperiment({
         const windingStartedAt = readSegmentationSpikeClock();
         const preparedContour = ensureContourWinding(spatialAveragedContour, "clockwise");
         const windingMs = readSegmentationSpikeClock() - windingStartedAt;
+        const temporalOnlyContour = temporalOnlyStabilizerRef.current.update(
+          ensureContourWinding(resampledContour, "clockwise"),
+        );
         const stabilization = contourStabilizerRef.current.update(preparedContour);
         if (stabilization.reset) contourResetCountRef.current += 1;
         if (rawContourRef.current) {
@@ -290,6 +296,20 @@ export function BodyExperiment({
               spatialContourRef.current.width,
               spatialContourRef.current.height,
               "rgba(234, 215, 160, 0.82)",
+              mask.width,
+              mask.height,
+            );
+          }
+        }
+        if (temporalOnlyContourRef.current) {
+          const context = temporalOnlyContourRef.current.getContext("2d");
+          if (context) {
+            drawContour(
+              context,
+              temporalOnlyContour.contour,
+              temporalOnlyContourRef.current.width,
+              temporalOnlyContourRef.current.height,
+              "rgba(234, 215, 160, 0.9)",
               mask.width,
               mask.height,
             );
@@ -336,6 +356,7 @@ export function BodyExperiment({
           finalContourPointCount: finalContour?.length ?? 0,
         });
       } else {
+        const temporalOnlyContour = temporalOnlyStabilizerRef.current.update(null);
         const stabilization = contourStabilizerRef.current.update(null);
         if (stabilization.reset) contourResetCountRef.current += 1;
         if (rawContourRef.current) {
@@ -351,6 +372,16 @@ export function BodyExperiment({
               null,
               spatialContourRef.current.width,
               spatialContourRef.current.height,
+            );
+        }
+        if (temporalOnlyContourRef.current) {
+          const context = temporalOnlyContourRef.current.getContext("2d");
+          if (context)
+            drawContour(
+              context,
+              temporalOnlyContour.contour,
+              temporalOnlyContourRef.current.width,
+              temporalOnlyContourRef.current.height,
             );
         }
         if (contourRef.current) {
@@ -649,6 +680,10 @@ export function BodyExperiment({
               <figure>
                 <canvas ref={spatialContourRef} width="320" height="180" />
                 <figcaption>Spatially smoothed contour</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={temporalOnlyContourRef} width="320" height="180" />
+                <figcaption>Temporal-only contour</figcaption>
               </figure>
               <figure>
                 <canvas ref={contourRef} width="320" height="180" />

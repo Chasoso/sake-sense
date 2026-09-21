@@ -22,17 +22,22 @@ raw ordered contour
 closing point and does not mutate the source contour. Winding is normalized to
 the screen-coordinate clockwise convention before correspondence is computed.
 
-The additional spatial refinement is a one-pass circular moving average with
-`CONTOUR_SPATIAL_AVERAGING_RADIUS = 1`: previous and next points have weight
-`1`, while the current point has weight `2` (`0.25 / 0.5 / 0.25` after
-normalization). It runs after fixed-count resampling and preserves the 96-point
-cardinality. The dev panes make Raw, Spatial, and Temporal results directly
-comparable; turning this refinement off for a manual comparison only requires
-changing this named radius to `0` in the spike.
+The additional spatial refinement is a one-pass circular moving average. Its
+named radius is currently **`0` by default** after Human Experience showed that
+radius `1` reduced shape fidelity: shoulders, neck transitions, and arm ends
+became too rounded. When enabled for comparison, radius `1` gives previous and
+next points weight `1` and the current point weight `2` (`0.25 / 0.5 / 0.25`
+after normalization). It runs after fixed-count resampling and preserves the
+96-point cardinality. The dev panes show Raw, Temporal-only, Spatial, and
+Temporal-after-spatial results so jitter reduction and shape loss can be judged
+separately.
 
-This is deliberately conservative. A larger radius or another pass could
-round away thin arms, shoulders, head shape, or torso indentation, so those
-oversmoothing risks remain part of Human Experience review.
+This is deliberately conservative. A larger radius or another pass could round
+away thin arms, shoulders, head shape, or torso indentation. Human Experience
+confirmed that temporal stabilization reduced frame-to-frame jitter, while the
+radius-1 spatial pass over-smoothed the silhouette. The next comparison is the
+spatial-off default versus a weaker spatial setting; production adoption
+remains pending.
 
 ## Temporal rules
 
