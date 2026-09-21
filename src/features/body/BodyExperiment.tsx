@@ -35,6 +35,9 @@ import {
   smoothContour,
   drawRawMask,
   drawThresholdedMask,
+  ContourStabilizer,
+  ensureContourWinding,
+  resampleClosedContour,
   SEGMENTATION_THRESHOLD,
   readSegmentationSpikeClock,
   thresholdSegmentationMask,
@@ -113,7 +116,9 @@ export function BodyExperiment({
   const rawMaskRef = useRef<HTMLCanvasElement>(null);
   const thresholdMaskRef = useRef<HTMLCanvasElement>(null);
   const rawContourRef = useRef<HTMLCanvasElement>(null);
+  const spatialContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
+  const contourStabilizerRef = useRef(new ContourStabilizer());
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -125,10 +130,15 @@ export function BodyExperiment({
   const invalidFrameCountRef = useRef(0);
   const segmentationFrameCountRef = useRef(0);
   const segmentationStartedAtRef = useRef(0);
+  const contourResetCountRef = useRef(0);
   const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
     null,
   );
   const segmentationSpike = isSegmentationSpikeEnabled();
+
+  const resetDisplayedContour = () => {
+    contourStabilizerRef.current.reset();
+  };
 
   const clearPoseCanvas = () => {
     const canvas = canvasRef.current;
@@ -144,6 +154,7 @@ export function BodyExperiment({
     if (videoRef.current) videoRef.current.srcObject = null;
     landmarkerRef.current?.close();
     landmarkerRef.current = null;
+    resetDisplayedContour();
   };
 
   const stopReplay = () => {
@@ -167,6 +178,7 @@ export function BodyExperiment({
     }
     setStatus("loading");
     setError("");
+    resetDisplayedContour();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user" },
@@ -243,6 +255,14 @@ export function BodyExperiment({
         const smoothingStartedAt = readSegmentationSpikeClock();
         const finalContour = simplifiedContour ? smoothContour(simplifiedContour) : null;
         const smoothingMs = readSegmentationSpikeClock() - smoothingStartedAt;
+        const resamplingStartedAt = readSegmentationSpikeClock();
+        const resampledContour = finalContour ? resampleClosedContour(finalContour) : [];
+        const resamplingMs = readSegmentationSpikeClock() - resamplingStartedAt;
+        const windingStartedAt = readSegmentationSpikeClock();
+        const preparedContour = ensureContourWinding(resampledContour, "clockwise");
+        const windingMs = readSegmentationSpikeClock() - windingStartedAt;
+        const stabilization = contourStabilizerRef.current.update(preparedContour);
+        if (stabilization.reset) contourResetCountRef.current += 1;
         if (rawContourRef.current) {
           const context = rawContourRef.current.getContext("2d");
           if (context) {
@@ -257,12 +277,26 @@ export function BodyExperiment({
             );
           }
         }
+        if (spatialContourRef.current) {
+          const context = spatialContourRef.current.getContext("2d");
+          if (context) {
+            drawContour(
+              context,
+              finalContour,
+              spatialContourRef.current.width,
+              spatialContourRef.current.height,
+              "rgba(234, 215, 160, 0.82)",
+              mask.width,
+              mask.height,
+            );
+          }
+        }
         if (contourCanvas) {
           const context = contourCanvas.getContext("2d");
           if (context) {
             drawContour(
               context,
-              finalContour,
+              stabilization.contour,
               contourCanvas.width,
               contourCanvas.height,
               "#ead7a0",
@@ -285,9 +319,45 @@ export function BodyExperiment({
           selectionMs,
           simplificationMs,
           smoothingMs,
+          resamplingMs,
+          windingMs,
+          alignmentMs: stabilization.alignmentMs,
+          temporalSmoothingMs: stabilization.temporalSmoothingMs,
           rawContourPointCount: primaryContour?.length ?? 0,
+          stabilizedContourPointCount: stabilization.contour?.length ?? 0,
+          alignmentOffset: stabilization.alignmentOffset,
+          averageTemporalCorrectionDistance: stabilization.averageCorrectionDistance,
+          resetCount: contourResetCountRef.current,
           finalContourPointCount: finalContour?.length ?? 0,
         });
+      } else {
+        const stabilization = contourStabilizerRef.current.update(null);
+        if (stabilization.reset) contourResetCountRef.current += 1;
+        if (rawContourRef.current) {
+          const context = rawContourRef.current.getContext("2d");
+          if (context)
+            drawContour(context, null, rawContourRef.current.width, rawContourRef.current.height);
+        }
+        if (spatialContourRef.current) {
+          const context = spatialContourRef.current.getContext("2d");
+          if (context)
+            drawContour(
+              context,
+              null,
+              spatialContourRef.current.width,
+              spatialContourRef.current.height,
+            );
+        }
+        if (contourRef.current) {
+          const context = contourRef.current.getContext("2d");
+          if (context)
+            drawContour(
+              context,
+              stabilization.contour,
+              contourRef.current.width,
+              contourRef.current.height,
+            );
+        }
       }
     }
     const landmarks = detection.landmarks[0];
@@ -321,6 +391,7 @@ export function BodyExperiment({
 
   const startCapture = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
+    resetDisplayedContour();
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
@@ -329,6 +400,7 @@ export function BodyExperiment({
     sampleAttemptsRef.current = 0;
     invalidFrameCountRef.current = 0;
     segmentationFrameCountRef.current = 0;
+    contourResetCountRef.current = 0;
     segmentationStartedAtRef.current = performance.now();
     setSegmentationMetrics(null);
     setReplayStatus("idle");
@@ -570,13 +642,17 @@ export function BodyExperiment({
                 <figcaption>Raw traced contour</figcaption>
               </figure>
               <figure>
+                <canvas ref={spatialContourRef} width="320" height="180" />
+                <figcaption>Spatially smoothed contour</figcaption>
+              </figure>
+              <figure>
                 <canvas ref={contourRef} width="320" height="180" />
-                <figcaption>Final gold contour</figcaption>
+                <figcaption>Temporally stabilized contour</figcaption>
               </figure>
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSmooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">

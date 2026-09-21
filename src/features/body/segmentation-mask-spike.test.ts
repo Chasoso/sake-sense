@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignContourToReference,
+  ContourStabilizer,
   createPaddedMask,
+  ensureContourWinding,
   extractIsoContours,
   polygonArea,
   RAW_MASK_ISO_LEVEL,
+  resampleClosedContour,
   selectPrimaryContour,
   simplifyContour,
   smoothContour,
@@ -14,6 +18,14 @@ import {
 function maskValues(rows: number[][]): number[] {
   return rows.flat();
 }
+
+const referenceContour = [
+  { x: 0, y: 0 },
+  { x: 4, y: 0 },
+  { x: 5, y: 2 },
+  { x: 3, y: 4 },
+  { x: 0, y: 3 },
+];
 
 describe("segmentation mask spike helpers", () => {
   it("thresholds a synthetic float mask without mutating the input", () => {
@@ -169,6 +181,51 @@ describe("segmentation mask spike helpers", () => {
     expect(contour).not.toBeNull();
     expect(contour!.every((point) => point.x >= -0.5 && point.x <= 1.5)).toBe(true);
     expect(contour!.every((point) => point.y >= -0.5 && point.y <= 1.5)).toBe(true);
+  });
+
+  it("resamples closed contours at fixed, approximately equal arc-length spacing", () => {
+    const snapshot = structuredClone(referenceContour);
+    const resampled = resampleClosedContour(referenceContour, 20);
+    const distances = resampled.map((point, index) => {
+      const next = resampled[(index + 1) % resampled.length];
+      return Math.hypot(next.x - point.x, next.y - point.y);
+    });
+    expect(resampled).toHaveLength(20);
+    expect(Math.max(...distances) - Math.min(...distances)).toBeLessThan(0.1);
+    expect(referenceContour).toEqual(snapshot);
+  });
+
+  it("normalizes both winding directions deterministically", () => {
+    const clockwise = ensureContourWinding(referenceContour, "clockwise");
+    const counterclockwise = ensureContourWinding([...referenceContour].reverse(), "clockwise");
+    expect(counterclockwise).toEqual(clockwise);
+    expect(ensureContourWinding(referenceContour, "clockwise")).toEqual(clockwise);
+  });
+
+  it("aligns a cyclically shifted contour to the reference without mutation", () => {
+    const reference = resampleClosedContour(referenceContour, 24);
+    const shifted = [...reference.slice(7), ...reference.slice(0, 7)];
+    const snapshot = structuredClone(shifted);
+    expect(alignContourToReference(shifted, reference)).toEqual(reference);
+    expect(shifted).toEqual(snapshot);
+  });
+
+  it("stabilizes movement, initializes directly, and resets after reacquisition loss", () => {
+    const stabilizer = new ContourStabilizer({
+      pointCount: 8,
+      temporalAlpha: 0.5,
+      reacquireResetFrameCount: 2,
+    });
+    const first = resampleClosedContour(referenceContour, 8);
+    const moved = first.map((point) => ({ x: point.x + 1, y: point.y + 1 }));
+    expect(stabilizer.update(first).contour).toEqual(first);
+    const blended = stabilizer.update(moved).contour!;
+    expect(blended[0].x).toBeGreaterThan(first[0].x);
+    expect(blended[0].x).toBeLessThan(moved[0].x);
+    expect(stabilizer.update(null).held).toBe(true);
+    expect(stabilizer.update(null).held).toBe(true);
+    expect(stabilizer.update(null)).toMatchObject({ contour: null, reset: true });
+    expect(stabilizer.update(moved).contour).toEqual(moved);
   });
 
   it("simplifies and spatially smooths without mutating the contour", () => {

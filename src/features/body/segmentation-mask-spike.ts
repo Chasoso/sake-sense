@@ -2,6 +2,10 @@ export const SEGMENTATION_THRESHOLD = 0.5;
 export const RAW_MASK_ISO_LEVEL = 0.5;
 export const CONTOUR_SIMPLIFY_TOLERANCE = 0.8;
 export const CONTOUR_SMOOTHING_PASSES = 1;
+export const CONTOUR_RESAMPLE_POINT_COUNT = 96;
+export const CONTOUR_TEMPORAL_ALPHA = 0.75;
+export const CONTOUR_REACQUIRE_RESET_FRAME_COUNT = 3;
+export const CONTOUR_DISCONTINUITY_DISTANCE = 48;
 
 export function readSegmentationSpikeClock(): number {
   return performance.now();
@@ -262,6 +266,250 @@ export function smoothContour(contour: Contour, passes = CONTOUR_SMOOTHING_PASSE
   return current;
 }
 
+function withoutDuplicateClosingPoint(contour: Contour): Contour {
+  if (contour.length > 1) {
+    const first = contour[0];
+    const last = contour.at(-1)!;
+    if (first.x === last.x && first.y === last.y) return contour.slice(0, -1);
+  }
+  return contour.slice();
+}
+
+export function signedPolygonArea(contour: Contour): number {
+  return (
+    contour.reduce((area, point, index) => {
+      const next = contour[(index + 1) % contour.length];
+      return area + point.x * next.y - next.x * point.y;
+    }, 0) / 2
+  );
+}
+
+export type ContourWinding = "clockwise" | "counterclockwise";
+
+export function ensureContourWinding(
+  contour: Contour,
+  winding: ContourWinding = "clockwise",
+): Contour {
+  const source = withoutDuplicateClosingPoint(contour);
+  if (source.length < 3) return source;
+  const area = signedPolygonArea(source);
+  const shouldReverse = winding === "clockwise" ? area < 0 : area > 0;
+  return shouldReverse ? source.slice().reverse() : source;
+}
+
+/** Resamples a closed contour at equal arc-length intervals without a duplicate endpoint. */
+export function resampleClosedContour(
+  contour: Contour,
+  pointCount = CONTOUR_RESAMPLE_POINT_COUNT,
+): Contour {
+  const source = withoutDuplicateClosingPoint(contour);
+  if (source.length < 3 || pointCount < 3) return [];
+  const lengths = source.map((point, index) => {
+    const next = source[(index + 1) % source.length];
+    return Math.hypot(next.x - point.x, next.y - point.y);
+  });
+  const perimeter = lengths.reduce((sum, length) => sum + length, 0);
+  if (perimeter === 0) return [];
+  const result: Contour = [];
+  let segmentIndex = 0;
+  let segmentStartDistance = 0;
+  for (let index = 0; index < pointCount; index += 1) {
+    const targetDistance = (index / pointCount) * perimeter;
+    while (
+      segmentIndex < lengths.length - 1 &&
+      targetDistance > segmentStartDistance + lengths[segmentIndex]
+    ) {
+      segmentStartDistance += lengths[segmentIndex];
+      segmentIndex += 1;
+    }
+    const start = source[segmentIndex];
+    const end = source[(segmentIndex + 1) % source.length];
+    const segmentLength = lengths[segmentIndex];
+    const ratio = segmentLength === 0 ? 0 : (targetDistance - segmentStartDistance) / segmentLength;
+    result.push({
+      x: start.x + (end.x - start.x) * ratio,
+      y: start.y + (end.y - start.y) * ratio,
+    });
+  }
+  return result;
+}
+
+export function prepareContourForStabilization(
+  contour: Contour,
+  pointCount = CONTOUR_RESAMPLE_POINT_COUNT,
+): Contour {
+  return ensureContourWinding(resampleClosedContour(contour, pointCount), "clockwise");
+}
+
+export type ContourAlignment = {
+  contour: Contour;
+  offset: number;
+  averageDistance: number;
+};
+
+export function alignContourToReferenceWithMetrics(
+  current: Contour,
+  reference: Contour,
+): ContourAlignment {
+  if (current.length !== reference.length || current.length < 3) {
+    return { contour: current.slice(), offset: 0, averageDistance: Number.POSITIVE_INFINITY };
+  }
+  let bestOffset = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let offset = 0; offset < current.length; offset += 1) {
+    let squaredDistance = 0;
+    for (let index = 0; index < current.length; index += 1) {
+      const point = current[(index + offset) % current.length];
+      const referencePoint = reference[index];
+      const dx = point.x - referencePoint.x;
+      const dy = point.y - referencePoint.y;
+      squaredDistance += dx * dx + dy * dy;
+    }
+    if (squaredDistance < bestDistance) {
+      bestDistance = squaredDistance;
+      bestOffset = offset;
+    }
+  }
+  const aligned = current.map((_, index) => current[(index + bestOffset) % current.length]);
+  return {
+    contour: aligned,
+    offset: bestOffset,
+    averageDistance: Math.sqrt(bestDistance / current.length),
+  };
+}
+
+export function alignContourToReference(current: Contour, reference: Contour): Contour {
+  return alignContourToReferenceWithMetrics(current, reference).contour;
+}
+
+function blendContours(previous: Contour, current: Contour, previousWeight: number): Contour {
+  const weight = Math.min(Math.max(previousWeight, 0), 1);
+  return current.map((point, index) => ({
+    x: previous[index].x * weight + point.x * (1 - weight),
+    y: previous[index].y * weight + point.y * (1 - weight),
+  }));
+}
+
+export type StabilizedContourResult = {
+  contour: Contour | null;
+  alignmentOffset: number;
+  averageCorrectionDistance: number;
+  alignmentMs: number;
+  temporalSmoothingMs: number;
+  held: boolean;
+  snapped: boolean;
+  reset: boolean;
+};
+
+/** Display-only contour state. It never mutates the source contour or pose data. */
+export class ContourStabilizer {
+  private displayedContour: Contour | null = null;
+  private missingFrameCount = 0;
+  private readonly pointCount: number;
+  private readonly temporalAlpha: number;
+  private readonly reacquireResetFrameCount: number;
+  private readonly discontinuityDistance: number;
+
+  constructor({
+    pointCount = CONTOUR_RESAMPLE_POINT_COUNT,
+    temporalAlpha = CONTOUR_TEMPORAL_ALPHA,
+    reacquireResetFrameCount = CONTOUR_REACQUIRE_RESET_FRAME_COUNT,
+    discontinuityDistance = CONTOUR_DISCONTINUITY_DISTANCE,
+  }: {
+    pointCount?: number;
+    temporalAlpha?: number;
+    reacquireResetFrameCount?: number;
+    discontinuityDistance?: number;
+  } = {}) {
+    this.pointCount = pointCount;
+    this.temporalAlpha = temporalAlpha;
+    this.reacquireResetFrameCount = reacquireResetFrameCount;
+    this.discontinuityDistance = discontinuityDistance;
+  }
+
+  reset(): void {
+    this.displayedContour = null;
+    this.missingFrameCount = 0;
+  }
+
+  update(preparedContour: Contour | null): StabilizedContourResult {
+    if (!preparedContour || preparedContour.length !== this.pointCount) {
+      this.missingFrameCount += 1;
+      if (this.missingFrameCount > this.reacquireResetFrameCount) {
+        this.reset();
+        return {
+          contour: null,
+          alignmentOffset: 0,
+          averageCorrectionDistance: 0,
+          alignmentMs: 0,
+          temporalSmoothingMs: 0,
+          held: false,
+          snapped: false,
+          reset: true,
+        };
+      }
+      return {
+        contour: this.displayedContour?.map((point) => ({ ...point })) ?? null,
+        alignmentOffset: 0,
+        averageCorrectionDistance: 0,
+        alignmentMs: 0,
+        temporalSmoothingMs: 0,
+        held: this.displayedContour !== null,
+        snapped: false,
+        reset: false,
+      };
+    }
+    this.missingFrameCount = 0;
+    const current = preparedContour.map((point) => ({ ...point }));
+    if (!this.displayedContour) {
+      this.displayedContour = current;
+      return {
+        contour: current.map((point) => ({ ...point })),
+        alignmentOffset: 0,
+        averageCorrectionDistance: 0,
+        alignmentMs: 0,
+        temporalSmoothingMs: 0,
+        held: false,
+        snapped: false,
+        reset: false,
+      };
+    }
+    const alignmentStartedAt = readSegmentationSpikeClock();
+    const aligned = alignContourToReferenceWithMetrics(current, this.displayedContour);
+    const alignmentMs = readSegmentationSpikeClock() - alignmentStartedAt;
+    if (aligned.averageDistance > this.discontinuityDistance) {
+      this.displayedContour = current;
+      return {
+        contour: current.map((point) => ({ ...point })),
+        alignmentOffset: aligned.offset,
+        averageCorrectionDistance: aligned.averageDistance,
+        alignmentMs,
+        temporalSmoothingMs: 0,
+        held: false,
+        snapped: true,
+        reset: false,
+      };
+    }
+    const temporalStartedAt = readSegmentationSpikeClock();
+    this.displayedContour = blendContours(
+      this.displayedContour,
+      aligned.contour,
+      this.temporalAlpha,
+    );
+    const temporalSmoothingMs = readSegmentationSpikeClock() - temporalStartedAt;
+    return {
+      contour: this.displayedContour.map((point) => ({ ...point })),
+      alignmentOffset: aligned.offset,
+      averageCorrectionDistance: aligned.averageDistance,
+      alignmentMs,
+      temporalSmoothingMs,
+      held: false,
+      snapped: false,
+      reset: false,
+    };
+  }
+}
+
 export function drawRawMask(
   context: CanvasRenderingContext2D,
   values: ArrayLike<number>,
@@ -334,6 +582,14 @@ export type SegmentationSpikeMetrics = {
   selectionMs: number;
   simplificationMs: number;
   smoothingMs: number;
+  resamplingMs: number;
+  windingMs: number;
+  alignmentMs: number;
+  temporalSmoothingMs: number;
   rawContourPointCount: number;
+  stabilizedContourPointCount: number;
+  alignmentOffset: number;
+  averageTemporalCorrectionDistance: number;
+  resetCount: number;
   finalContourPointCount: number;
 };
