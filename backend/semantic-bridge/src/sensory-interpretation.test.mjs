@@ -36,9 +36,14 @@ const bodyRequest = {
 };
 
 describe("backend AI sensory interpretation contract", () => {
-  it("exposes the transitional contract without changing the legacy response requirement", () => {
+  it("requires the shadow interpretation while retaining legacy grounding fields", () => {
     expect(responseSchema.properties.sensoryInterpretation).toBeDefined();
-    expect(responseSchema.required).toEqual(["sensoryExpressions", "candidateTermIds", "reason"]);
+    expect(responseSchema.required).toEqual([
+      "sensoryInterpretation",
+      "sensoryExpressions",
+      "candidateTermIds",
+      "reason",
+    ]);
   });
 
   it("accepts Primary unknown values and optional Experimental values", () => {

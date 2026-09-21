@@ -44,6 +44,26 @@ function safeProviderErrorMetadata(error) {
   return metadata;
 }
 
+function buildShadowDiagnostics(response, event, modality, model) {
+  const interpretation = response.sensoryInterpretation;
+  const requestId = event?.requestContext?.requestId;
+  return {
+    category: "shadow_interpretation",
+    ...(typeof requestId === "string" && requestId.trim() ? { requestId } : {}),
+    modality,
+    model,
+    providerValidation: "passed",
+    semanticOutcome: interpretation?.outcome ?? "missing",
+    ...(interpretation?.outcome === "interpreted"
+      ? { primaryProfile: interpretation.semanticProfile }
+      : {}),
+    experimentalAxes:
+      interpretation?.outcome === "interpreted" && interpretation.experimentalProfile
+        ? Object.keys(interpretation.experimentalProfile).sort()
+        : [],
+  };
+}
+
 export function createHandler({
   env = process.env,
   invoke = invokeBedrock,
@@ -57,11 +77,9 @@ export function createHandler({
       const modelResponse = await invoke(value, env);
       const response = validateModelResponse(modelResponse, allowedIds, value);
       logger.info?.(
-        JSON.stringify({
-          category: "success",
-          modality: value.modality,
-          model: env.BEDROCK_MODEL_ID,
-        }),
+        JSON.stringify(
+          buildShadowDiagnostics(response, event, value.modality, env.BEDROCK_MODEL_ID),
+        ),
       );
       return apiResponse(200, response, origin);
     } catch (error) {
