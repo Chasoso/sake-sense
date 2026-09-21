@@ -33,6 +33,15 @@ export type HoleComponent = {
   pixels: MaskPoint[];
 };
 
+export type ForegroundComponent = {
+  area: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  pixels: MaskPoint[];
+};
+
 export type PaddedMask = {
   width: number;
   height: number;
@@ -75,6 +84,79 @@ function isMaskBorder(x: number, y: number, width: number, height: number): bool
 
 function maskIndex(x: number, y: number, width: number): number {
   return y * width + x;
+}
+
+/** Finds 4-neighbor connected foreground components in deterministic scan order. */
+export function findForegroundComponents(mask: BinaryMask): ForegroundComponent[] {
+  const visited = new Uint8Array(mask.data.length);
+  const components: ForegroundComponent[] = [];
+  const directions = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+
+  for (let y = 0; y < mask.height; y += 1) {
+    for (let x = 0; x < mask.width; x += 1) {
+      const startIndex = maskIndex(x, y, mask.width);
+      if (!mask.data[startIndex] || visited[startIndex]) continue;
+      const queue: MaskPoint[] = [{ x, y }];
+      visited[startIndex] = 1;
+      const pixels: MaskPoint[] = [];
+      let minX = x;
+      let minY = y;
+      let maxX = x;
+      let maxY = y;
+
+      for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+        const point = queue[queueIndex];
+        pixels.push(point);
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+        directions.forEach(([dx, dy]) => {
+          const nextX = point.x + dx;
+          const nextY = point.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= mask.width || nextY >= mask.height) return;
+          const nextIndex = maskIndex(nextX, nextY, mask.width);
+          if (mask.data[nextIndex] && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            queue.push({ x: nextX, y: nextY });
+          }
+        });
+      }
+
+      components.push({ area: pixels.length, minX, minY, maxX, maxY, pixels });
+    }
+  }
+  return components;
+}
+
+/** Selects the largest foreground component as the one-person spike subject. */
+export function selectPrimaryForegroundComponent(
+  components: ForegroundComponent[],
+): ForegroundComponent | null {
+  return components.reduce<ForegroundComponent | null>((primary, component) => {
+    if (!primary || component.area > primary.area) return component;
+    return primary;
+  }, null);
+}
+
+/** Creates a non-mutating binary mask containing only the selected component. */
+export function createComponentMask(
+  width: number,
+  height: number,
+  component: ForegroundComponent | null,
+): BinaryMask {
+  const data = new Uint8Array(width * height);
+  component?.pixels.forEach((point) => {
+    if (point.x >= 0 && point.y >= 0 && point.x < width && point.y < height) {
+      data[maskIndex(point.x, point.y, width)] = 1;
+    }
+  });
+  return { width, height, data };
 }
 
 /** Finds background components that are not connected to the mask border. */
@@ -745,6 +827,8 @@ export type SegmentationSpikeMetrics = {
   approximateFps: number;
   poseMaskMs: number;
   thresholdMs: number;
+  foregroundComponentMs: number;
+  foregroundComponentCount: number;
   preprocessingMs: number;
   contourMs: number;
   selectionMs: number;

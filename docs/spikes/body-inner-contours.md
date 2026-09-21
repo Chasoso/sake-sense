@@ -9,7 +9,10 @@ binary segmentation mask:
 
 ```text
 thresholded foreground mask
-  -> 4-neighbor flood fill of background
+  -> 4-neighbor foreground component labeling
+  -> select largest component as the primary person
+  -> create a primary-person-only mask
+  -> 4-neighbor flood fill of background in that mask
   -> discard components touching the frame border
   -> area filter
   -> temporary component mask
@@ -18,9 +21,13 @@ thresholded foreground mask
 ```
 
 The binary source is the existing `thresholdSegmentationMask()` output. The
-default `INNER_CONTOUR_MIN_AREA` is `24` pixels. Border-connected background is
-never treated as a hole, and multiple enclosed components are supported. The
-component pixel lists are transient helper data only.
+largest 4-neighbor foreground component is the primary person for this
+one-person spike. Hole detection runs only on a temporary mask containing that
+component, so a detached foreground noise ring cannot contribute a false
+person hole. The default `INNER_CONTOUR_MIN_AREA` is `24` pixels.
+Border-connected background is never treated as a hole, and multiple enclosed
+components inside the primary person are supported. The component pixel lists
+are transient helper data only.
 
 Inner contours reuse the existing deterministic Marching Squares implementation;
 centroid-angle sorting is not reintroduced. The outer contour remains the
@@ -41,10 +48,14 @@ unchanged. Inner contour detection is not sent to the semantic bridge and does
 not alter `BodyPoseFrame[]`, feature extraction, capture semantics, or the
 production renderer.
 
+Multi-person subject selection is out of scope for this spike and remains part
+of the separate #74 scope; largest-component selection is intentionally the
+only primary-subject rule here.
+
 ## Performance and known risks
 
 The preview reports hole detection, filtering, and inner-contour extraction
-times, accepted hole count, and accepted area alongside the existing Pose/mask
+times, foreground component count/time, accepted hole count, and accepted area alongside the existing Pose/mask
 and outer-contour metrics. No new dependency is used. The main risks are
 frame-to-frame flicker from changing mask topology, holes that disappear under
 segmentation noise, and visual clutter when several meaningful gaps coexist.

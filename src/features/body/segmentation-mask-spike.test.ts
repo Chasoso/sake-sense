@@ -4,16 +4,19 @@ import {
   averageClosedContour,
   ContourStabilizer,
   createPaddedMask,
+  createComponentMask,
   ensureContourWinding,
   extractInnerContours,
   extractIsoContours,
   filterHoleComponents,
   findEnclosedBackgroundComponents,
+  findForegroundComponents,
   INNER_CONTOUR_MIN_AREA,
   polygonArea,
   RAW_MASK_ISO_LEVEL,
   resampleClosedContour,
   selectPrimaryContour,
+  selectPrimaryForegroundComponent,
   simplifyContour,
   smoothContour,
   SEGMENTATION_THRESHOLD,
@@ -41,6 +44,47 @@ const referenceContour = [
 ];
 
 describe("segmentation mask spike helpers", () => {
+  it("limits hole detection to the largest foreground component", () => {
+    const mask = binaryMask([
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0],
+      [1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0],
+      [1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    ]);
+    const snapshot = [...mask.data];
+    const components = findForegroundComponents(mask);
+    const primary = selectPrimaryForegroundComponent(components);
+    const primaryMask = createComponentMask(mask.width, mask.height, primary);
+
+    expect(components).toHaveLength(2);
+    expect(primary?.area).toBeGreaterThan(components[1 - components.indexOf(primary!)].area);
+    expect(findEnclosedBackgroundComponents(mask)).toHaveLength(2);
+    expect(findEnclosedBackgroundComponents(primaryMask)).toMatchObject([
+      { area: 4, minX: 2, minY: 2, maxX: 3, maxY: 3 },
+    ]);
+    expect([...mask.data]).toEqual(snapshot);
+    expect([...primaryMask.data].filter(Boolean)).toHaveLength(primary?.area ?? 0);
+  });
+
+  it("returns no primary holes for an all-background mask", () => {
+    const mask = binaryMask([
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]);
+    const components = findForegroundComponents(mask);
+    const primaryMask = createComponentMask(
+      mask.width,
+      mask.height,
+      selectPrimaryForegroundComponent(components),
+    );
+    expect(components).toEqual([]);
+    expect(findEnclosedBackgroundComponents(primaryMask)).toEqual([]);
+  });
+
   it("finds one enclosed background component and extracts its ordered contour", () => {
     const mask = binaryMask([
       [1, 1, 1, 1, 1, 1, 1],

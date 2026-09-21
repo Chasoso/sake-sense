@@ -33,10 +33,13 @@ import {
   extractInnerContours,
   extractIsoContours,
   filterHoleComponents,
+  findForegroundComponents,
   findEnclosedBackgroundComponents,
   INNER_CONTOUR_LINE_WIDTH_SCALE,
   INNER_CONTOUR_OPACITY,
   selectPrimaryContour,
+  selectPrimaryForegroundComponent,
+  createComponentMask,
   simplifyContour,
   smoothContour,
   drawRawMask,
@@ -250,14 +253,23 @@ export function BodyExperiment({
         const thresholdStartedAt = readSegmentationSpikeClock();
         const binary = thresholdSegmentationMask(values, mask.width, mask.height);
         const thresholdMs = readSegmentationSpikeClock() - thresholdStartedAt;
+        const foregroundComponentStartedAt = readSegmentationSpikeClock();
+        const foregroundComponents = findForegroundComponents(binary);
+        const primaryForeground = selectPrimaryForegroundComponent(foregroundComponents);
+        const primaryForegroundMask = createComponentMask(
+          mask.width,
+          mask.height,
+          primaryForeground,
+        );
+        const foregroundComponentMs = readSegmentationSpikeClock() - foregroundComponentStartedAt;
         const holeDetectionStartedAt = readSegmentationSpikeClock();
-        const holes = findEnclosedBackgroundComponents(binary);
+        const holes = findEnclosedBackgroundComponents(primaryForegroundMask);
         const holeDetectionMs = readSegmentationSpikeClock() - holeDetectionStartedAt;
         const holeFilteringStartedAt = readSegmentationSpikeClock();
         const acceptedHoles = filterHoleComponents(holes);
         const holeFilteringMs = readSegmentationSpikeClock() - holeFilteringStartedAt;
         const innerContourStartedAt = readSegmentationSpikeClock();
-        const innerContours = extractInnerContours(binary, acceptedHoles);
+        const innerContours = extractInnerContours(primaryForegroundMask, acceptedHoles);
         const innerContourMs = readSegmentationSpikeClock() - innerContourStartedAt;
         if (thresholdCanvas) {
           const context = thresholdCanvas.getContext("2d");
@@ -380,6 +392,8 @@ export function BodyExperiment({
             elapsedMs > 0 ? (segmentationFrameCountRef.current * 1000) / elapsedMs : 0,
           poseMaskMs,
           thresholdMs,
+          foregroundComponentMs,
+          foregroundComponentCount: foregroundComponents.length,
           preprocessingMs: 0,
           contourMs,
           selectionMs,
@@ -753,7 +767,7 @@ export function BodyExperiment({
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nForeground components: ${segmentationMetrics.foregroundComponentMs.toFixed(1)} ms (${segmentationMetrics.foregroundComponentCount})\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">
