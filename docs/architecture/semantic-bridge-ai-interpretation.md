@@ -227,6 +227,14 @@ Candidate dimensions for review:
 These are comparison candidates only. No dimension, enum, value vocabulary,
 or mapping is approved by this document.
 
+In either option, `sensoryExpression` is a natural-language explanation for the
+user and is presentation-only. It must not participate in sake-term
+authorization. Only schema-validated `semanticProfile` fields may be passed to
+the deterministic sake-term mapping step. If the free-text expression and the
+profile appear to disagree, authorization still ignores the expression. The
+system must not derive a sake term from `sensoryExpression` through free-text
+similarity, keyword matching, or natural-language analysis.
+
 ## 6. Insufficient, ambiguous, and invalid outcomes
 
 The AI must not be forced to produce a sensory expression for every request.
@@ -270,6 +278,12 @@ establish the sensory meaning of a product vocabulary item. A deterministic
 mapper may accept only a validated profile and an explicitly reviewed rule;
 that mapper is where a future human decision such as “this profile may
 authorize this term” belongs.
+
+The deterministic mapper must inspect only the schema-validated
+`semanticProfile`; it must never use the presentation-only `sensoryExpression`
+as an authorization input. This boundary remains true even when the two
+outputs are inconsistent. Free-text similarity or natural-language analysis of
+the expression is not a permitted fallback path to a sake term.
 
 This Phase A document intentionally does not define any concrete
 `semanticProfile -> kire` or equivalent rule.
