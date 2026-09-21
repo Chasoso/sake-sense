@@ -9,7 +9,12 @@ import {
   type BodyPoseFrame,
 } from "../../domain/body";
 import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
-import { createBodyPoseLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
+import {
+  createBodyPoseLandmarker,
+  createBodySegmentationSpikeLandmarker,
+  isCameraSupported,
+  toBodyLandmarks,
+} from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import {
   createFixtureSensoryBridgeProvider,
@@ -22,8 +27,25 @@ import {
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
+import {
+  drawGoldContour,
+  drawRawMask,
+  drawThresholdedMask,
+  SEGMENTATION_THRESHOLD,
+  readSegmentationSpikeClock,
+  thresholdSegmentationMask,
+  type SegmentationSpikeMetrics,
+} from "./segmentation-mask-spike";
 
 type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
+
+function isSegmentationSpikeEnabled(): boolean {
+  return (
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("bodySegmentationSpike") === "1"
+  );
+}
 
 const connections: Array<[number, number]> = [
   [11, 12],
@@ -82,6 +104,10 @@ export function BodyExperiment({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const segmentationCameraRef = useRef<HTMLCanvasElement>(null);
+  const rawMaskRef = useRef<HTMLCanvasElement>(null);
+  const thresholdMaskRef = useRef<HTMLCanvasElement>(null);
+  const contourRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -91,6 +117,12 @@ export function BodyExperiment({
   const framesRef = useRef<BodyPoseFrame[]>([]);
   const sampleAttemptsRef = useRef(0);
   const invalidFrameCountRef = useRef(0);
+  const segmentationFrameCountRef = useRef(0);
+  const segmentationStartedAtRef = useRef(0);
+  const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
+    null,
+  );
+  const segmentationSpike = isSegmentationSpikeEnabled();
 
   const clearPoseCanvas = () => {
     const canvas = canvasRef.current;
@@ -138,7 +170,9 @@ export function BodyExperiment({
       if (!videoRef.current) throw new Error("Video element is unavailable");
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
-      landmarkerRef.current = await createBodyPoseLandmarker();
+      landmarkerRef.current = await (segmentationSpike
+        ? createBodySegmentationSpikeLandmarker()
+        : createBodyPoseLandmarker());
       setStatus("ready");
     } catch {
       stopCapture();
@@ -153,13 +187,70 @@ export function BodyExperiment({
     if (!video || !landmarker) return;
     const elapsed = timestamp - startedAtRef.current;
     sampleAttemptsRef.current += 1;
+    const poseStartedAt = readSegmentationSpikeClock();
     const detection = landmarker.detectForVideo(video, timestamp);
+    const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
+    if (segmentationSpike) {
+      const cameraCanvas = segmentationCameraRef.current;
+      if (cameraCanvas) {
+        cameraCanvas
+          .getContext("2d")
+          ?.drawImage(video, 0, 0, cameraCanvas.width, cameraCanvas.height);
+      }
+      const mask = detection.segmentationMasks?.[0];
+      if (mask) {
+        const values = mask.getAsFloat32Array();
+        const rawCanvas = rawMaskRef.current;
+        const thresholdCanvas = thresholdMaskRef.current;
+        const contourCanvas = contourRef.current;
+        if (rawCanvas && (rawCanvas.width !== mask.width || rawCanvas.height !== mask.height)) {
+          rawCanvas.width = mask.width;
+          rawCanvas.height = mask.height;
+        }
+        if (
+          thresholdCanvas &&
+          (thresholdCanvas.width !== mask.width || thresholdCanvas.height !== mask.height)
+        ) {
+          thresholdCanvas.width = mask.width;
+          thresholdCanvas.height = mask.height;
+        }
+        if (rawCanvas) {
+          const context = rawCanvas.getContext("2d");
+          if (context) drawRawMask(context, values, mask.width, mask.height);
+        }
+        const thresholdStartedAt = readSegmentationSpikeClock();
+        const binary = thresholdSegmentationMask(values, mask.width, mask.height);
+        const thresholdMs = readSegmentationSpikeClock() - thresholdStartedAt;
+        if (thresholdCanvas) {
+          const context = thresholdCanvas.getContext("2d");
+          if (context) drawThresholdedMask(context, binary);
+        }
+        const contourStartedAt = readSegmentationSpikeClock();
+        if (contourCanvas) {
+          const context = contourCanvas.getContext("2d");
+          if (context) drawGoldContour(context, binary, contourCanvas.width, contourCanvas.height);
+        }
+        const contourMs = readSegmentationSpikeClock() - contourStartedAt;
+        segmentationFrameCountRef.current += 1;
+        const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
+        setSegmentationMetrics({
+          frameCount: segmentationFrameCountRef.current,
+          elapsedMs,
+          approximateFps:
+            elapsedMs > 0 ? (segmentationFrameCountRef.current * 1000) / elapsedMs : 0,
+          poseMaskMs,
+          thresholdMs,
+          contourMs,
+        });
+      }
+    }
     const landmarks = detection.landmarks[0];
     if (landmarks) {
       const bodyLandmarks = toBodyLandmarks(landmarks);
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
       drawPose(canvasRef.current!, bodyLandmarks);
     } else invalidFrameCountRef.current += 1;
+    detection.close();
     if (elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
@@ -191,6 +282,9 @@ export function BodyExperiment({
     setMotionDiagnostic(null);
     sampleAttemptsRef.current = 0;
     invalidFrameCountRef.current = 0;
+    segmentationFrameCountRef.current = 0;
+    segmentationStartedAtRef.current = performance.now();
+    setSegmentationMetrics(null);
     setReplayStatus("idle");
     setFeatures(null);
     setResult(null);
@@ -324,6 +418,39 @@ export function BodyExperiment({
         <div className="body-camera" data-status={status} aria-live="polite">
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
+          {segmentationSpike && (
+            <section className="body-segmentation-spike" aria-label="Body segmentation mask spike">
+              <p className="body-segmentation-spike__note">
+                Development-only mask preview · threshold {SEGMENTATION_THRESHOLD}
+              </p>
+              <div className="body-segmentation-spike__grid">
+                <figure>
+                  <canvas ref={segmentationCameraRef} width="320" height="180" />
+                  <figcaption>Camera</figcaption>
+                </figure>
+                <figure>
+                  <canvas ref={rawMaskRef} width="320" height="180" />
+                  <figcaption>Raw mask</figcaption>
+                </figure>
+                <figure>
+                  <canvas ref={thresholdMaskRef} width="320" height="180" />
+                  <figcaption>Thresholded mask</figcaption>
+                </figure>
+                <figure>
+                  <canvas ref={contourRef} width="320" height="180" />
+                  <figcaption>Gold contour</figcaption>
+                </figure>
+              </div>
+              {segmentationMetrics && (
+                <pre className="body-segmentation-spike__metrics">
+                  {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                </pre>
+              )}
+              <p className="body-segmentation-spike__poses">
+                Try: neutral · arms open · one arm up · twist · upper-body-only · edge movement
+              </p>
+            </section>
+          )}
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
             <button className="body-camera__back" type="button" onClick={onBack}>
               <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />

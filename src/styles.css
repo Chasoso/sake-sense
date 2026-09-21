@@ -21,6 +21,45 @@
   text-rendering: optimizeLegibility;
 }
 
+.body-segmentation-spike {
+  position: absolute;
+  z-index: 4;
+  inset: 1rem;
+  overflow: auto;
+  padding: 0.75rem;
+  color: #ead7a0;
+  background: rgb(8 29 24 / 88%);
+  font-size: 0.72rem;
+}
+
+.body-segmentation-spike__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.body-segmentation-spike figure {
+  margin: 0;
+}
+
+.body-segmentation-spike canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #071d18;
+}
+
+.body-segmentation-spike figcaption,
+.body-segmentation-spike__note,
+.body-segmentation-spike__poses {
+  margin: 0.25rem 0 0;
+}
+
+.body-segmentation-spike__metrics {
+  margin: 0.6rem 0 0;
+  white-space: pre-wrap;
+}
+
 *,
 *::before,
 *::after {

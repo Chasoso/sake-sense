@@ -18,6 +18,21 @@ export async function createBodyPoseLandmarker(): Promise<PoseLandmarker> {
   });
 }
 
+/**
+ * Dev-only architecture-spike factory. The normal capture factory above must
+ * remain mask-free because segmentation is presentation research, not input
+ * semantics.
+ */
+export async function createBodySegmentationSpikeLandmarker(): Promise<PoseLandmarker> {
+  const vision = await FilesetResolver.forVisionTasks(VISION_WASM_URL);
+  return PoseLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: POSE_MODEL_URL },
+    runningMode: "VIDEO",
+    numPoses: 1,
+    outputSegmentationMasks: true,
+  });
+}
+
 export function toBodyLandmarks(landmarks: NormalizedLandmark[]): BodyLandmark[] {
   return landmarks.map((landmark) => ({
     x: landmark.x,
