@@ -68,7 +68,7 @@ export const responseSchema = {
       },
       required: ["outcome"],
     },
-    sensoryExpressions: { type: "array", items: { type: "string" } },
+    sensoryExpressions: { type: "array", items: { type: "string" }, maxItems: 0 },
     candidateTermIds: { type: "array", items: { type: "string" }, maxItems: 0 },
     unmappedFeatures: { type: "array", items: { type: "string" } },
     reason: { type: "string" },

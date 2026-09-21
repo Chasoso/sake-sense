@@ -106,6 +106,36 @@ describe("shadow AI sensory interpretation", () => {
     expect(voiceResponse.candidateTermIds).toEqual([]);
   });
 
+  it("keeps legacy user output stable when the shadow interpretation changes", async () => {
+    async function runShadowVariant(shadowExpression, legacyExpression, legacyReason) {
+      const handler = createHandler({
+        env,
+        logger: { info: vi.fn(), error: vi.fn() },
+        invoke: vi.fn(async () => ({
+          ...baseModelResponse,
+          sensoryInterpretation: {
+            ...interpretation,
+            sensoryExpression: shadowExpression,
+          },
+          sensoryExpressions: [legacyExpression],
+          reason: legacyReason,
+        })),
+      });
+      return JSON.parse((await handler({ body: request("body", bodyInput) })).body);
+    }
+
+    const first = await runShadowVariant("ゆっくり広がる感じ", "AI表現A", "AI理由A");
+    const second = await runShadowVariant("急に収束する感じ", "AI表現B", "AI理由B");
+
+    expect(first.sensoryInterpretation.sensoryExpression).not.toBe(
+      second.sensoryInterpretation.sensoryExpression,
+    );
+    expect(first.sensoryExpressions).toEqual(second.sensoryExpressions);
+    expect(first.reason).toBe(second.reason);
+    expect(first.candidateTermIds).toEqual(second.candidateTermIds);
+    expect(first.candidateTermIds).toEqual(["kire"]);
+  });
+
   it("logs only bounded interpretation diagnostics, never provider text or raw input", async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
     const handler = createHandler({

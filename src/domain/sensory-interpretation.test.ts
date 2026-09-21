@@ -5,6 +5,7 @@ import {
   type PrimarySemanticProfile,
 } from "./sensory-interpretation";
 import { applyReviewedSemanticGrounding, getSelectableSensoryTermIds } from "./sensory-bridge";
+import { findSakeProductMatches } from "./sake-product-matching";
 
 const primaryProfile: PrimarySemanticProfile = {
   timeQuality: "sustained",
@@ -133,5 +134,42 @@ describe("AI sensory interpretation contract", () => {
 
     expect(response.candidateTermIds).toEqual([]);
     expect(response.sensoryInterpretation?.outcome).toBe("interpreted");
+  });
+
+  it("keeps legacy output and product reachability stable across shadow variants", () => {
+    const request = {
+      modality: "body" as const,
+      input: {
+        duration: "short" as const,
+        ending: "abrupt" as const,
+        expansion: "unknown" as const,
+        direction: "unknown" as const,
+        repetition: "single" as const,
+        participation: "localized" as const,
+        spread: "compact" as const,
+        speed: "unknown" as const,
+      },
+      allowedTermIds: getSelectableSensoryTermIds(),
+    };
+    const makeResponse = (expression: string) =>
+      applyReviewedSemanticGrounding(request, {
+        sensoryInterpretation: { ...interpreted, sensoryExpression: expression },
+        sensoryExpressions: [expression],
+        candidateTermIds: ["atoaji"],
+        unmappedFeatures: [],
+        reason: `AI reason: ${expression}`,
+      });
+
+    const first = makeResponse("ゆっくり広がる感じ");
+    const second = makeResponse("急に収束する感じ");
+    expect(first.sensoryInterpretation?.sensoryExpression).not.toBe(
+      second.sensoryInterpretation?.sensoryExpression,
+    );
+    expect(first.sensoryExpressions).toEqual(second.sensoryExpressions);
+    expect(first.reason).toBe(second.reason);
+    expect(first.candidateTermIds).toEqual(second.candidateTermIds);
+    expect(findSakeProductMatches(first.candidateTermIds)).toEqual(
+      findSakeProductMatches(second.candidateTermIds),
+    );
   });
 });
