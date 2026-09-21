@@ -7,6 +7,9 @@ export const CONTOUR_SPATIAL_AVERAGING_RADIUS = 0;
 export const CONTOUR_TEMPORAL_ALPHA = 0.75;
 export const CONTOUR_REACQUIRE_RESET_FRAME_COUNT = 3;
 export const CONTOUR_DISCONTINUITY_DISTANCE = 48;
+export const INNER_CONTOUR_MIN_AREA = 24;
+export const INNER_CONTOUR_OPACITY = 0.7;
+export const INNER_CONTOUR_LINE_WIDTH_SCALE = 0.7;
 
 export function readSegmentationSpikeClock(): number {
   return performance.now();
@@ -20,6 +23,24 @@ export type BinaryMask = {
 
 export type MaskPoint = { x: number; y: number };
 export type Contour = MaskPoint[];
+
+export type HoleComponent = {
+  area: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  pixels: MaskPoint[];
+};
+
+export type ForegroundComponent = {
+  area: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  pixels: MaskPoint[];
+};
 
 export type PaddedMask = {
   width: number;
@@ -55,6 +76,158 @@ export function thresholdSegmentationMask(
     data[index] = (values[index] ?? 0) >= threshold ? 1 : 0;
   }
   return { width, height, data };
+}
+
+function isMaskBorder(x: number, y: number, width: number, height: number): boolean {
+  return x === 0 || y === 0 || x === width - 1 || y === height - 1;
+}
+
+function maskIndex(x: number, y: number, width: number): number {
+  return y * width + x;
+}
+
+/** Finds 4-neighbor connected foreground components in deterministic scan order. */
+export function findForegroundComponents(mask: BinaryMask): ForegroundComponent[] {
+  const visited = new Uint8Array(mask.data.length);
+  const components: ForegroundComponent[] = [];
+  const directions = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+
+  for (let y = 0; y < mask.height; y += 1) {
+    for (let x = 0; x < mask.width; x += 1) {
+      const startIndex = maskIndex(x, y, mask.width);
+      if (!mask.data[startIndex] || visited[startIndex]) continue;
+      const queue: MaskPoint[] = [{ x, y }];
+      visited[startIndex] = 1;
+      const pixels: MaskPoint[] = [];
+      let minX = x;
+      let minY = y;
+      let maxX = x;
+      let maxY = y;
+
+      for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+        const point = queue[queueIndex];
+        pixels.push(point);
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+        directions.forEach(([dx, dy]) => {
+          const nextX = point.x + dx;
+          const nextY = point.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= mask.width || nextY >= mask.height) return;
+          const nextIndex = maskIndex(nextX, nextY, mask.width);
+          if (mask.data[nextIndex] && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            queue.push({ x: nextX, y: nextY });
+          }
+        });
+      }
+
+      components.push({ area: pixels.length, minX, minY, maxX, maxY, pixels });
+    }
+  }
+  return components;
+}
+
+/** Selects the largest foreground component as the one-person spike subject. */
+export function selectPrimaryForegroundComponent(
+  components: ForegroundComponent[],
+): ForegroundComponent | null {
+  return components.reduce<ForegroundComponent | null>((primary, component) => {
+    if (!primary || component.area > primary.area) return component;
+    return primary;
+  }, null);
+}
+
+/** Creates a non-mutating binary mask containing only the selected component. */
+export function createComponentMask(
+  width: number,
+  height: number,
+  component: ForegroundComponent | null,
+): BinaryMask {
+  const data = new Uint8Array(width * height);
+  component?.pixels.forEach((point) => {
+    if (point.x >= 0 && point.y >= 0 && point.x < width && point.y < height) {
+      data[maskIndex(point.x, point.y, width)] = 1;
+    }
+  });
+  return { width, height, data };
+}
+
+/** Finds background components that are not connected to the mask border. */
+export function findEnclosedBackgroundComponents(mask: BinaryMask): HoleComponent[] {
+  const visited = new Uint8Array(mask.data.length);
+  const holes: HoleComponent[] = [];
+  const directions = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+
+  for (let y = 0; y < mask.height; y += 1) {
+    for (let x = 0; x < mask.width; x += 1) {
+      const startIndex = maskIndex(x, y, mask.width);
+      if (mask.data[startIndex] || visited[startIndex]) continue;
+      const queue: MaskPoint[] = [{ x, y }];
+      visited[startIndex] = 1;
+      const pixels: MaskPoint[] = [];
+      let touchesBorder = false;
+      let minX = x;
+      let minY = y;
+      let maxX = x;
+      let maxY = y;
+      for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+        const point = queue[queueIndex];
+        pixels.push(point);
+        touchesBorder ||= isMaskBorder(point.x, point.y, mask.width, mask.height);
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+        directions.forEach(([dx, dy]) => {
+          const nextX = point.x + dx;
+          const nextY = point.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= mask.width || nextY >= mask.height) {
+            return;
+          }
+          const nextIndex = maskIndex(nextX, nextY, mask.width);
+          if (!mask.data[nextIndex] && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            queue.push({ x: nextX, y: nextY });
+          }
+        });
+      }
+      if (!touchesBorder) holes.push({ area: pixels.length, minX, minY, maxX, maxY, pixels });
+    }
+  }
+  return holes;
+}
+
+export function filterHoleComponents(
+  holes: HoleComponent[],
+  minArea = INNER_CONTOUR_MIN_AREA,
+): HoleComponent[] {
+  return holes
+    .filter((hole) => hole.area >= minArea)
+    .map((hole) => ({ ...hole, pixels: hole.pixels.slice() }));
+}
+
+export function extractInnerContours(mask: BinaryMask, holes: HoleComponent[]): Contour[] {
+  return holes.flatMap((hole) => {
+    const holeMask = new Uint8Array(mask.data.length);
+    hole.pixels.forEach((point) => {
+      holeMask[maskIndex(point.x, point.y, mask.width)] = 1;
+    });
+    const contours = extractIsoContours(holeMask, mask.width, mask.height);
+    const primary = selectPrimaryContour(contours);
+    return primary ? [primary] : [];
+  });
 }
 
 type Segment = { start: MaskPoint; end: MaskPoint };
@@ -564,17 +737,16 @@ export function drawThresholdedMask(context: CanvasRenderingContext2D, mask: Bin
   context.putImageData(image, 0, 0);
 }
 
-export function drawContour(
+function drawContourPath(
   context: CanvasRenderingContext2D,
-  contour: Contour | null,
+  contour: Contour,
   width: number,
   height: number,
-  color = "#ead7a0",
+  color: string,
   sourceWidth = width,
   sourceHeight = height,
+  lineWidthScale = 1,
 ): number {
-  context.clearRect(0, 0, width, height);
-  if (!contour || contour.length < 3) return 0;
   const scaleX = width / sourceWidth;
   const scaleY = height / sourceHeight;
   context.beginPath();
@@ -586,7 +758,7 @@ export function drawContour(
   });
   context.closePath();
   context.strokeStyle = color;
-  context.lineWidth = Math.max(2, width / 180);
+  context.lineWidth = Math.max(1, (width / 180) * lineWidthScale);
   context.lineJoin = "round";
   context.lineCap = "round";
   context.shadowColor = "rgba(234, 215, 160, 0.28)";
@@ -596,18 +768,78 @@ export function drawContour(
   return contour.length;
 }
 
+export function drawContours(
+  context: CanvasRenderingContext2D,
+  contours: Contour[],
+  width: number,
+  height: number,
+  color = "#ead7a0",
+  sourceWidth = width,
+  sourceHeight = height,
+  lineWidthScale = 1,
+  clear = true,
+): number {
+  if (clear) context.clearRect(0, 0, width, height);
+  return contours.reduce(
+    (count, contour) =>
+      contour.length >= 3
+        ? count +
+          drawContourPath(
+            context,
+            contour,
+            width,
+            height,
+            color,
+            sourceWidth,
+            sourceHeight,
+            lineWidthScale,
+          )
+        : count,
+    0,
+  );
+}
+
+export function drawContour(
+  context: CanvasRenderingContext2D,
+  contour: Contour | null,
+  width: number,
+  height: number,
+  color = "#ead7a0",
+  sourceWidth = width,
+  sourceHeight = height,
+  lineWidthScale = 1,
+): number {
+  return drawContours(
+    context,
+    contour ? [contour] : [],
+    width,
+    height,
+    color,
+    sourceWidth,
+    sourceHeight,
+    lineWidthScale,
+  );
+}
+
 export type SegmentationSpikeMetrics = {
   frameCount: number;
   elapsedMs: number;
   approximateFps: number;
   poseMaskMs: number;
   thresholdMs: number;
+  foregroundComponentMs: number;
+  foregroundComponentCount: number;
   preprocessingMs: number;
   contourMs: number;
   selectionMs: number;
   simplificationMs: number;
   smoothingMs: number;
   spatialAveragingMs: number;
+  holeDetectionMs: number;
+  holeFilteringMs: number;
+  innerContourMs: number;
+  innerContourCount: number;
+  acceptedHoleArea: number;
   resamplingMs: number;
   windingMs: number;
   alignmentMs: number;

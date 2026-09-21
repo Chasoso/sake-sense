@@ -4,12 +4,19 @@ import {
   averageClosedContour,
   ContourStabilizer,
   createPaddedMask,
+  createComponentMask,
   ensureContourWinding,
+  extractInnerContours,
   extractIsoContours,
+  filterHoleComponents,
+  findEnclosedBackgroundComponents,
+  findForegroundComponents,
+  INNER_CONTOUR_MIN_AREA,
   polygonArea,
   RAW_MASK_ISO_LEVEL,
   resampleClosedContour,
   selectPrimaryContour,
+  selectPrimaryForegroundComponent,
   simplifyContour,
   smoothContour,
   SEGMENTATION_THRESHOLD,
@@ -18,6 +25,14 @@ import {
 
 function maskValues(rows: number[][]): number[] {
   return rows.flat();
+}
+
+function binaryMask(rows: number[][]) {
+  return {
+    width: rows[0].length,
+    height: rows.length,
+    data: new Uint8Array(rows.flat()),
+  };
 }
 
 const referenceContour = [
@@ -29,6 +44,104 @@ const referenceContour = [
 ];
 
 describe("segmentation mask spike helpers", () => {
+  it("limits hole detection to the largest foreground component", () => {
+    const mask = binaryMask([
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0],
+      [1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0],
+      [1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    ]);
+    const snapshot = [...mask.data];
+    const components = findForegroundComponents(mask);
+    const primary = selectPrimaryForegroundComponent(components);
+    const primaryMask = createComponentMask(mask.width, mask.height, primary);
+
+    expect(components).toHaveLength(2);
+    expect(primary?.area).toBeGreaterThan(components[1 - components.indexOf(primary!)].area);
+    expect(findEnclosedBackgroundComponents(mask)).toHaveLength(2);
+    expect(findEnclosedBackgroundComponents(primaryMask)).toMatchObject([
+      { area: 4, minX: 2, minY: 2, maxX: 3, maxY: 3 },
+    ]);
+    expect([...mask.data]).toEqual(snapshot);
+    expect([...primaryMask.data].filter(Boolean)).toHaveLength(primary?.area ?? 0);
+  });
+
+  it("returns no primary holes for an all-background mask", () => {
+    const mask = binaryMask([
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]);
+    const components = findForegroundComponents(mask);
+    const primaryMask = createComponentMask(
+      mask.width,
+      mask.height,
+      selectPrimaryForegroundComponent(components),
+    );
+    expect(components).toEqual([]);
+    expect(findEnclosedBackgroundComponents(primaryMask)).toEqual([]);
+  });
+
+  it("finds one enclosed background component and extracts its ordered contour", () => {
+    const mask = binaryMask([
+      [1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 1, 1],
+      [1, 1, 0, 0, 0, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1],
+    ]);
+    const holes = findEnclosedBackgroundComponents(mask);
+    const accepted = filterHoleComponents(holes, 4);
+    const contours = extractInnerContours(mask, accepted);
+    expect(holes).toHaveLength(1);
+    expect(holes[0]).toMatchObject({ area: 9, minX: 2, minY: 2, maxX: 4, maxY: 4 });
+    expect(contours).toHaveLength(1);
+    expect(contours[0].length).toBeGreaterThanOrEqual(3);
+    expect(polygonArea(contours[0])).toBeGreaterThan(0);
+    expect(contours).toEqual(extractInnerContours(mask, accepted));
+  });
+
+  it("does not treat border-connected background as an enclosed hole", () => {
+    const mask = binaryMask([
+      [1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0],
+    ]);
+    expect(findEnclosedBackgroundComponents(mask)).toEqual([]);
+  });
+
+  it("detects multiple holes and filters small components by area", () => {
+    const mask = binaryMask([
+      [1, 1, 1, 1, 1, 1],
+      [1, 0, 1, 1, 0, 1],
+      [1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1],
+    ]);
+    const holes = findEnclosedBackgroundComponents(mask);
+    expect(holes).toHaveLength(2);
+    expect(filterHoleComponents(holes, 2)).toEqual([]);
+    expect(filterHoleComponents(holes, 1)).toHaveLength(2);
+  });
+
+  it("returns no holes for a solid foreground mask and preserves input", () => {
+    const mask = binaryMask([
+      [1, 1, 1],
+      [1, 1, 1],
+      [1, 1, 1],
+    ]);
+    const snapshot = mask.data.slice();
+    expect(findEnclosedBackgroundComponents(mask)).toEqual([]);
+    expect([...mask.data]).toEqual([...snapshot]);
+    expect(INNER_CONTOUR_MIN_AREA).toBeGreaterThan(0);
+  });
+
   it("thresholds a synthetic float mask without mutating the input", () => {
     const values = new Float32Array([0.1, 0.8, 0.7, 0.2]);
     const snapshot = [...values];
