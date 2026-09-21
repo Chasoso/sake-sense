@@ -47,9 +47,13 @@ Upper-arm and forearm half-widths are reference-pixel constants
 `HYBRID_FOREARM_HALF_WIDTH_PX = 6`). They scale with the reference raster
 (`320 x 180`) so a uniformly scaled source preserves the same normalized
 geometry; this is display raster scaling, not body-size estimation. Candidate
-portions outside the binary person mask are discarded, and portions within
-`HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025` of the outer contour are
-suppressed. The retained internal boundary uses
+portions outside the binary person mask are discarded. Outer-contour
+suppression uses point-to-segment distance in source pixel space, so the same
+threshold applies to horizontal, vertical, and diagonal edges in a non-square
+frame. `HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX = 5` is a
+reference-pixel threshold scaled with the same `320 x 180` raster reference as
+the arm widths. The previous normalized-space distance was aspect-ratio
+dependent. The retained internal boundary uses
 `HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45` and a thinner line than the outer
 contour.
 

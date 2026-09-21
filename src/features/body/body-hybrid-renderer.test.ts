@@ -7,6 +7,7 @@ import {
   buildUpperBodyPoseGuides,
   filterBoundaryToPersonMask,
   HYBRID_FOREARM_HALF_WIDTH_PX,
+  HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX,
   HYBRID_POSE_MIN_VISIBILITY,
   HYBRID_UPPER_ARM_HALF_WIDTH_PX,
   suppressBoundaryNearOuterContour,
@@ -195,16 +196,96 @@ describe("body hybrid renderer helpers", () => {
   it("suppresses outer-edge candidates while retaining internal candidates", () => {
     const outerContour = [
       { x: 0, y: 0 },
-      { x: 100, y: 0 },
-      { x: 100, y: 100 },
-      { x: 0, y: 100 },
+      { x: 320, y: 0 },
+      { x: 320, y: 180 },
+      { x: 0, y: 180 },
     ];
     const candidates = [
-      { start: { x: 0.2, y: 0.01 }, end: { x: 0.8, y: 0.01 } },
+      { start: { x: 0.2, y: 3 / 180 }, end: { x: 0.8, y: 3 / 180 } },
       { start: { x: 0.2, y: 0.5 }, end: { x: 0.8, y: 0.5 } },
     ];
-    const retained = suppressBoundaryNearOuterContour(candidates, outerContour, 100, 100, 0.05);
+    const retained = suppressBoundaryNearOuterContour(
+      candidates,
+      outerContour,
+      320,
+      180,
+      HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX,
+    );
     expect(retained).toEqual([candidates[1]]);
+  });
+
+  it.each([
+    {
+      name: "horizontal",
+      point: { x: 0.5, y: 3 / 180 },
+      contour: [
+        { x: 0, y: 0 },
+        { x: 320, y: 0 },
+      ],
+    },
+    {
+      name: "vertical",
+      point: { x: 3 / 320, y: 0.5 },
+      contour: [
+        { x: 0, y: 0 },
+        { x: 0, y: 180 },
+      ],
+    },
+  ])("uses the same pixel threshold for $name edges", ({ point, contour }) => {
+    const candidate = [
+      {
+        start: point,
+        end: {
+          x: point.x + (contour[0].x === contour[1].x ? 0 : 0.1),
+          y: point.y + (contour[0].x === contour[1].x ? 0.1 : 0),
+        },
+      },
+    ];
+    expect(
+      suppressBoundaryNearOuterContour(
+        candidate,
+        contour,
+        320,
+        180,
+        HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX,
+      ),
+    ).toEqual([]);
+  });
+
+  it("measures point-to-segment distance in pixel space for diagonal edges", () => {
+    const length = Math.hypot(64, 36);
+    const normal = { x: (-36 * 5) / length, y: (64 * 5) / length };
+    const candidate = [
+      {
+        start: { x: 0.2 + normal.x / 320, y: 0.2 + normal.y / 180 },
+        end: { x: 0.4 + normal.x / 320, y: 0.4 + normal.y / 180 },
+      },
+    ];
+    const diagonal = [
+      { x: 0, y: 0 },
+      { x: 320, y: 180 },
+    ];
+    expect(suppressBoundaryNearOuterContour(candidate, diagonal, 320, 180, 5.1)).toEqual([]);
+    expect(suppressBoundaryNearOuterContour(candidate, diagonal, 320, 180, 4.9)).toEqual(candidate);
+  });
+
+  it("keeps the suppression decision consistent under uniform raster scaling", () => {
+    const normalizedCandidate = [{ start: { x: 0.5, y: 3 / 180 }, end: { x: 0.6, y: 3 / 180 } }];
+    const contour320 = [
+      { x: 0, y: 0 },
+      { x: 320, y: 0 },
+    ];
+    const contour640 = [
+      { x: 0, y: 0 },
+      { x: 640, y: 0 },
+    ];
+    expect(suppressBoundaryNearOuterContour(normalizedCandidate, contour320, 320, 180)).toEqual([]);
+    expect(suppressBoundaryNearOuterContour(normalizedCandidate, contour640, 640, 360)).toEqual([]);
+  });
+
+  it("returns candidates unchanged when the outer contour is empty", () => {
+    const candidates = [{ start: { x: 0.2, y: 0.2 }, end: { x: 0.3, y: 0.3 } }];
+    expect(suppressBoundaryNearOuterContour(candidates, [], 320, 180)).toEqual(candidates);
   });
 
   it("falls back to no internal boundaries without mask or outer contour", () => {

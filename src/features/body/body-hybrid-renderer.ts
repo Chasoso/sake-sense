@@ -9,7 +9,7 @@ export const HYBRID_REFERENCE_SOURCE_WIDTH = 320;
 export const HYBRID_REFERENCE_SOURCE_HEIGHT = 180;
 export const HYBRID_UPPER_ARM_HALF_WIDTH_PX = 8;
 export const HYBRID_FOREARM_HALF_WIDTH_PX = 6;
-export const HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE = 0.025;
+export const HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX = 5;
 export const HYBRID_INTERNAL_BOUNDARY_OPACITY = 0.45;
 export const HYBRID_INTERNAL_BOUNDARY_LINE_WIDTH_SCALE = 0.6;
 
@@ -206,16 +206,17 @@ export function filterBoundaryToPersonMask(
   return splitByPredicate(candidates, (point) => maskContains(mask, point));
 }
 
-function distanceToContour(
+function distanceToContourPx(
   point: HybridPoint,
   contour: Contour,
   width: number,
   height: number,
 ): number {
+  const pointPx = { x: point.x * width, y: point.y * height };
   return contour.reduce((minimum, contourPoint, index) => {
     const nextPoint = contour[(index + 1) % contour.length];
-    const start = { x: contourPoint.x / width, y: contourPoint.y / height };
-    const end = { x: nextPoint.x / width, y: nextPoint.y / height };
+    const start = contourPoint;
+    const end = nextPoint;
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const lengthSquared = dx * dx + dy * dy;
@@ -223,12 +224,12 @@ function distanceToContour(
       lengthSquared === 0
         ? 0
         : Math.min(
-            Math.max(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0),
+            Math.max(((pointPx.x - start.x) * dx + (pointPx.y - start.y) * dy) / lengthSquared, 0),
             1,
           );
     return Math.min(
       minimum,
-      Math.hypot(point.x - (start.x + dx * projection), point.y - (start.y + dy * projection)),
+      Math.hypot(pointPx.x - (start.x + dx * projection), pointPx.y - (start.y + dy * projection)),
     );
   }, Number.POSITIVE_INFINITY);
 }
@@ -239,13 +240,15 @@ export function suppressBoundaryNearOuterContour(
   outerContour: Contour | null,
   sourceWidth: number,
   sourceHeight: number,
-  suppressionDistance = HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE,
+  suppressionDistancePx = HYBRID_OUTER_CONTOUR_SUPPRESSION_DISTANCE_PX,
 ): InternalBoundarySegment[] {
   if (!outerContour || outerContour.length === 0) return candidates.slice();
+  const suppressionDistance =
+    suppressionDistancePx * referencePixelScale(sourceWidth, sourceHeight);
   return splitByPredicate(
     candidates,
     (point) =>
-      distanceToContour(point, outerContour, sourceWidth, sourceHeight) >= suppressionDistance,
+      distanceToContourPx(point, outerContour, sourceWidth, sourceHeight) >= suppressionDistance,
   );
 }
 
