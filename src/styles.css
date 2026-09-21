@@ -22,9 +22,10 @@
 }
 
 .body-segmentation-spike {
-  position: absolute;
-  z-index: 4;
-  inset: 1rem;
+  position: static;
+  z-index: auto;
+  width: min(100%, 1080px);
+  margin: 24px auto 0;
   overflow: auto;
   padding: 0.75rem;
   color: #ead7a0;

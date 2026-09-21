@@ -418,39 +418,7 @@ export function BodyExperiment({
         <div className="body-camera" data-status={status} aria-live="polite">
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
-          {segmentationSpike && (
-            <section className="body-segmentation-spike" aria-label="Body segmentation mask spike">
-              <p className="body-segmentation-spike__note">
-                Development-only mask preview · threshold {SEGMENTATION_THRESHOLD}
-              </p>
-              <div className="body-segmentation-spike__grid">
-                <figure>
-                  <canvas ref={segmentationCameraRef} width="320" height="180" />
-                  <figcaption>Camera</figcaption>
-                </figure>
-                <figure>
-                  <canvas ref={rawMaskRef} width="320" height="180" />
-                  <figcaption>Raw mask</figcaption>
-                </figure>
-                <figure>
-                  <canvas ref={thresholdMaskRef} width="320" height="180" />
-                  <figcaption>Thresholded mask</figcaption>
-                </figure>
-                <figure>
-                  <canvas ref={contourRef} width="320" height="180" />
-                  <figcaption>Gold contour</figcaption>
-                </figure>
-              </div>
-              {segmentationMetrics && (
-                <pre className="body-segmentation-spike__metrics">
-                  {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
-                </pre>
-              )}
-              <p className="body-segmentation-spike__poses">
-                Try: neutral · arms open · one arm up · twist · upper-body-only · edge movement
-              </p>
-            </section>
-          )}
+
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
             <button className="body-camera__back" type="button" onClick={onBack}>
               <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />
@@ -533,6 +501,39 @@ export function BodyExperiment({
             </div>
           )}
         </div>
+        {segmentationSpike && (
+          <section className="body-segmentation-spike" aria-label="Body segmentation mask spike">
+            <p className="body-segmentation-spike__note">
+              Development-only mask preview · threshold {SEGMENTATION_THRESHOLD}
+            </p>
+            <div className="body-segmentation-spike__grid">
+              <figure>
+                <canvas ref={segmentationCameraRef} width="320" height="180" />
+                <figcaption>Camera</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={rawMaskRef} width="320" height="180" />
+                <figcaption>Raw mask</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={thresholdMaskRef} width="320" height="180" />
+                <figcaption>Thresholded mask</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={contourRef} width="320" height="180" />
+                <figcaption>Gold contour</figcaption>
+              </figure>
+            </div>
+            {segmentationMetrics && (
+              <pre className="body-segmentation-spike__metrics">
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+              </pre>
+            )}
+            <p className="body-segmentation-spike__poses">
+              Try: neutral · arms open · one arm up · twist · upper-body-only · edge movement
+            </p>
+          </section>
+        )}
         {!isAnalyzing && (features || (import.meta.env.DEV && motionDiagnostic)) && (
           <div className="body-capture-details">
             {features && (
