@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createPaddedMask,
   extractIsoContours,
   polygonArea,
   RAW_MASK_ISO_LEVEL,
@@ -97,6 +98,77 @@ describe("segmentation mask spike helpers", () => {
     const contours = extractIsoContours(values, 4, 4);
     expect(contours.length).toBeGreaterThan(0);
     expect(selectPrimaryContour(contours)).toEqual(extractIsoContours(values, 4, 4)[0]);
+  });
+
+  it.each([
+    {
+      name: "left edge",
+      values: maskValues([
+        [1, 1, 0, 0, 0],
+        [1, 1, 1, 0, 0],
+        [1, 1, 1, 0, 0],
+        [0, 0, 0, 0, 0],
+      ]),
+      width: 5,
+      height: 4,
+    },
+    {
+      name: "top edge",
+      values: maskValues([
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 0, 0, 0],
+      ]),
+      width: 4,
+      height: 4,
+    },
+    {
+      name: "bottom edge",
+      values: maskValues([
+        [0, 0, 0, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+      ]),
+      width: 4,
+      height: 4,
+    },
+    {
+      name: "top-left corner",
+      values: maskValues([
+        [1, 1, 0, 0],
+        [1, 1, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+      ]),
+      width: 4,
+      height: 4,
+    },
+  ])("keeps a closed-area contour for the $name", ({ values, width, height }) => {
+    const contours = extractIsoContours(values, width, height);
+    const primary = selectPrimaryContour(contours);
+    expect(primary).not.toBeNull();
+    expect(primary!.length).toBeGreaterThanOrEqual(3);
+    expect(polygonArea(primary!)).toBeGreaterThan(0);
+    expect(primary).toEqual(selectPrimaryContour(extractIsoContours(values, width, height)));
+  });
+
+  it("pads without mutating the source and restores source coordinates", () => {
+    const values = new Float32Array([0.8, 0.2, 0.2, 0.2]);
+    const snapshot = [...values];
+    const padded = createPaddedMask(values, 2, 2);
+    expect(padded).toEqual({
+      width: 4,
+      height: 4,
+      values: expect.any(Float32Array),
+    });
+    expect([...values]).toEqual(snapshot);
+    expect(padded.values[1 + padded.width]).toBeCloseTo(0.8);
+    const contour = selectPrimaryContour(extractIsoContours(values, 2, 2));
+    expect(contour).not.toBeNull();
+    expect(contour!.every((point) => point.x >= -0.5 && point.x <= 1.5)).toBe(true);
+    expect(contour!.every((point) => point.y >= -0.5 && point.y <= 1.5)).toBe(true);
   });
 
   it("simplifies and spatially smooths without mutating the contour", () => {

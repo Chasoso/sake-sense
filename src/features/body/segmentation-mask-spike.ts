@@ -16,6 +16,29 @@ export type BinaryMask = {
 export type MaskPoint = { x: number; y: number };
 export type Contour = MaskPoint[];
 
+export type PaddedMask = {
+  width: number;
+  height: number;
+  values: Float32Array;
+};
+
+/** Adds an explicit zero-valued background cell around the source mask. */
+export function createPaddedMask(
+  values: ArrayLike<number>,
+  width: number,
+  height: number,
+): PaddedMask {
+  const paddedWidth = width + 2;
+  const paddedHeight = height + 2;
+  const paddedValues = new Float32Array(paddedWidth * paddedHeight);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      paddedValues[(y + 1) * paddedWidth + x + 1] = values[y * width + x] ?? 0;
+    }
+  }
+  return { width: paddedWidth, height: paddedHeight, values: paddedValues };
+}
+
 export function thresholdSegmentationMask(
   values: ArrayLike<number>,
   width: number,
@@ -144,10 +167,11 @@ export function extractIsoContours(
   isoLevel = RAW_MASK_ISO_LEVEL,
 ): Contour[] {
   if (width < 2 || height < 2) return [];
+  const padded = createPaddedMask(values, width, height);
   const segments: Segment[] = [];
-  const at = (x: number, y: number) => values[y * width + x] ?? 0;
-  for (let y = 0; y < height - 1; y += 1) {
-    for (let x = 0; x < width - 1; x += 1) {
+  const at = (x: number, y: number) => padded.values[y * padded.width + x] ?? 0;
+  for (let y = 0; y < padded.height - 1; y += 1) {
+    for (let x = 0; x < padded.width - 1; x += 1) {
       const topLeft = at(x, y);
       const topRight = at(x + 1, y);
       const bottomRight = at(x + 1, y + 1);
@@ -165,7 +189,9 @@ export function extractIsoContours(
       });
     }
   }
-  return connectSegments(segments);
+  return connectSegments(segments).map((contour) =>
+    contour.map((point) => ({ x: point.x - 1, y: point.y - 1 })),
+  );
 }
 
 export function polygonArea(contour: Contour): number {
