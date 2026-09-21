@@ -12,6 +12,10 @@ import {
   getSensoryExpressionDisplayTextsForSupport,
   sensorySupportCases,
 } from "./sensory-support-cases";
+import {
+  validateSensoryInterpretation,
+  type AiSensoryInterpretation,
+} from "./sensory-interpretation";
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -36,6 +40,8 @@ export type SensoryBridgeObservableInput =
   | { modality: "voice"; features: VoiceSensoryBridgeInput };
 
 export type SensoryBridgeResponse = {
+  /** Transitional AI interpretation; never used for term authorization in this phase. */
+  sensoryInterpretation?: AiSensoryInterpretation;
   sensoryExpressions: string[];
   candidateTermIds: string[];
   /** Features present in the compact request, including explicit unknown values. */
@@ -120,6 +126,7 @@ export type SensoryBridgeProviderPresentation = {
 };
 
 const responseKeys = new Set([
+  "sensoryInterpretation",
   "sensoryExpressions",
   "candidateTermIds",
   "observedFeatures",
@@ -283,6 +290,10 @@ export function validateSensoryBridgeResponse(
   ) {
     return { ok: false, error: "橋渡し応答の必須項目が不正です。" };
   }
+  if (record.sensoryInterpretation !== undefined) {
+    const interpretation = validateSensoryInterpretation(record.sensoryInterpretation);
+    if (!interpretation.ok) return { ok: false, error: interpretation.error };
+  }
   const candidateTermIds = record.candidateTermIds as string[];
   const allowedIds = new Set(getSelectableSensoryTermIds());
   if (
@@ -294,6 +305,9 @@ export function validateSensoryBridgeResponse(
   return {
     ok: true,
     value: {
+      ...(record.sensoryInterpretation !== undefined
+        ? { sensoryInterpretation: record.sensoryInterpretation as AiSensoryInterpretation }
+        : {}),
       sensoryExpressions: record.sensoryExpressions as string[],
       candidateTermIds,
       ...(Array.isArray(record.observedFeatures)
