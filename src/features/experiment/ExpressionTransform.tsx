@@ -110,16 +110,6 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                   style={{ opacity: skeletonProgress }}
                 />
               ))}
-              {bodyTrail?.head && (
-                <ellipse
-                  className="expression-transform__body-head"
-                  cx={bodyTrail.head.center.x * 320}
-                  cy={bodyTrail.head.center.y * 160}
-                  rx={bodyTrail.head.radiusX * 320}
-                  ry={bodyTrail.head.radiusY * 160}
-                  style={{ opacity: skeletonProgress }}
-                />
-              )}
               {bodyTrail?.leftWristSegments.map((segment, index) => (
                 <g key={`left-wrist-${index}`}>
                   <path

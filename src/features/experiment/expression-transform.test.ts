@@ -204,7 +204,7 @@ describe("expression transformation", () => {
     const first = getBodyTrailGeometry(frames);
     expect(first).toEqual(getBodyTrailGeometry(frames));
     expect(first.skeletonFrameIndex).toBe(1);
-    expect(first.skeletonPath).toContain("C");
+    expect(first.skeletonPath).toContain("Q");
     expect(first.leftWristSegments).toHaveLength(0);
     expect(first.rightWristSegments).toHaveLength(1);
     expect(first.rightWristSegments[0].path).toContain("L");

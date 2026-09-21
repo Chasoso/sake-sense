@@ -1,6 +1,6 @@
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
-import { getCurvedBodyGeometry, type BodyCurve, type BodyPoint } from "../body/body-pose-renderer";
+import { contourPathToSvgPath, getBodyContourGeometry } from "../body/body-contour-geometry";
 
 export type TransformStage = 0 | 1 | 2 | 3;
 
@@ -18,7 +18,6 @@ export type BodyVisualModel = {
 export type BodyTrailGeometry = {
   skeletonPath: string;
   skeletonPoints: Array<{ x: number; y: number }>;
-  head: { center: BodyPoint; radiusX: number; radiusY: number } | null;
   skeletonFrameIndex: number;
   leftWristSegments: WristTraceSegment[];
   rightWristSegments: WristTraceSegment[];
@@ -70,10 +69,6 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
     const previous = points[index];
     return total + Math.hypot(point.x - previous.x, point.y - previous.y);
   }, 0);
-}
-
-function curvePath(bodyCurve: BodyCurve, width: number, height: number): string {
-  return `M ${(bodyCurve.start.x * width).toFixed(1)} ${(bodyCurve.start.y * height).toFixed(1)} C ${(bodyCurve.control1.x * width).toFixed(1)} ${(bodyCurve.control1.y * height).toFixed(1)} ${(bodyCurve.control2.x * width).toFixed(1)} ${(bodyCurve.control2.y * height).toFixed(1)} ${(bodyCurve.end.x * width).toFixed(1)} ${(bodyCurve.end.y * height).toFixed(1)}`;
 }
 
 function frameVisibilityScore(frame: BodyPoseFrame): {
@@ -159,19 +154,20 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
 
   const skeletonFrameIndex = selectSkeletonFrameIndex(frames);
   const skeletonFrame = frames[skeletonFrameIndex];
-  const curvedGeometry = skeletonFrame ? getCurvedBodyGeometry(skeletonFrame.landmarks) : null;
+  const contourGeometry = skeletonFrame ? getBodyContourGeometry(skeletonFrame.landmarks) : null;
   if (skeletonFrame) {
     [
-      curvedGeometry?.neck,
-      curvedGeometry?.shoulders,
-      curvedGeometry?.leftArm,
-      curvedGeometry?.rightArm,
-      curvedGeometry?.leftTorso,
-      curvedGeometry?.rightTorso,
-      curvedGeometry?.torsoCenter,
-      curvedGeometry?.hips,
-    ].forEach((bodyCurve) => {
-      if (bodyCurve) skeletonSegments.push(curvePath(bodyCurve, 320, 160));
+      contourGeometry?.head,
+      contourGeometry?.neck,
+      contourGeometry?.torso,
+      contourGeometry?.leftArm,
+      contourGeometry?.rightArm,
+      contourGeometry?.leftLeg,
+      contourGeometry?.rightLeg,
+      contourGeometry?.leftFoot,
+      contourGeometry?.rightFoot,
+    ].forEach((bodyContour) => {
+      if (bodyContour) skeletonSegments.push(contourPathToSvgPath(bodyContour, 320, 160));
     });
   }
 
@@ -180,7 +176,6 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
       skeletonSegments.join(" ") ||
       "M 120 48 C 140 38 180 38 200 48 M 160 48 C 150 75 160 100 160 116",
     skeletonPoints,
-    head: curvedGeometry?.head ?? null,
     skeletonFrameIndex,
     leftWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 15),
     rightWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 16),
