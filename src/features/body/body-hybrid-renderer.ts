@@ -17,7 +17,13 @@ const RIGHT_WRIST = 16;
 export type HybridPoint = { x: number; y: number };
 
 export type HybridArmGuide = {
+  /** Ordered anatomical waypoints that the rendered guide must pass through. */
   points: HybridPoint[];
+};
+
+export type ArmGuideSegment = {
+  start: HybridPoint;
+  end: HybridPoint;
 };
 
 export type HybridHeadGuide = {
@@ -78,6 +84,14 @@ function headGuide(landmarks: BodyLandmark[]): HybridHeadGuide | null {
   };
 }
 
+/** Converts anatomical waypoints into pass-through segments without interpolation. */
+export function buildArmGuideSegments(arm: HybridArmGuide): ArmGuideSegment[] {
+  return arm.points.slice(0, -1).flatMap((start, index) => {
+    const end = arm.points[index + 1];
+    return end ? [{ start, end }] : [];
+  });
+}
+
 /** Builds lightweight, visibility-filtered pose guidance without mutating landmarks. */
 export function buildUpperBodyPoseGuides(
   landmarks: BodyLandmark[] | null | undefined,
@@ -129,15 +143,17 @@ function drawArmGuide(
   width: number,
   height: number,
 ): void {
-  const [start, control, end] = arm.points;
+  const segments = buildArmGuideSegments(arm);
   context.beginPath();
-  context.moveTo(start.x * width, start.y * height);
-  if (end) {
-    context.quadraticCurveTo(control.x * width, control.y * height, end.x * width, end.y * height);
-  } else {
-    context.lineTo(control.x * width, control.y * height);
+  segments.forEach((segment, index) => {
+    if (index === 0) {
+      context.moveTo(segment.start.x * width, segment.start.y * height);
+    }
+    context.lineTo(segment.end.x * width, segment.end.y * height);
+  });
+  if (segments.length > 0) {
+    context.stroke();
   }
-  context.stroke();
 }
 
 /** Draws the quiet pose-reference layer; no landmark dots or skeleton fill are used. */

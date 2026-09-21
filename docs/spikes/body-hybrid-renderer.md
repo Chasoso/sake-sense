@@ -56,3 +56,10 @@ twisted, upper-body crop, and frame-edge scenarios remain maintainer checks.
 
 The implementation is suitable for direct comparison, but no production
 renderer decision is made before Human Experience validation.
+
+Arm guides now render explicit shoulder-to-elbow and elbow-to-wrist segments.
+The previous single quadratic Bézier used the elbow only as a control point and
+could therefore shortcut the anatomical waypoint; the revised geometry always
+passes through the elbow. Partial shoulder-to-elbow chains retain the same
+behavior without fabricating a wrist. The head ellipse remains a Human
+Experience item and is intentionally unchanged in this revision.

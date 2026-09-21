@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BodyLandmark } from "../../domain/body";
-import { buildUpperBodyPoseGuides, HYBRID_POSE_MIN_VISIBILITY } from "./body-hybrid-renderer";
+import {
+  buildArmGuideSegments,
+  buildUpperBodyPoseGuides,
+  HYBRID_POSE_MIN_VISIBILITY,
+} from "./body-hybrid-renderer";
 
 function landmarks(overrides: Record<number, Partial<BodyLandmark>> = {}): BodyLandmark[] {
   return Array.from({ length: 33 }, (_, index) => ({
@@ -29,6 +33,10 @@ describe("body hybrid renderer helpers", () => {
       { x: 0.3, y: 0.4 },
       { x: 0.2, y: 0.55 },
       { x: 0.1, y: 0.7 },
+    ]);
+    expect(buildArmGuideSegments(first.leftArm!)).toEqual([
+      { start: { x: 0.3, y: 0.4 }, end: { x: 0.2, y: 0.55 } },
+      { start: { x: 0.2, y: 0.55 }, end: { x: 0.1, y: 0.7 } },
     ]);
     expect(first.rightArm?.points).toHaveLength(3);
     expect(first.shoulderLine).toEqual([
@@ -65,6 +73,9 @@ describe("body hybrid renderer helpers", () => {
     expect(guides.leftArm?.points).toEqual([
       { x: 0.3, y: 0.4 },
       { x: 0.2, y: 0.55 },
+    ]);
+    expect(buildArmGuideSegments(guides.leftArm!)).toEqual([
+      { start: { x: 0.3, y: 0.4 }, end: { x: 0.2, y: 0.55 } },
     ]);
     expect(guides.rightArm).toBeNull();
   });
