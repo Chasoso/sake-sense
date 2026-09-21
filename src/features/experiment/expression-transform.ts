@@ -73,7 +73,7 @@ function pathLength(points: Array<{ x: number; y: number }>): number {
 }
 
 function curvePath(bodyCurve: BodyCurve, width: number, height: number): string {
-  return `M ${(bodyCurve.start.x * width).toFixed(1)} ${(bodyCurve.start.y * height).toFixed(1)} Q ${(bodyCurve.control.x * width).toFixed(1)} ${(bodyCurve.control.y * height).toFixed(1)} ${(bodyCurve.end.x * width).toFixed(1)} ${(bodyCurve.end.y * height).toFixed(1)}`;
+  return `M ${(bodyCurve.start.x * width).toFixed(1)} ${(bodyCurve.start.y * height).toFixed(1)} C ${(bodyCurve.control1.x * width).toFixed(1)} ${(bodyCurve.control1.y * height).toFixed(1)} ${(bodyCurve.control2.x * width).toFixed(1)} ${(bodyCurve.control2.y * height).toFixed(1)} ${(bodyCurve.end.x * width).toFixed(1)} ${(bodyCurve.end.y * height).toFixed(1)}`;
 }
 
 function frameVisibilityScore(frame: BodyPoseFrame): {
@@ -162,11 +162,13 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
   const curvedGeometry = skeletonFrame ? getCurvedBodyGeometry(skeletonFrame.landmarks) : null;
   if (skeletonFrame) {
     [
+      curvedGeometry?.neck,
       curvedGeometry?.shoulders,
       curvedGeometry?.leftArm,
       curvedGeometry?.rightArm,
       curvedGeometry?.leftTorso,
       curvedGeometry?.rightTorso,
+      curvedGeometry?.torsoCenter,
       curvedGeometry?.hips,
     ].forEach((bodyCurve) => {
       if (bodyCurve) skeletonSegments.push(curvePath(bodyCurve, 320, 160));
@@ -174,7 +176,9 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
   }
 
   return {
-    skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
+    skeletonPath:
+      skeletonSegments.join(" ") ||
+      "M 120 48 C 140 38 180 38 200 48 M 160 48 C 150 75 160 100 160 116",
     skeletonPoints,
     head: curvedGeometry?.head ?? null,
     skeletonFrameIndex,

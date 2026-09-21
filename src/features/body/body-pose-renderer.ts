@@ -7,19 +7,21 @@ export type BodyPoint = { x: number; y: number };
 
 export type BodyCurve = {
   start: BodyPoint;
-  control: BodyPoint;
+  control1: BodyPoint;
+  control2: BodyPoint;
   end: BodyPoint;
 };
 
 export type CurvedBodyGeometry = {
   head: { center: BodyPoint; radiusX: number; radiusY: number } | null;
+  neck: BodyCurve | null;
   shoulders: BodyCurve | null;
   leftArm: BodyCurve | null;
   rightArm: BodyCurve | null;
   leftTorso: BodyCurve | null;
   rightTorso: BodyCurve | null;
+  torsoCenter: BodyCurve | null;
   hips: BodyCurve | null;
-  wrists: BodyPoint[];
 };
 
 function visiblePoint(landmarks: BodyLandmark[], index: number): BodyPoint | null {
@@ -33,7 +35,19 @@ function curve(
   control: BodyPoint | null,
   end: BodyPoint | null,
 ): BodyCurve | null {
-  return start && control && end ? { start, control, end } : null;
+  if (!start || !control || !end) return null;
+  return {
+    start,
+    control1: {
+      x: start.x + (control.x - start.x) * 0.72,
+      y: start.y + (control.y - start.y) * 0.72,
+    },
+    control2: {
+      x: end.x + (control.x - end.x) * 0.72,
+      y: end.y + (control.y - end.y) * 0.72,
+    },
+    end,
+  };
 }
 
 export function getCurvedBodyGeometry(landmarks: BodyLandmark[]): CurvedBodyGeometry {
@@ -62,12 +76,19 @@ export function getCurvedBodyGeometry(landmarks: BodyLandmark[]): CurvedBodyGeom
     leftEar && rightEar && nose
       ? { x: (leftEar.x + rightEar.x) / 2, y: (leftEar.y + rightEar.y) / 2 - earWidth * 0.12 }
       : null;
+  const head =
+    headCenter && earWidth > 0
+      ? { center: headCenter, radiusX: earWidth * 0.65, radiusY: earWidth * 0.82 }
+      : null;
+  const neckBase = head ? { x: head.center.x, y: head.center.y + head.radiusY } : null;
 
   return {
-    head:
-      headCenter && earWidth > 0
-        ? { center: headCenter, radiusX: earWidth * 0.65, radiusY: earWidth * 0.82 }
-        : null,
+    head,
+    neck: curve(
+      neckBase,
+      shoulderCenter && { x: shoulderCenter.x + 0.012, y: shoulderCenter.y - 0.01 },
+      shoulderCenter,
+    ),
     shoulders: curve(
       leftShoulder,
       shoulderCenter && { x: shoulderCenter.x, y: shoulderCenter.y - 0.018 },
@@ -85,8 +106,16 @@ export function getCurvedBodyGeometry(landmarks: BodyLandmark[]): CurvedBodyGeom
       rightShoulder && rightHip && { x: rightHip.x + 0.015, y: (rightShoulder.y + rightHip.y) / 2 },
       rightHip,
     ),
+    torsoCenter: curve(
+      shoulderCenter,
+      shoulderCenter &&
+        hipCenter && {
+          x: shoulderCenter.x + 0.012,
+          y: shoulderCenter.y + (hipCenter.y - shoulderCenter.y) * 0.52,
+        },
+      hipCenter,
+    ),
     hips: curve(leftHip, hipCenter, rightHip),
-    wrists: [leftWrist, rightWrist].filter((point): point is BodyPoint => point !== null),
   };
 }
 
@@ -116,9 +145,11 @@ function drawCurve(
   height: number,
 ) {
   context.moveTo(bodyCurve.start.x * width, bodyCurve.start.y * height);
-  context.quadraticCurveTo(
-    bodyCurve.control.x * width,
-    bodyCurve.control.y * height,
+  context.bezierCurveTo(
+    bodyCurve.control1.x * width,
+    bodyCurve.control1.y * height,
+    bodyCurve.control2.x * width,
+    bodyCurve.control2.y * height,
     bodyCurve.end.x * width,
     bodyCurve.end.y * height,
   );
@@ -135,14 +166,16 @@ export function drawCurvedBody(
   const geometry = getCurvedBodyGeometry(landmarks);
   context.lineCap = "round";
   context.lineJoin = "round";
-  context.lineWidth = Math.max(1.5, width / 320);
-  context.strokeStyle = "#c9a96a";
-  context.fillStyle = "#c9a96a";
+  context.lineWidth = Math.max(2, width / 145);
+  context.strokeStyle = "#ad8550";
+  context.fillStyle = "#ad8550";
 
   const curves = [
+    geometry.neck,
     geometry.shoulders,
     geometry.leftTorso,
     geometry.rightTorso,
+    geometry.torsoCenter,
     geometry.hips,
   ].filter((bodyCurve): bodyCurve is BodyCurve => bodyCurve !== null);
   curves.forEach((bodyCurve) => {
@@ -151,8 +184,8 @@ export function drawCurvedBody(
     context.stroke();
   });
 
-  context.strokeStyle = "#385741";
-  context.lineWidth = Math.max(2, width / 180);
+  context.strokeStyle = "#ad8550";
+  context.lineWidth = Math.max(2.4, width / 135);
   [geometry.leftArm, geometry.rightArm].forEach((bodyCurve) => {
     if (!bodyCurve) return;
     context.beginPath();
@@ -175,13 +208,6 @@ export function drawCurvedBody(
     context.lineWidth = Math.max(1.2, width / 380);
     context.stroke();
   }
-
-  geometry.wrists.forEach((wrist) => {
-    context.beginPath();
-    context.arc(wrist.x * width, wrist.y * height, Math.max(3, width / 110), 0, Math.PI * 2);
-    context.fillStyle = "#385741";
-    context.fill();
-  });
 }
 
 export type BodyPoseRenderer = {

@@ -27,12 +27,32 @@ describe("body pose renderer", () => {
     });
     const first = getCurvedBodyGeometry(input);
     expect(first).toEqual(getCurvedBodyGeometry(input));
-    expect(first.leftArm).toEqual({
-      start: { x: 0.35, y: 0.35 },
-      control: { x: 0.28, y: 0.5 },
-      end: { x: 0.2, y: 0.62 },
+    expect(first.leftArm?.start).toEqual({ x: 0.35, y: 0.35 });
+    expect(first.leftArm?.control1.x).toBeCloseTo(0.2996);
+    expect(first.leftArm?.control1.y).toBeCloseTo(0.458);
+    expect(first.leftArm?.control2.x).toBeCloseTo(0.2576);
+    expect(first.leftArm?.control2.y).toBeCloseTo(0.5336);
+    expect(first.leftArm?.end).toEqual({ x: 0.2, y: 0.62 });
+    expect(first.rightArm?.control1.x).toBeCloseTo(0.7004);
+    expect(first.rightArm?.control1.y).toBeCloseTo(0.458);
+  });
+
+  it("connects the head, neck, shoulders, and torso as one figure", () => {
+    const input = landmarks({
+      0: { x: 0.5, y: 0.16 },
+      7: { x: 0.46, y: 0.18 },
+      8: { x: 0.54, y: 0.18 },
+      11: { x: 0.35, y: 0.35 },
+      12: { x: 0.65, y: 0.35 },
+      23: { x: 0.42, y: 0.72 },
+      24: { x: 0.58, y: 0.72 },
     });
-    expect(first.rightArm?.control).toEqual({ x: 0.72, y: 0.5 });
+    const geometry = getCurvedBodyGeometry(input);
+    expect(geometry.head).not.toBeNull();
+    expect(geometry.neck).not.toBeNull();
+    expect(geometry.shoulders).not.toBeNull();
+    expect(geometry.torsoCenter).not.toBeNull();
+    expect("wrists" in geometry).toBe(false);
   });
 
   it("does not fabricate an arm when an elbow or wrist is not visible", () => {
