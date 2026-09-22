@@ -396,6 +396,51 @@ This is a proposal only; no instrumentation is added in Phase A.
 - **Production behavior:** logging and result-state clarity change; no
   provenance relaxation is implied.
 
+## Issue #118 implementation boundary
+
+The Issue #118 implementation adds a deterministic semantic-authorization
+layer behind the validated AI interpretation contract. It uses finite
+`sensoryClassProposals` and the reviewed Anchor/Support/Reject routes for the
+six selectable terms (`atoaji`, `kire`, `nameraka`, `marui`, `tanrei`, and
+`nojun`). `sensoryExpression` remains presentation-only, and the provider
+cannot authorize a term or product by returning an ID.
+
+The authorization result retains route, level (`strong` or `supported`), and
+support-count metadata. `tanrei`/`nojun` conflicts are resolved
+deterministically; `atoaji`/`kire` are not a global conflict. Product
+renderability, evidence, provenance, and availability filters remain
+unchanged. `sensory-support-cases.v0.1.json` remains available as a
+representative regression/evaluation fixture and is not used to override a
+validated semantic authorization result.
+
+This implementation does not constitute production cutover approval. Before
+making the AI-first authorization path the sole production authority, run a
+Human Experience evaluation with representative Body and Voice cases,
+including all six routes, ambiguous/insufficient/unmapped outcomes, and both
+conflict levels. Record the input summary, validated profile, class proposals,
+authorization result, and legacy comparison without requiring exact free-text
+equality.
+
+## Issue #119 review clarifications
+
+Semantic authorization and legacy presentation are temporarily decoupled.
+An authorized semantic route can therefore coexist with an empty legacy
+`sensoryExpressions` array and the legacy no-match `reason` when no reviewed
+support case matches the raw input. The structured authorization metadata is
+the explanation of the route; this is an explicit Human Experience evaluation
+item, not a free-text mapping opportunity.
+
+`tanrei` and `nojun` are selectable semantic terms, but selectability does not
+create product evidence. Current product data has zero direct or accepted-
+variant references for `tanrei`, and `nojun` has no normally renderable
+reference. A term may therefore be authorized while product matching safely
+returns no products. Evidence, provenance, availability, and renderability
+rules remain unchanged.
+
+An explicit `unmapped` sensory-class proposal is a reviewed no-match signal
+and stops all normal term authorization, even if the validated profile also
+satisfies a strong route. It cannot be mixed with normal class proposals.
+
 ## Human approval checklist
 
 - [ ] AI sensory interpretation responsibility boundary approved

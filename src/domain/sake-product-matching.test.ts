@@ -21,6 +21,11 @@ describe("Ishikawa sake product matching", () => {
     expect(findSakeProductMatches(["sanmi", "nojun", "umami"])).toEqual([]);
   });
 
+  it("keeps newly selectable tanrei and nojun safe when product evidence is absent or not renderable", () => {
+    expect(findSakeProductMatches(["tanrei"])).toEqual([]);
+    expect(findSakeProductMatches(["nojun"])).toEqual([]);
+  });
+
   it("does not use free text, weak evidence, or unavailable products as matches", () => {
     expect(findSakeProductMatches(["unknown-term"])).toEqual([]);
     const atoaji = findSakeProductMatches(["atoaji"]);

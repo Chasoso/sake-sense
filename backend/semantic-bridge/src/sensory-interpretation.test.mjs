@@ -57,6 +57,52 @@ describe("backend AI sensory interpretation contract", () => {
     expect(responseKeys).toEqual(Object.keys(responseSchema.properties));
   });
 
+  it("validates finite sensory class proposals and uses the reviewed route result", () => {
+    const result = validateModelResponse(
+      {
+        sensoryInterpretation: {
+          ...interpreted,
+          semanticProfile: {
+            ...primaryProfile,
+            timeQuality: "sudden",
+            persistence: "brief",
+            resolution: "abrupt",
+          },
+        },
+        sensoryClassProposals: ["clean-fade"],
+        sensoryExpressions: [],
+        candidateTermIds: ["atoaji"],
+        reason: "譁ｰ縺励＞諢溘§",
+      },
+      new Set(bodyRequest.allowedTermIds),
+      bodyRequest,
+    );
+    expect(result.candidateTermIds).toEqual(["kire"]);
+    expect(result.authorization).toMatchObject([
+      { termId: "kire", sensoryClass: "clean-fade", level: "strong" },
+    ]);
+  });
+
+  it.each([
+    ["unknown-class"],
+    ["smooth-flow", "clean-fade", "light-delicate"],
+    ["unmapped", "clean-fade"],
+  ])("rejects invalid sensory class proposal %s", (...proposals) => {
+    expect(() =>
+      validateModelResponse(
+        {
+          sensoryInterpretation: interpreted,
+          sensoryClassProposals: proposals,
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          reason: "譁ｰ縺励＞諢溘§",
+        },
+        new Set(bodyRequest.allowedTermIds),
+        bodyRequest,
+      ),
+    ).toThrow();
+  });
+
   it("accepts Primary unknown values and optional Experimental values", () => {
     expect(
       validateSensoryInterpretation({
@@ -185,5 +231,47 @@ describe("backend AI sensory interpretation contract", () => {
     );
     expect(JSON.stringify(input)).toBe(before);
     expect(result.candidateTermIds).toEqual([]);
+  });
+
+  it("keeps semantic authorization and legacy presentation decoupled", () => {
+    const noLegacyMatchRequest = {
+      modality: "body",
+      input: {
+        duration: "short",
+        ending: "continued",
+        expansion: "unknown",
+        direction: "upward",
+        repetition: "single",
+        participation: "localized",
+        spread: "compact",
+        speed: "unknown",
+      },
+      allowedTermIds: ["nameraka"],
+    };
+    const result = validateModelResponse(
+      {
+        sensoryInterpretation: {
+          ...interpreted,
+          semanticProfile: {
+            ...primaryProfile,
+            smoothness: "smooth",
+            continuity: "continuous",
+          },
+        },
+        sensoryClassProposals: ["smooth-flow"],
+        sensoryExpressions: [],
+        candidateTermIds: [],
+        reason: "譁ｰ縺励＞諢溘§",
+      },
+      new Set(noLegacyMatchRequest.allowedTermIds),
+      noLegacyMatchRequest,
+    );
+    expect(result.candidateTermIds).toEqual(["nameraka"]);
+    expect(result.sensoryExpressions).toEqual([]);
+    expect(result.reason).not.toBe("隴・ｽｰ邵ｺ蜉ｱ・櫁ｫ｢貅伉ｧ");
+    expect(result.reason).toEqual(expect.any(String));
+    expect(result.authorization).toMatchObject([
+      { termId: "nameraka", sensoryClass: "smooth-flow", level: "strong" },
+    ]);
   });
 });

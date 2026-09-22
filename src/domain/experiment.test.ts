@@ -116,7 +116,7 @@ describe("experiment integration boundaries", () => {
       kind: "ai",
       interpret: async () => ({
         sensoryExpressions: [],
-        candidateTermIds: ["nojun"],
+        candidateTermIds: ["invented-term"],
         unmappedFeatures: [],
         reason: "候補です",
       }),
