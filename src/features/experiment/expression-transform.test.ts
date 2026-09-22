@@ -3,8 +3,11 @@ import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyDisplayWords,
+  getBodyDissolveOpacity,
+  getBodyDissolveScale,
   getBodyIntermediateWords,
-  getBodyTrailGeometry,
+  getBodyLightProgress,
+  getBodySkeletonGeometry,
   getBodyTransformProgress,
   getBodyVisualModel,
   getTransformProgress,
@@ -74,6 +77,27 @@ describe("expression transformation", () => {
     expect(getBodyTransformProgress(1600)).toBeCloseTo(0.8);
     expect(getBodyTransformProgress(2000)).toBe(1);
     expect(getBodyTransformProgress(6000)).toBe(1);
+  });
+
+  it("uses overlapping monotonic dissolve and light progress for Body waiting", () => {
+    const samples = [0, 0.2, 0.5, 0.8, 1].map((progress) => ({
+      light: getBodyLightProgress(progress),
+      opacity: getBodyDissolveOpacity(progress),
+      scale: getBodyDissolveScale(progress),
+    }));
+    expect(samples[0]).toEqual({ light: 0, opacity: 1, scale: 1 });
+    expect(samples.at(-1)).toEqual({ light: 1, opacity: 0, scale: 0.9 });
+    expect(
+      samples.every((sample, index) => index === 0 || sample.light >= samples[index - 1].light),
+    ).toBe(true);
+    expect(
+      samples.every((sample, index) => index === 0 || sample.opacity <= samples[index - 1].opacity),
+    ).toBe(true);
+    expect(
+      samples.every((sample, index) => index === 0 || sample.scale <= samples[index - 1].scale),
+    ).toBe(true);
+    expect(samples[2].light).toBeGreaterThan(0);
+    expect(samples[2].opacity).toBeGreaterThan(0);
   });
 
   it("selects a visible upper-body frame near the center", () => {
@@ -173,7 +197,7 @@ describe("expression transformation", () => {
     expect(windowProgress(0.9, 0.2, 0.8)).toBe(1);
   });
 
-  it("derives deterministic smooth trails and excludes low-visibility points", () => {
+  it("derives a deterministic stable skeleton and excludes low-visibility points", () => {
     const frame = (leftVisibility: number, rightVisibility: number): BodyPoseFrame => ({
       t: 0,
       landmarks: Array.from({ length: 17 }, (_, index) => ({
@@ -201,13 +225,11 @@ describe("expression transformation", () => {
         })),
       },
     ];
-    const first = getBodyTrailGeometry(frames);
-    expect(first).toEqual(getBodyTrailGeometry(frames));
+    const first = getBodySkeletonGeometry(frames);
+    expect(first).toEqual(getBodySkeletonGeometry(frames));
     expect(first.skeletonFrameIndex).toBe(1);
-    expect(first.leftWristSegments).toHaveLength(0);
-    expect(first.rightWristSegments).toHaveLength(1);
-    expect(first.rightWristSegments[0].path).toContain("L");
-    expect(first.rightWristSegments[0].start).toEqual({ x: 224, y: 112 });
+    expect(first.skeletonPoints).toHaveLength(5);
+    expect(first.skeletonPath).toContain("L");
   });
 
   it("derives stable voice words from local voice features", () => {
@@ -219,7 +241,7 @@ describe("expression transformation", () => {
     ]);
   });
 
-  it("keeps both wrist traces for opposite-hand movement", () => {
+  it("keeps the skeleton stable when both wrists are visible", () => {
     const frames = [0, 1, 2].map((step) => ({
       t: step * 100,
       landmarks: Array.from({ length: 17 }, (_, index) => ({
@@ -237,14 +259,12 @@ describe("expression transformation", () => {
         visibility: 1,
       })),
     }));
-    const geometry = getBodyTrailGeometry(frames);
-    expect(geometry.leftWristSegments[0].length).toBeGreaterThan(2);
-    expect(geometry.rightWristSegments[0].length).toBeGreaterThan(2);
-    expect(geometry.leftWristSegments[0].path).toContain("L");
-    expect(geometry.rightWristSegments[0].path).toContain("L");
+    const geometry = getBodySkeletonGeometry(frames);
+    expect(geometry.skeletonPath).toContain("L");
+    expect(geometry.skeletonPoints.length).toBeGreaterThan(0);
   });
 
-  it("keeps visibility gaps as separate trace segments", () => {
+  it("keeps skeleton selection deterministic across visibility gaps", () => {
     const frame = (visibility: number, step: number): BodyPoseFrame => ({
       t: step * 100,
       landmarks: Array.from({ length: 17 }, (_, index) => ({
@@ -276,14 +296,9 @@ describe("expression transformation", () => {
       frame(1, 10),
       frame(1, 11),
     ];
-    const geometry = getBodyTrailGeometry(frames);
+    const geometry = getBodySkeletonGeometry(frames);
     expect(selectSkeletonFrameIndex(frames)).toBe(5);
     expect(geometry.skeletonFrameIndex).toBe(5);
-    expect(geometry.leftWristSegments).toHaveLength(2);
-    expect(geometry.rightWristSegments).toHaveLength(2);
-    expect(geometry.leftWristSegments[0].start.x).toBeCloseTo(112);
-    expect(geometry.leftWristSegments[1].start).toEqual({ x: 160, y: 112 });
-    expect(geometry.rightWristSegments[0].start.x).toBeCloseTo(208);
-    expect(geometry.rightWristSegments[1].start.x).toBeCloseTo(160);
+    expect(geometry.skeletonPoints.length).toBeGreaterThan(0);
   });
 });

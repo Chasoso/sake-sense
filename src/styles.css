@@ -1155,6 +1155,20 @@ input {
   transition: opacity 500ms ease;
 }
 
+.expression-transform__body-light {
+  fill: rgb(255 253 249 / 92%);
+  stroke: rgb(201 169 106 / 72%);
+  stroke-width: 1.5;
+  filter: blur(7px);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.expression-transform__body-dissolve {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
 .expression-transform__body-trail--primary {
   stroke: var(--gold);
 }
@@ -1378,26 +1392,20 @@ input {
   filter: blur(1px);
 }
 
-.expression-transform__body-wrist-trace {
-  fill: none;
-  stroke: rgb(56 87 65 / 88%);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3.2;
-  transition:
-    opacity 260ms ease,
-    stroke-width 260ms ease,
-    filter 260ms ease;
-}
-
-.expression-transform__body-wrist-trace--soft {
-  stroke: rgb(56 87 65 / 58%);
-  stroke-width: 4.8;
-  filter: blur(0.9px);
-}
-
-.expression-transform--body-screen .expression-transform__body-word {
-  font-size: clamp(0.84rem, 2vw, 1rem);
+.expression-transform--body-screen
+  .expression-transform__words--body
+  .expression-transform__body-word {
+  padding: 0;
+  color: var(--deep-green-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: clamp(1.15rem, 4vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-shadow: 0 1px 12px rgb(249 247 242 / 60%);
 }
 
 .experience-screen--body-result {
@@ -1839,8 +1847,11 @@ input {
     transform: none !important;
   }
 
-  .expression-transform--body-screen .expression-transform__body-wrist-trace--soft {
+  .expression-transform--body-screen .expression-transform__body-light {
     filter: none;
+  }
+
+  .expression-transform--body-screen .expression-transform__body-dissolve {
     transform: none !important;
   }
 }
