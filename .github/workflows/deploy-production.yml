@@ -41,7 +41,7 @@ jobs:
             changed_files="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
             frontend=false
             backend=false
-            if printf '%s\n' "$changed_files" | grep -Eq '^(src/|public/|index.html|package.json|package-lock.json|\.nvmrc$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(src/|public/|index.html|package.json|package-lock.json|\.nvmrc$|vite\.config\.[^/]+$|tsconfig[^/]*\.json$)'; then
               frontend=true
             fi
             if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|package.json|package-lock.json|\.nvmrc$)'; then
