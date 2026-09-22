@@ -92,6 +92,7 @@ export function createHandler({
         modality: requestValue.modality,
         model: env.BEDROCK_MODEL_ID,
         requestSummary,
+        providerResponseSummary: providerOutput?.providerResponseSummary,
       });
       emitLifecycleEvent(logger, {
         eventName: "provider_validation_started",
@@ -145,6 +146,8 @@ export function createHandler({
                   model: env.BEDROCK_MODEL_ID,
                   providerOutput,
                   providerOutputKind: error?.providerOutputKind,
+                  providerResponseSummary:
+                    error?.providerResponseSummary ?? providerOutput?.providerResponseSummary,
                 })
               : buildProviderFailureDiagnostics({
                   error,

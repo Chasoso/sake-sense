@@ -23,8 +23,10 @@ export function buildLifecycleDiagnostics({
   modality,
   model,
   requestSummary,
+  providerResponseSummary,
 }) {
   const safeRequestSummary = sanitizeConverseRequestSummary(requestSummary);
+  const safeProviderResponseSummary = sanitizeConverseResponseSummary(providerResponseSummary);
   return {
     category: eventName,
     ...(typeof event?.requestContext?.requestId === "string" &&
@@ -35,6 +37,9 @@ export function buildLifecycleDiagnostics({
     ...(typeof model === "string" && model.trim() ? { model } : {}),
     elapsedMs: Math.max(0, Date.now() - startedAt),
     ...(safeRequestSummary ? { requestSummary: safeRequestSummary } : {}),
+    ...(safeProviderResponseSummary
+      ? { providerResponseSummary: safeProviderResponseSummary }
+      : {}),
   };
 }
 
@@ -89,6 +94,26 @@ export function sanitizeConverseRequestSummary(value) {
   }
   if (typeof value.textFormatType === "string" && value.textFormatType.trim()) {
     summary.textFormatType = value.textFormatType;
+  }
+  return summary;
+}
+
+export function sanitizeConverseResponseSummary(value) {
+  if (!isRecord(value)) return undefined;
+  const summary = {};
+  if (typeof value.kind === "string" && value.kind.trim()) summary.kind = value.kind;
+  for (const key of [
+    "contentBlockCount",
+    "textBlockCount",
+    "inputTokens",
+    "outputTokens",
+    "totalTokens",
+    "latencyMs",
+  ]) {
+    if (Number.isInteger(value[key]) && value[key] >= 0) summary[key] = value[key];
+  }
+  if (typeof value.stopReason === "string" && value.stopReason.trim()) {
+    summary.stopReason = value.stopReason;
   }
   return summary;
 }
@@ -173,6 +198,7 @@ export function buildProviderValidationDiagnostics({
   model,
   providerOutput,
   providerOutputKind,
+  providerResponseSummary,
 }) {
   const requestId = event?.requestContext?.requestId;
   return {
@@ -189,6 +215,9 @@ export function buildProviderValidationDiagnostics({
       providerOutput === undefined && providerOutputKind
         ? { kind: providerOutputKind }
         : summarizeProviderOutput(providerOutput),
+    ...(sanitizeConverseResponseSummary(providerResponseSummary)
+      ? { providerResponseSummary: sanitizeConverseResponseSummary(providerResponseSummary) }
+      : {}),
   };
 }
 

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
+import {
+  BEDROCK_MAX_TOKENS,
+  buildConverseInput,
+  invokeBedrock,
+  summarizeConverseRequest,
+  summarizeConverseResponse,
+} from "./bedrock.mjs";
 import { BEDROCK_PROVIDER_TIMEOUT_MS } from "./diagnostics.mjs";
 import { createHandler } from "./handler.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
@@ -135,7 +141,8 @@ describe("production semantic bridge Lambda", () => {
       env,
     );
     expect(input.modelId).toBe(env.BEDROCK_MODEL_ID);
-    expect(input.inferenceConfig).toEqual({ maxTokens: 256, temperature: 0.2 });
+    expect(BEDROCK_MAX_TOKENS).toBe(1024);
+    expect(input.inferenceConfig).toEqual({ maxTokens: BEDROCK_MAX_TOKENS, temperature: 0.2 });
     expect(input.outputConfig.textFormat.type).toBe("json_schema");
     expect(input.system[0].text).toContain("not a taste measurement");
   });
@@ -170,6 +177,104 @@ describe("production semantic bridge Lambda", () => {
       hasOutputConfig: true,
       textFormatType: "json_schema",
       schemaTopLevelKeys: ["additionalProperties", "properties", "required", "type"],
+    });
+  });
+
+  it("captures safe Converse response metadata when provider JSON is malformed", async () => {
+    class FakeConverseCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    const clientFactory = vi.fn(async () => ({
+      client: {
+        send: vi.fn(async () => ({
+          stopReason: "max_tokens",
+          usage: { inputTokens: 321, outputTokens: 256, totalTokens: 577 },
+          metrics: { latencyMs: 4205 },
+          output: {
+            message: {
+              content: [
+                { text: '{"sensoryInterpretation":' },
+                { image: { format: "png", source: {} } },
+              ],
+            },
+          },
+        })),
+      },
+      ConverseCommand: FakeConverseCommand,
+    }));
+
+    await expect(
+      invokeBedrock({ modality: "body", input: bodyInput }, env, clientFactory),
+    ).rejects.toMatchObject({
+      providerOutputKind: "string",
+      providerResponseSummary: {
+        kind: "object",
+        stopReason: "max_tokens",
+        inputTokens: 321,
+        outputTokens: 256,
+        totalTokens: 577,
+        latencyMs: 4205,
+        contentBlockCount: 2,
+        textBlockCount: 1,
+      },
+    });
+  });
+
+  it("includes safe provider response metadata in the success lifecycle event", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const response = { ...emptyResponse };
+    Object.defineProperty(response, "providerResponseSummary", {
+      enumerable: false,
+      value: {
+        kind: "object",
+        stopReason: "end_turn",
+        inputTokens: 100,
+        outputTokens: 80,
+        totalTokens: 180,
+        latencyMs: 900,
+        contentBlockCount: 1,
+        textBlockCount: 1,
+      },
+    });
+    const handler = createHandler({ env, logger, invoke: vi.fn(async () => response) });
+
+    expect((await handler({ body: bodyRequest })).statusCode).toBe(200);
+    const successLog = logger.info.mock.calls
+      .map(([message]) => JSON.parse(message))
+      .find((entry) => entry.category === "bedrock_invoke_succeeded");
+    expect(successLog).toMatchObject({
+      providerResponseSummary: {
+        stopReason: "end_turn",
+        inputTokens: 100,
+        outputTokens: 80,
+        totalTokens: 180,
+        latencyMs: 900,
+        contentBlockCount: 1,
+        textBlockCount: 1,
+      },
+    });
+  });
+
+  it("summarizes only whitelisted Converse response primitives", () => {
+    expect(
+      summarizeConverseResponse({
+        stopReason: "max_tokens",
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3, secret: "DO_NOT_LOG" },
+        metrics: { latencyMs: 4, nested: { secret: "DO_NOT_LOG" } },
+        output: { message: { content: [{ text: "RAW_PROVIDER_TEXT" }, { toolUse: {} }] } },
+        raw: "RAW_PROVIDER_JSON",
+      }),
+    ).toEqual({
+      kind: "object",
+      contentBlockCount: 2,
+      textBlockCount: 1,
+      stopReason: "max_tokens",
+      inputTokens: 1,
+      outputTokens: 2,
+      totalTokens: 3,
+      latencyMs: 4,
     });
   });
 
@@ -490,6 +595,44 @@ describe("production semantic bridge Lambda", () => {
       model: env.BEDROCK_MODEL_ID,
       validation: { code: "malformed_output", path: "$" },
       providerOutputSummary: { kind: "undefined" },
+    });
+  });
+
+  it("carries provider response metadata into malformed-output diagnostics", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const error = new SemanticBridgeProviderValidationError("malformed model JSON", {
+      providerOutputKind: "string",
+    });
+    error.providerResponseSummary = {
+      kind: "object",
+      stopReason: "max_tokens",
+      inputTokens: 321,
+      outputTokens: 256,
+      totalTokens: 577,
+      latencyMs: 4205,
+      contentBlockCount: 1,
+      textBlockCount: 1,
+    };
+    const handler = createHandler({
+      env,
+      logger,
+      invoke: vi.fn(async () => {
+        throw error;
+      }),
+    });
+
+    expect((await handler({ body: bodyRequest })).statusCode).toBe(502);
+    expect(JSON.parse(logger.error.mock.calls[0][0])).toMatchObject({
+      category: "provider_validation_failure",
+      validation: { code: "malformed_output", path: "$" },
+      providerResponseSummary: {
+        stopReason: "max_tokens",
+        inputTokens: 321,
+        outputTokens: 256,
+        latencyMs: 4205,
+        contentBlockCount: 1,
+        textBlockCount: 1,
+      },
     });
   });
 
