@@ -91,6 +91,7 @@ describe("production semantic bridge Lambda", () => {
       "provider_validation_started",
       "provider_validation_succeeded",
       "grounding_completed",
+      "semantic_evaluation",
       "shadow_interpretation",
       "semantic_bridge_response_completed",
     ]);
@@ -106,7 +107,12 @@ describe("production semantic bridge Lambda", () => {
         textFormatType: "json_schema",
       },
     });
-    expect(JSON.stringify(logger.info.mock.calls)).not.toContain("duration");
+    const evaluationLog = JSON.parse(
+      logger.info.mock.calls.find(
+        ([message]) => JSON.parse(message).category === "semantic_evaluation",
+      )[0],
+    );
+    expect(evaluationLog.inputSummary.duration).toBe("short");
   });
 
   it("rejects malformed, oversized, unexpected, invalid, unknown, duplicate, and unmapped data", async () => {

@@ -9,6 +9,21 @@ const BODY_INPUT_KEYS = [
   "speed",
 ];
 
+const PRIMARY_PROFILE_KEYS = [
+  "timeQuality",
+  "weightQuality",
+  "flowQuality",
+  "directness",
+  "persistence",
+  "resolution",
+  "continuity",
+  "rhythmicity",
+  "expansion",
+  "spread",
+  "smoothness",
+  "roundness",
+];
+
 export const PROVIDER_ERROR_MESSAGE_MAX_LENGTH = 600;
 export const BEDROCK_PROVIDER_TIMEOUT_MS = 25_000;
 
@@ -146,6 +161,122 @@ export function summarizeSemanticBridgeInput(modality, input) {
     };
   }
   return { kind: "unknown_modality" };
+}
+
+function summarizeValidatedProfile(value, keys) {
+  if (!isRecord(value)) return undefined;
+  const profile = {};
+  for (const key of keys) {
+    if (typeof value[key] === "string") profile[key] = value[key];
+  }
+  return Object.keys(profile).length ? profile : undefined;
+}
+
+function summarizeAuthorization(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((entry) => {
+      if (!isRecord(entry)) return [];
+      if (
+        typeof entry.termId !== "string" ||
+        typeof entry.sensoryClass !== "string" ||
+        (entry.level !== "strong" && entry.level !== "supported") ||
+        !Number.isInteger(entry.supportCount) ||
+        entry.supportCount < 1
+      ) {
+        return [];
+      }
+      return [
+        {
+          termId: entry.termId,
+          sensoryClass: entry.sensoryClass,
+          level: entry.level,
+          supportCount: entry.supportCount,
+        },
+      ];
+    })
+    .slice(0, 16);
+}
+
+function summarizeAuthorizationConflicts(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((entry) => {
+      if (!isRecord(entry) || !Array.isArray(entry.termIds) || entry.termIds.length !== 2)
+        return [];
+      if (
+        entry.termIds.some((termId) => typeof termId !== "string") ||
+        (entry.resolution !== "strong_wins" && entry.resolution !== "same_level_conflict")
+      ) {
+        return [];
+      }
+      return [
+        {
+          termIds: entry.termIds,
+          resolution: entry.resolution,
+          ...(typeof entry.removedTermId === "string"
+            ? { removedTermId: entry.removedTermId }
+            : {}),
+        },
+      ];
+    })
+    .slice(0, 8);
+}
+
+export function buildSemanticEvaluationDiagnostics({
+  event,
+  modality,
+  input,
+  response,
+  productMatchCount,
+}) {
+  const interpretation = isRecord(response?.sensoryInterpretation)
+    ? response.sensoryInterpretation
+    : undefined;
+  const authorization = summarizeAuthorization(response?.authorization);
+  const authorizedTermIds = Array.isArray(response?.authorization)
+    ? authorization.map((entry) => entry.termId)
+    : Array.isArray(response?.candidateTermIds)
+      ? response.candidateTermIds.filter((termId) => typeof termId === "string")
+      : [];
+  const diagnostics = {
+    category: "semantic_evaluation",
+    ...(typeof event?.requestContext?.requestId === "string" &&
+    event.requestContext.requestId.trim()
+      ? { eventRequestId: event.requestContext.requestId }
+      : {}),
+    ...(typeof modality === "string" ? { modality } : {}),
+    inputSummary: summarizeSemanticBridgeInput(modality, input),
+    semanticOutcome:
+      interpretation && typeof interpretation.outcome === "string"
+        ? interpretation.outcome
+        : "missing",
+    sensoryClassProposals: Array.isArray(response?.sensoryClassProposals)
+      ? response.sensoryClassProposals
+          .filter((proposal) => typeof proposal === "string")
+          .slice(0, 2)
+      : [],
+    authorization,
+    authorizationConflicts: summarizeAuthorizationConflicts(response?.authorizationConflicts),
+    authorizedTermIds,
+    productMatchCount:
+      Number.isInteger(productMatchCount) && productMatchCount >= 0 ? productMatchCount : 0,
+  };
+  if (interpretation?.outcome === "interpreted") {
+    const semanticProfile = summarizeValidatedProfile(
+      interpretation.semanticProfile,
+      PRIMARY_PROFILE_KEYS,
+    );
+    const experimentalProfile = summarizeValidatedProfile(interpretation.experimentalProfile, [
+      "softness",
+      "symmetry",
+      "verticality",
+      "approach",
+    ]);
+    if (semanticProfile) diagnostics.semanticProfile = semanticProfile;
+    if (experimentalProfile) diagnostics.experimentalProfile = experimentalProfile;
+  }
+  return diagnostics;
 }
 
 function arrayCount(value) {

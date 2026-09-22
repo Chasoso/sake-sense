@@ -441,6 +441,22 @@ An explicit `unmapped` sensory-class proposal is a reviewed no-match signal
 and stops all normal term authorization, even if the validated profile also
 satisfies a strong route. It cannot be mixed with normal class proposals.
 
+## Semantic evaluation observability
+
+The backend emits one sanitized `semantic_evaluation` JSON event after
+grounding succeeds. It correlates the request and modality with the existing
+bounded Body/Voice input summary, the validated interpretation outcome and
+profiles, finite class proposals, the actual authorization result and
+conflicts, authorized term IDs, and a count-only product-match outcome.
+This event is intended for CloudWatch Logs Insights and future Human
+Experience evaluation; it does not change semantic authority or product
+matching.
+
+The event never contains raw media, pose or audio data, prompts, schemas,
+provider output, sensory free text, credentials, tokens, or user identifiers.
+Human-feedback UI and persistent feedback storage are not implemented; the
+event is only a stable, sanitized evaluation record for the current request.
+
 ## Human approval checklist
 
 - [ ] AI sensory interpretation responsibility boundary approved
