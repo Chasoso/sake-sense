@@ -49,6 +49,8 @@ describe("backend AI sensory interpretation contract", () => {
   it("keeps the provider schema within Bedrock structured-output array support", () => {
     expect(responseSchema.properties.sensoryExpressions).not.toHaveProperty("maxItems");
     expect(responseSchema.properties.candidateTermIds).not.toHaveProperty("maxItems");
+    expect(responseSchema.properties.sensoryExpressions.const).toEqual([]);
+    expect(responseSchema.properties.candidateTermIds.const).toEqual([]);
   });
 
   it("accepts Primary unknown values and optional Experimental values", () => {
