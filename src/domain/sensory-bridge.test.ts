@@ -242,7 +242,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     const base = {
       sensoryInterpretation: {
         outcome: "interpreted" as const,
-        semanticExpression: "縺吶▲縺ｨ謚慕ｼｱ縺ｫ蜿取據縺吶ｋ諢溘§",
+        sensoryExpression: "縺吶▲縺ｨ謚慕ｼｱ縺ｫ蜿取據縺吶ｋ諢溘§",
         semanticProfile: {
           timeQuality: "unknown" as const,
           weightQuality: "unknown" as const,

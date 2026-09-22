@@ -413,7 +413,9 @@ export function validateSensoryBridgeResponse(
           !isRecord(conflict) ||
           !Array.isArray(conflict.termIds) ||
           conflict.termIds.length !== 2 ||
-          conflict.termIds.some((termId) => typeof termId !== "string") ||
+          conflict.termIds.some(
+            (termId) => typeof termId !== "string" || !allowedIds.has(termId),
+          ) ||
           !(["strong_wins", "same_level_conflict"] as const).includes(
             conflict.resolution as "strong_wins" | "same_level_conflict",
           ) ||
