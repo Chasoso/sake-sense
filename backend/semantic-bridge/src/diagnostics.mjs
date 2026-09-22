@@ -168,7 +168,7 @@ export function buildProviderValidationDiagnostics({
 export function buildProviderFailureDiagnostics({ error, event, modality, model }) {
   const sdkMetadata = isRecord(error?.$metadata) ? error.$metadata : null;
   const requestId = sdkMetadata?.requestId;
-  const awsRequestId = event?.requestContext?.requestId;
+  const eventRequestId = event?.requestContext?.requestId;
   const diagnostics = {
     category: "provider_failure",
     errorName: typeof error?.name === "string" && error.name.trim() ? error.name : "UnknownError",
@@ -176,7 +176,7 @@ export function buildProviderFailureDiagnostics({ error, event, modality, model 
       ? { httpStatusCode: sdkMetadata.httpStatusCode }
       : {}),
     ...(typeof requestId === "string" && requestId.trim() ? { requestId } : {}),
-    ...(typeof awsRequestId === "string" && awsRequestId.trim() ? { awsRequestId } : {}),
+    ...(typeof eventRequestId === "string" && eventRequestId.trim() ? { eventRequestId } : {}),
     ...(typeof modality === "string" ? { modality } : {}),
     ...(typeof model === "string" && model.trim() ? { model } : {}),
   };
@@ -186,7 +186,12 @@ export function buildProviderFailureDiagnostics({ error, event, modality, model 
   if (typeof error?.$fault === "string" && error.$fault.trim()) {
     diagnostics.fault = error.$fault;
   }
-  if (typeof sdkMetadata?.retryable === "boolean") {
+  if (isRecord(error?.$retryable)) {
+    diagnostics.retryable = true;
+    if (typeof error.$retryable.throttling === "boolean") {
+      diagnostics.throttling = error.$retryable.throttling;
+    }
+  } else if (typeof sdkMetadata?.retryable === "boolean") {
     diagnostics.retryable = sdkMetadata.retryable;
   }
 

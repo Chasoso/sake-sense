@@ -588,7 +588,7 @@ describe("production semantic bridge Lambda", () => {
       errorName: "ValidationException",
       httpStatusCode: 400,
       requestId: "request-123",
-      awsRequestId: "correlation-123",
+      eventRequestId: "correlation-123",
       modality: "body",
       model: env.BEDROCK_MODEL_ID,
       fault: "client",
@@ -609,6 +609,35 @@ describe("production semantic bridge Lambda", () => {
     expect(log).not.toContain("SYSTEM_PROMPT_SHOULD_NOT_APPEAR");
     expect(log).not.toContain("USER_TEXT_SHOULD_NOT_APPEAR");
     expect(log).not.toContain("SCHEMA_ENUM_SHOULD_NOT_APPEAR");
+  });
+
+  it("logs AWS SDK v3 $retryable metadata safely", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const awsError = new Error("Throttled by provider");
+    awsError.name = "ThrottlingException";
+    awsError.$fault = "server";
+    awsError.$retryable = { throttling: true, hidden: { secret: "DO_NOT_LOG" } };
+    awsError.$metadata = { httpStatusCode: 429, requestId: "request-retryable" };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(async () => {
+        throw awsError;
+      }),
+      logger,
+    });
+
+    await handler({ body: bodyRequest, requestContext: { requestId: "event-retryable" } });
+
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log).toMatchObject({
+      category: "provider_failure",
+      requestId: "request-retryable",
+      eventRequestId: "event-retryable",
+      retryable: true,
+      throttling: true,
+    });
+    expect(log).not.toHaveProperty("awsRequestId");
+    expect(JSON.stringify(log)).not.toContain("DO_NOT_LOG");
   });
 
   it("omits secret-like provider messages", async () => {
