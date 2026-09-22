@@ -28,6 +28,8 @@ export type SensoryBridgeInput = {
   speed: "sustained-fast" | "unknown";
 };
 
+export const SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS = 35_000;
+
 export type VoiceSensoryBridgeInput = {
   durationMs: number;
   averageIntensity: number;
@@ -93,7 +95,7 @@ export function serializeSensoryBridgeRequest(request: SensoryBridgeRequest): st
 
 export function createHttpSensoryBridgeProvider(
   endpoint: string,
-  timeoutMs = 8000,
+  timeoutMs = SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS,
 ): SensoryBridgeProvider {
   return {
     kind: "ai",

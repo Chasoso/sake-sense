@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyReviewedSemanticGrounding,
   buildSensoryBridgeInput,
@@ -10,6 +10,7 @@ import {
   presentSensoryBridgeProvider,
   serializeSensoryDictionaryContext,
   serializeSensoryBridgeRequest,
+  SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS,
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
@@ -36,6 +37,45 @@ const baseFeatures: BodyMovementFeatures = {
 };
 
 describe("MVP sensory bridge vocabulary boundary", () => {
+  it("uses a bounded HTTP timeout longer than the Lambda processing envelope", () => {
+    expect(SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS).toBe(35_000);
+    expect(SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS).toBeGreaterThan(30_000);
+  });
+
+  it("aborts an HTTP request after the bounded default timeout", async () => {
+    vi.useFakeTimers();
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          );
+        }),
+    );
+    globalThis.fetch = fetchMock as typeof fetch;
+    try {
+      const request = {
+        modality: "body" as const,
+        input: buildSensoryBridgeInput(baseFeatures),
+        allowedTermIds: getSelectableSensoryTermIds(),
+      };
+      const pending = createHttpSensoryBridgeProvider(
+        "https://example.test/semantic-bridge",
+      ).interpret(request);
+      const aborted = expect(pending).rejects.toThrow("Aborted");
+      await vi.advanceTimersByTimeAsync(SEMANTIC_BRIDGE_HTTP_TIMEOUT_MS);
+      await aborted;
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://example.test/semantic-bridge",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      vi.useRealTimers();
+    }
+  });
+
   it("serializes only the four reviewed selectable terms", () => {
     const context = serializeSensoryDictionaryContext();
     expect(context.map((entry) => entry.id)).toEqual(["atoaji", "kire", "nameraka", "marui"]);

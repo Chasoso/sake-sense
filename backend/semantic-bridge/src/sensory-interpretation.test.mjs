@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { responseSchema } from "./schema.mjs";
+import { responseKeys, responseSchema } from "./schema.mjs";
 import { applyReviewedGrounding } from "./grounding.mjs";
 import {
   primarySemanticProfileValues,
@@ -51,6 +51,10 @@ describe("backend AI sensory interpretation contract", () => {
     expect(responseSchema.properties.candidateTermIds).not.toHaveProperty("maxItems");
     expect(responseSchema.properties.sensoryExpressions).not.toHaveProperty("const");
     expect(responseSchema.properties.candidateTermIds).not.toHaveProperty("const");
+  });
+
+  it("keeps schema properties and validator response keys aligned", () => {
+    expect(responseKeys).toEqual(Object.keys(responseSchema.properties));
   });
 
   it("accepts Primary unknown values and optional Experimental values", () => {
@@ -118,6 +122,49 @@ describe("backend AI sensory interpretation contract", () => {
       ...interpreted,
       experimentalProfile: { softness: "soft" },
     });
+  });
+
+  it("accepts optional unmappedFeatures while keeping reviewed grounding authoritative", () => {
+    const result = validateModelResponse(
+      {
+        sensoryExpressions: ["観測された印象"],
+        candidateTermIds: ["kire"],
+        unmappedFeatures: ["duration:lingering"],
+        reason: "観測結果です",
+      },
+      new Set(bodyRequest.allowedTermIds),
+      bodyRequest,
+    );
+    expect(result.candidateTermIds).toEqual([]);
+    expect(result.unmappedFeatures).not.toEqual(["duration:lingering"]);
+  });
+
+  it("rejects non-string unmappedFeatures items and still rejects unknown keys", () => {
+    expect(() =>
+      validateModelResponse(
+        {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures: [123],
+          reason: "観測結果です",
+        },
+        new Set(bodyRequest.allowedTermIds),
+        bodyRequest,
+      ),
+    ).toThrow();
+    expect(() =>
+      validateModelResponse(
+        {
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures: [],
+          unexpectedField: "extra value",
+          reason: "観測結果です",
+        },
+        new Set(bodyRequest.allowedTermIds),
+        bodyRequest,
+      ),
+    ).toThrow();
   });
 
   it("does not mutate or authorize from the interpretation object", () => {

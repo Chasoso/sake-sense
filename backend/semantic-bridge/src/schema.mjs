@@ -15,6 +15,7 @@ export const responseKeys = [
   "sensoryInterpretation",
   "sensoryExpressions",
   "candidateTermIds",
+  "unmappedFeatures",
   "reason",
 ];
 export const requiredResponseKeys = ["sensoryExpressions", "candidateTermIds", "reason"];

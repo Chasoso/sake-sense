@@ -179,6 +179,20 @@ export function validateModelResponse(value, allowedIds, request) {
       { code: "invalid_type", path: key },
     );
   }
+  if (value.unmappedFeatures !== undefined) {
+    assert(
+      Array.isArray(value.unmappedFeatures),
+      "invalid model response unmapped features",
+      SemanticBridgeProviderValidationError,
+      { code: "invalid_type", path: "unmappedFeatures" },
+    );
+    assert(
+      value.unmappedFeatures.every((item) => typeof item === "string"),
+      "invalid model response unmapped feature item",
+      SemanticBridgeProviderValidationError,
+      { code: "invalid_type", path: "unmappedFeatures" },
+    );
+  }
   assert(
     Object.prototype.hasOwnProperty.call(value, "reason"),
     "missing model response field: reason",
