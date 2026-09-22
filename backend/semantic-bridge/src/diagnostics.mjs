@@ -9,8 +9,61 @@ const BODY_INPUT_KEYS = [
   "speed",
 ];
 
+export const PROVIDER_ERROR_MESSAGE_MAX_LENGTH = 600;
+
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function sanitizeProviderErrorMessage(value) {
+  if (typeof value !== "string") return undefined;
+
+  const normalized = [...value]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code <= 31 || code === 127 ? " " : character;
+    })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return undefined;
+
+  if (
+    /\b(?:authorization|bearer|access[_-]?token|id[_-]?token|session[_-]?token|secret|password|credential)\b/i.test(
+      normalized,
+    ) ||
+    /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/i.test(normalized)
+  ) {
+    return undefined;
+  }
+
+  return normalized.slice(0, PROVIDER_ERROR_MESSAGE_MAX_LENGTH);
+}
+
+function safeStringArray(value) {
+  return Array.isArray(value)
+    ? value.filter((entry) => typeof entry === "string").slice(0, 32)
+    : undefined;
+}
+
+export function sanitizeConverseRequestSummary(value) {
+  if (!isRecord(value)) return undefined;
+  const summary = {};
+  if (typeof value.modelId === "string" && value.modelId.trim()) summary.modelId = value.modelId;
+  for (const key of ["hasSystem", "hasInferenceConfig", "hasOutputConfig"]) {
+    if (typeof value[key] === "boolean") summary[key] = value[key];
+  }
+  if (Number.isInteger(value.messageCount) && value.messageCount >= 0) {
+    summary.messageCount = value.messageCount;
+  }
+  for (const key of ["contentBlockTypes", "schemaTopLevelKeys"]) {
+    const entries = safeStringArray(value[key]);
+    if (entries) summary[key] = entries;
+  }
+  if (typeof value.textFormatType === "string" && value.textFormatType.trim()) {
+    summary.textFormatType = value.textFormatType;
+  }
+  return summary;
 }
 
 function bucketDuration(value) {
@@ -110,4 +163,39 @@ export function buildProviderValidationDiagnostics({
         ? { kind: providerOutputKind }
         : summarizeProviderOutput(providerOutput),
   };
+}
+
+export function buildProviderFailureDiagnostics({ error, event, modality, model }) {
+  const sdkMetadata = isRecord(error?.$metadata) ? error.$metadata : null;
+  const requestId = sdkMetadata?.requestId;
+  const eventRequestId = event?.requestContext?.requestId;
+  const diagnostics = {
+    category: "provider_failure",
+    errorName: typeof error?.name === "string" && error.name.trim() ? error.name : "UnknownError",
+    ...(Number.isInteger(sdkMetadata?.httpStatusCode)
+      ? { httpStatusCode: sdkMetadata.httpStatusCode }
+      : {}),
+    ...(typeof requestId === "string" && requestId.trim() ? { requestId } : {}),
+    ...(typeof eventRequestId === "string" && eventRequestId.trim() ? { eventRequestId } : {}),
+    ...(typeof modality === "string" ? { modality } : {}),
+    ...(typeof model === "string" && model.trim() ? { model } : {}),
+  };
+
+  const errorMessage = sanitizeProviderErrorMessage(error?.message);
+  if (errorMessage) diagnostics.errorMessage = errorMessage;
+  if (typeof error?.$fault === "string" && error.$fault.trim()) {
+    diagnostics.fault = error.$fault;
+  }
+  if (isRecord(error?.$retryable)) {
+    diagnostics.retryable = true;
+    if (typeof error.$retryable.throttling === "boolean") {
+      diagnostics.throttling = error.$retryable.throttling;
+    }
+  } else if (typeof sdkMetadata?.retryable === "boolean") {
+    diagnostics.retryable = sdkMetadata.retryable;
+  }
+
+  const requestSummary = sanitizeConverseRequestSummary(error?.converseRequestSummary);
+  if (requestSummary) diagnostics.requestSummary = requestSummary;
+  return diagnostics;
 }

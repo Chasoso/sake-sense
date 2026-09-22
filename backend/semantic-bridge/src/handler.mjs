@@ -5,7 +5,10 @@ import {
   SemanticBridgeProviderValidationError,
   validateModelResponse,
 } from "./validation.mjs";
-import { buildProviderValidationDiagnostics } from "./diagnostics.mjs";
+import {
+  buildProviderFailureDiagnostics,
+  buildProviderValidationDiagnostics,
+} from "./diagnostics.mjs";
 
 function apiResponse(statusCode, body, origin) {
   return {
@@ -13,36 +16,6 @@ function apiResponse(statusCode, body, origin) {
     headers: { "content-type": "application/json", "access-control-allow-origin": origin },
     body: JSON.stringify(body),
   };
-}
-
-function safeProviderErrorMetadata(error) {
-  const metadata = { category: "provider_failure", errorName: "UnknownError" };
-  try {
-    if (error && typeof error === "object") {
-      if (typeof error.name === "string" && error.name.trim()) {
-        metadata.errorName = error.name;
-      }
-      const sdkMetadata = error.$metadata;
-      if (
-        sdkMetadata &&
-        typeof sdkMetadata === "object" &&
-        Number.isInteger(sdkMetadata.httpStatusCode)
-      ) {
-        metadata.httpStatusCode = sdkMetadata.httpStatusCode;
-      }
-      if (
-        sdkMetadata &&
-        typeof sdkMetadata === "object" &&
-        typeof sdkMetadata.requestId === "string" &&
-        sdkMetadata.requestId.trim()
-      ) {
-        metadata.requestId = sdkMetadata.requestId;
-      }
-    }
-  } catch {
-    return metadata;
-  }
-  return metadata;
 }
 
 function buildShadowDiagnostics(response, event, modality, model) {
@@ -104,7 +77,12 @@ export function createHandler({
                   providerOutput,
                   providerOutputKind: error?.providerOutputKind,
                 })
-              : safeProviderErrorMetadata(error),
+              : buildProviderFailureDiagnostics({
+                  error,
+                  event,
+                  modality: requestValue?.modality,
+                  model: env.BEDROCK_MODEL_ID,
+                }),
         ),
       );
       return apiResponse(
