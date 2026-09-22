@@ -422,6 +422,47 @@ describe("production semantic bridge Lambda", () => {
     }
   });
 
+  it("does not log an invalid semantic profile value", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({
+      env,
+      logger,
+      invoke: vi.fn(async () => ({
+        sensoryExpressions: ["理由"],
+        candidateTermIds: [],
+        reason: "理由",
+        sensoryInterpretation: {
+          outcome: "interpreted",
+          sensoryExpression: "理由",
+          semanticProfile: {
+            timeQuality: "SENSORY_PROFILE_VALUE_SHOULD_NOT_APPEAR",
+            weightQuality: "unknown",
+            flowQuality: "unknown",
+            directness: "unknown",
+            persistence: "unknown",
+            resolution: "unknown",
+            continuity: "unknown",
+            rhythmicity: "unknown",
+            expansion: "unknown",
+            spread: "unknown",
+            smoothness: "unknown",
+            roundness: "unknown",
+          },
+        },
+      })),
+    });
+
+    expect((await handler({ body: bodyRequest })).statusCode).toBe(502);
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log.validation).toEqual({
+      code: "invalid_enum",
+      path: "sensoryInterpretation.semanticProfile.timeQuality",
+    });
+    expect(log.providerOutputSummary.semanticProfileKeys).toContain("timeQuality");
+    expect(log.providerOutputSummary).not.toHaveProperty("semanticProfileValues");
+    expect(logger.error.mock.calls[0][0]).not.toContain("SENSORY_PROFILE_VALUE_SHOULD_NOT_APPEAR");
+  });
+
   it("summarizes voice input without logging raw numeric detail or text", async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
     const handler = createHandler({

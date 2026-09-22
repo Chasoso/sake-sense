@@ -72,14 +72,7 @@ export function summarizeProviderOutput(value) {
     ...(interpretation && typeof interpretation.outcome === "string"
       ? { outcome: interpretation.outcome }
       : {}),
-    ...(semanticProfile
-      ? {
-          semanticProfileKeys: Object.keys(semanticProfile).sort(),
-          semanticProfileValues: Object.fromEntries(
-            Object.entries(semanticProfile).filter(([, entry]) => typeof entry === "string"),
-          ),
-        }
-      : {}),
+    ...(semanticProfile ? { semanticProfileKeys: Object.keys(semanticProfile).sort() } : {}),
     ...(experimentalProfile
       ? { experimentalProfileKeys: Object.keys(experimentalProfile).sort() }
       : {}),
