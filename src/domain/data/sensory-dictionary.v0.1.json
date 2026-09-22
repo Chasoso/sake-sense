@@ -166,7 +166,7 @@
       "id": "tanrei",
       "displayTerm": "淡麗",
       "definitionSummary": "軽快で繊細な味わいを表す、濃淡・body文脈の官能評価語。",
-      "vocabularyStatus": "reference-only",
+      "vocabularyStatus": "selectable",
       "sourceCategory": "concentration-body",
       "everydayLanguageCandidates": [
         { "text": "軽快で繊細な味わい", "status": "source-supported" }
@@ -195,7 +195,7 @@
       "id": "nojun",
       "displayTerm": "濃醇",
       "definitionSummary": "豊かで厚みのある味わいを表す、濃淡・body文脈の官能評価語。",
-      "vocabularyStatus": "reference-only",
+      "vocabularyStatus": "selectable",
       "sourceCategory": "concentration-body",
       "everydayLanguageCandidates": [
         { "text": "豊かで厚みのある味わい", "status": "source-supported" }

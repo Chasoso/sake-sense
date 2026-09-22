@@ -18,12 +18,12 @@ describe("MVP sensory dictionary", () => {
       dictionary.entries
         .filter((entry) => entry.vocabularyStatus === "selectable")
         .map((entry) => entry.id),
-    ).toEqual(["atoaji", "kire", "nameraka", "marui"]);
+    ).toEqual(["atoaji", "kire", "nameraka", "marui", "tanrei", "nojun"]);
     expect(
       dictionary.entries
         .filter((entry) => entry.vocabularyStatus === "reference-only")
         .map((entry) => entry.id),
-    ).toEqual(["sanmi", "umami", "amami", "tanrei", "nojun"]);
+    ).toEqual(["sanmi", "umami", "amami"]);
   });
 
   it("keeps the source-aligned distinctions and aftertaste relation", () => {

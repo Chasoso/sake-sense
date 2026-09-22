@@ -76,9 +76,16 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     }
   });
 
-  it("serializes only the four reviewed selectable terms", () => {
+  it("serializes the six reviewed selectable terms", () => {
     const context = serializeSensoryDictionaryContext();
-    expect(context.map((entry) => entry.id)).toEqual(["atoaji", "kire", "nameraka", "marui"]);
+    expect(context.map((entry) => entry.id)).toEqual([
+      "atoaji",
+      "kire",
+      "nameraka",
+      "marui",
+      "tanrei",
+      "nojun",
+    ]);
     expect(context.find((entry) => entry.id === "kire")).toMatchObject({
       displayTerm: "きれ",
       parentTermId: "atoaji",
@@ -89,7 +96,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
 
   it("excludes reference-only terms from serialization, validation, and the instruction", () => {
     const allowed = getSelectableSensoryTermIds();
-    for (const id of ["sanmi", "umami", "amami", "tanrei", "nojun"]) {
+    for (const id of ["sanmi", "umami", "amami"]) {
       expect(allowed).not.toContain(id);
       expect(
         validateSensoryBridgeResponse({
@@ -105,7 +112,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
       input: buildSensoryBridgeInput(baseFeatures),
       allowedTermIds: allowed,
     });
-    expect(instruction).not.toContain("nojun");
+    expect(instruction).toContain("nojun");
     expect(instruction).not.toContain("weight:heavy");
     expect(instruction).not.toContain("shape:sharp");
   });
@@ -195,6 +202,40 @@ describe("MVP sensory bridge vocabulary boundary", () => {
         score: 1,
       } as never).ok,
     ).toBe(false);
+  });
+
+  it("accepts backend semantic authorization metadata without deriving terms from free text", () => {
+    const response = validateSensoryBridgeResponse({
+      sensoryInterpretation: {
+        outcome: "interpreted",
+        sensoryExpression: "縺吶▲縺ｨ謚慕ｼｱ縺ｫ蜿取據縺吶ｋ諢溘§",
+        semanticProfile: {
+          timeQuality: "sudden",
+          weightQuality: "unknown",
+          flowQuality: "unknown",
+          directness: "unknown",
+          persistence: "brief",
+          resolution: "abrupt",
+          continuity: "unknown",
+          rhythmicity: "unknown",
+          expansion: "unknown",
+          spread: "unknown",
+          smoothness: "unknown",
+          roundness: "unknown",
+        },
+      },
+      sensoryClassProposals: ["clean-fade"],
+      sensoryExpressions: ["free text does not authorize terms"],
+      candidateTermIds: ["kire"],
+      unmappedFeatures: [],
+      reason: "譁ｰ縺励＞諢溘§",
+      authorization: [
+        { termId: "kire", sensoryClass: "clean-fade", level: "strong", supportCount: 2 },
+      ],
+      authorizationConflicts: [],
+    });
+    expect(response.ok).toBe(true);
+    if (response.ok) expect(response.value.candidateTermIds).toEqual(["kire"]);
   });
 
   it("derives Body fixture candidates only through approved expression links", async () => {

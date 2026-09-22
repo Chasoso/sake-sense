@@ -13,6 +13,7 @@ export const voiceInputKeys = ["durationMs", "averageIntensity", "pauseCount", "
 
 export const responseKeys = [
   "sensoryInterpretation",
+  "sensoryClassProposals",
   "sensoryExpressions",
   "candidateTermIds",
   "unmappedFeatures",
@@ -69,6 +70,21 @@ export const responseSchema = {
       },
       required: ["outcome"],
     },
+    sensoryClassProposals: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [
+          "lingering-after-feel",
+          "clean-fade",
+          "smooth-flow",
+          "rounded-enveloping",
+          "light-delicate",
+          "rich-full",
+          "unmapped",
+        ],
+      },
+    },
     sensoryExpressions: { type: "array", items: { type: "string" } },
     candidateTermIds: { type: "array", items: { type: "string" } },
     unmappedFeatures: { type: "array", items: { type: "string" } },
@@ -85,6 +101,7 @@ export const systemInstruction = [
   "For interpreted, return every Primary semanticProfile axis using only its schema enum. Use unknown when an axis cannot be judged safely; use neutral only where the schema permits it.",
   "Primary axis meanings: timeQuality is sudden versus sustained timing; weightQuality is light versus strong felt force; flowQuality is bound versus free movement; directness is focused/direct versus indirect/drifting; persistence is brief, moderate, or lingering impression; resolution is abrupt, gradual, or unresolved ending; continuity is continuous versus interrupted; rhythmicity is singular, regular, or wavering; expansion is expansive, condensing, or neutral; spread is spreading, enclosing, or neutral; smoothness is smooth versus rough; roundness is rounded versus angular.",
   "Experimental profile axes are optional and evaluation-only: softness soft/firm, symmetry balanced/asymmetric, verticality rising/sinking/neutral, and approach advancing/retreating/neutral. Do not add axes or arbitrary keys.",
+  "For an interpreted outcome, propose zero, one, or two sensory classes from the finite sensoryClassProposals enum only. Use unmapped alone when no reviewed class fits; never mix unmapped with normal classes. Do not propose normal classes for ambiguous or insufficient outcomes.",
   "Write sensoryExpression and reason as concise, cautious Japanese user-facing text. sensoryExpression is presentation-only and must not authorize a sake term.",
   "Do not return authoritative sake term IDs, product IDs, recommendations, provenance judgments, or availability judgments. Return an empty candidateTermIds array.",
   "The current allowedTermIds field is not semantic evidence and must not be used to reverse-engineer a profile or select a term. Do not output dictionary context or provenance fields.",

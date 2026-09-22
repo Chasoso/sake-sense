@@ -57,6 +57,52 @@ describe("backend AI sensory interpretation contract", () => {
     expect(responseKeys).toEqual(Object.keys(responseSchema.properties));
   });
 
+  it("validates finite sensory class proposals and uses the reviewed route result", () => {
+    const result = validateModelResponse(
+      {
+        sensoryInterpretation: {
+          ...interpreted,
+          semanticProfile: {
+            ...primaryProfile,
+            timeQuality: "sudden",
+            persistence: "brief",
+            resolution: "abrupt",
+          },
+        },
+        sensoryClassProposals: ["clean-fade"],
+        sensoryExpressions: [],
+        candidateTermIds: ["atoaji"],
+        reason: "譁ｰ縺励＞諢溘§",
+      },
+      new Set(bodyRequest.allowedTermIds),
+      bodyRequest,
+    );
+    expect(result.candidateTermIds).toEqual(["kire"]);
+    expect(result.authorization).toMatchObject([
+      { termId: "kire", sensoryClass: "clean-fade", level: "strong" },
+    ]);
+  });
+
+  it.each([
+    ["unknown-class"],
+    ["smooth-flow", "clean-fade", "light-delicate"],
+    ["unmapped", "clean-fade"],
+  ])("rejects invalid sensory class proposal %s", (...proposals) => {
+    expect(() =>
+      validateModelResponse(
+        {
+          sensoryInterpretation: interpreted,
+          sensoryClassProposals: proposals,
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          reason: "譁ｰ縺励＞諢溘§",
+        },
+        new Set(bodyRequest.allowedTermIds),
+        bodyRequest,
+      ),
+    ).toThrow();
+  });
+
   it("accepts Primary unknown values and optional Experimental values", () => {
     expect(
       validateSensoryInterpretation({

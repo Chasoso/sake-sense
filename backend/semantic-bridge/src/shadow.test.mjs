@@ -102,7 +102,7 @@ describe("shadow AI sensory interpretation", () => {
 
     expect(bodyResponse.sensoryInterpretation.outcome).toBe("interpreted");
     expect(voiceResponse.sensoryInterpretation.outcome).toBe("interpreted");
-    expect(bodyResponse.candidateTermIds).toEqual(["kire"]);
+    expect(bodyResponse.candidateTermIds).toEqual([]);
     expect(voiceResponse.candidateTermIds).toEqual([]);
   });
 
@@ -133,7 +133,7 @@ describe("shadow AI sensory interpretation", () => {
     expect(first.sensoryExpressions).toEqual(second.sensoryExpressions);
     expect(first.reason).toBe(second.reason);
     expect(first.candidateTermIds).toEqual(second.candidateTermIds);
-    expect(first.candidateTermIds).toEqual(["kire"]);
+    expect(first.candidateTermIds).toEqual([]);
   });
 
   it("logs only bounded interpretation diagnostics, never provider text or raw input", async () => {

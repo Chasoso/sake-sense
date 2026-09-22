@@ -17,6 +17,17 @@ import {
   type AiSensoryInterpretation,
 } from "./sensory-interpretation";
 
+export const sensoryClassValues = [
+  "lingering-after-feel",
+  "clean-fade",
+  "smooth-flow",
+  "rounded-enveloping",
+  "light-delicate",
+  "rich-full",
+  "unmapped",
+] as const;
+export type SensoryClassProposal = (typeof sensoryClassValues)[number];
+
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
   ending: "abrupt" | "gradual" | "continued" | "unknown";
@@ -42,8 +53,9 @@ export type SensoryBridgeObservableInput =
   | { modality: "voice"; features: VoiceSensoryBridgeInput };
 
 export type SensoryBridgeResponse = {
-  /** Transitional AI interpretation; never used for term authorization in this phase. */
+  /** Validated AI interpretation retained separately from authorized terms. */
   sensoryInterpretation?: AiSensoryInterpretation;
+  sensoryClassProposals?: SensoryClassProposal[];
   sensoryExpressions: string[];
   candidateTermIds: string[];
   /** Features present in the compact request, including explicit unknown values. */
@@ -58,6 +70,17 @@ export type SensoryBridgeResponse = {
   groundingCaseIds?: string[];
   groundingExpressionIds?: string[];
   reason: string;
+  authorization?: Array<{
+    termId: string;
+    sensoryClass: SensoryClassProposal;
+    level: "strong" | "supported";
+    supportCount: number;
+  }>;
+  authorizationConflicts?: Array<{
+    termIds: string[];
+    resolution: "strong_wins" | "same_level_conflict";
+    removedTermId?: string;
+  }>;
 };
 
 export type SensoryBridgeRawResponse = SensoryBridgeResponse | string;
@@ -129,6 +152,7 @@ export type SensoryBridgeProviderPresentation = {
 
 const responseKeys = new Set([
   "sensoryInterpretation",
+  "sensoryClassProposals",
   "sensoryExpressions",
   "candidateTermIds",
   "observedFeatures",
@@ -139,6 +163,8 @@ const responseKeys = new Set([
   "groundingCaseIds",
   "groundingExpressionIds",
   "reason",
+  "authorization",
+  "authorizationConflicts",
 ]);
 
 export function buildSensoryBridgeInput(features: BodyMovementFeatures): SensoryBridgeInput {
@@ -296,6 +322,22 @@ export function validateSensoryBridgeResponse(
     const interpretation = validateSensoryInterpretation(record.sensoryInterpretation);
     if (!interpretation.ok) return { ok: false, error: interpretation.error };
   }
+  if (
+    record.sensoryClassProposals !== undefined &&
+    (!Array.isArray(record.sensoryClassProposals) ||
+      record.sensoryClassProposals.some(
+        (proposal) => !sensoryClassValues.includes(proposal as SensoryClassProposal),
+      ) ||
+      new Set(record.sensoryClassProposals).size !== record.sensoryClassProposals.length ||
+      record.sensoryClassProposals.length > 2 ||
+      (record.sensoryClassProposals.includes("unmapped") &&
+        record.sensoryClassProposals.length > 1) ||
+      ((record.sensoryInterpretation as { outcome?: unknown } | undefined)?.outcome !==
+        "interpreted" &&
+        record.sensoryClassProposals.some((proposal) => proposal !== "unmapped")))
+  ) {
+    return { ok: false, error: "invalid sensory class proposals" };
+  }
   const candidateTermIds = record.candidateTermIds as string[];
   const allowedIds = new Set(getSelectableSensoryTermIds());
   if (
@@ -304,36 +346,79 @@ export function validateSensoryBridgeResponse(
   ) {
     return { ok: false, error: "橋渡し応答に辞書外または重複した候補が含まれています。" };
   }
-  return {
-    ok: true,
-    value: {
-      ...(record.sensoryInterpretation !== undefined
-        ? { sensoryInterpretation: record.sensoryInterpretation as AiSensoryInterpretation }
-        : {}),
-      sensoryExpressions: record.sensoryExpressions as string[],
-      candidateTermIds,
-      ...(Array.isArray(record.observedFeatures)
-        ? { observedFeatures: record.observedFeatures as string[] }
-        : {}),
-      ...(Array.isArray(record.interpretationEvidence)
-        ? { interpretationEvidence: record.interpretationEvidence as string[] }
-        : {}),
-      unmappedFeatures: record.unmappedFeatures as string[],
-      ...(Array.isArray(record.unusedFeatures)
-        ? { unusedFeatures: record.unusedFeatures as string[] }
-        : {}),
-      ...(record.interpretationStateId === null || typeof record.interpretationStateId === "string"
-        ? { interpretationStateId: record.interpretationStateId }
-        : {}),
-      ...(Array.isArray(record.groundingCaseIds)
-        ? { groundingCaseIds: record.groundingCaseIds as string[] }
-        : {}),
-      ...(Array.isArray(record.groundingExpressionIds)
-        ? { groundingExpressionIds: record.groundingExpressionIds as string[] }
-        : {}),
-      reason: record.reason,
-    },
+  const validatedValue: SensoryBridgeResponse = {
+    ...(record.sensoryInterpretation !== undefined
+      ? { sensoryInterpretation: record.sensoryInterpretation as AiSensoryInterpretation }
+      : {}),
+    ...(Array.isArray(record.sensoryClassProposals)
+      ? { sensoryClassProposals: record.sensoryClassProposals as SensoryClassProposal[] }
+      : {}),
+    sensoryExpressions: record.sensoryExpressions as string[],
+    candidateTermIds,
+    ...(Array.isArray(record.observedFeatures)
+      ? { observedFeatures: record.observedFeatures as string[] }
+      : {}),
+    ...(Array.isArray(record.interpretationEvidence)
+      ? { interpretationEvidence: record.interpretationEvidence as string[] }
+      : {}),
+    unmappedFeatures: record.unmappedFeatures as string[],
+    ...(Array.isArray(record.unusedFeatures)
+      ? { unusedFeatures: record.unusedFeatures as string[] }
+      : {}),
+    ...(record.interpretationStateId === null || typeof record.interpretationStateId === "string"
+      ? { interpretationStateId: record.interpretationStateId }
+      : {}),
+    ...(Array.isArray(record.groundingCaseIds)
+      ? { groundingCaseIds: record.groundingCaseIds as string[] }
+      : {}),
+    ...(Array.isArray(record.groundingExpressionIds)
+      ? { groundingExpressionIds: record.groundingExpressionIds as string[] }
+      : {}),
+    reason: record.reason,
+    ...(Array.isArray(record.authorization)
+      ? { authorization: record.authorization as SensoryBridgeResponse["authorization"] }
+      : {}),
+    ...(Array.isArray(record.authorizationConflicts)
+      ? {
+          authorizationConflicts:
+            record.authorizationConflicts as SensoryBridgeResponse["authorizationConflicts"],
+        }
+      : {}),
   };
+  if (record.sensoryInterpretation !== undefined) {
+    if (!Array.isArray(record.authorization) || !Array.isArray(record.authorizationConflicts)) {
+      return { ok: false, error: "semantic authorization metadata is missing" };
+    }
+    const authorization = record.authorization as Array<Record<string, unknown>>;
+    const authorizationConflicts = record.authorizationConflicts as Array<Record<string, unknown>>;
+    if (
+      authorization.some(
+        (entry) =>
+          typeof entry.termId !== "string" ||
+          !allowedIds.has(entry.termId) ||
+          !sensoryClassValues.includes(entry.sensoryClass as SensoryClassProposal) ||
+          !(["strong", "supported"] as const).includes(entry.level as "strong" | "supported") ||
+          !Number.isInteger(entry.supportCount) ||
+          (entry.supportCount as number) < 1,
+      ) ||
+      new Set(authorization.map((entry) => entry.termId)).size !== authorization.length ||
+      authorizationConflicts.some(
+        (conflict) =>
+          !Array.isArray(conflict.termIds) ||
+          conflict.termIds.length !== 2 ||
+          conflict.termIds.some((termId) => typeof termId !== "string") ||
+          !(["strong_wins", "same_level_conflict"] as const).includes(
+            conflict.resolution as "strong_wins" | "same_level_conflict",
+          ) ||
+          (conflict.removedTermId !== undefined && typeof conflict.removedTermId !== "string"),
+      ) ||
+      authorization.map((entry) => entry.termId).join("\u0000") !== candidateTermIds.join("\u0000")
+    ) {
+      return { ok: false, error: "invalid semantic authorization metadata" };
+    }
+    return { ok: true, value: validatedValue };
+  }
+  return { ok: true, value: validatedValue };
 }
 
 function featureList(

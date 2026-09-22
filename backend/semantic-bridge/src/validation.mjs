@@ -1,6 +1,7 @@
 import { bodyInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
 import { applyReviewedGrounding } from "./grounding.mjs";
 import { validateSensoryInterpretation } from "./sensory-interpretation.mjs";
+import { validateSensoryClassProposals } from "./semantic-authorization.mjs";
 import dictionaryData from "../../../src/domain/data/sensory-dictionary.v0.1.json" with { type: "json" };
 
 const bodyValues = {
@@ -219,6 +220,16 @@ export function validateModelResponse(value, allowedIds, request) {
       },
     );
   }
+  const proposalValidation = validateSensoryClassProposals(
+    value.sensoryClassProposals,
+    value.sensoryInterpretation?.outcome,
+  );
+  assert(
+    proposalValidation.ok,
+    proposalValidation.ok ? "" : proposalValidation.error,
+    SemanticBridgeProviderValidationError,
+    { code: "malformed_output", path: "sensoryClassProposals" },
+  );
   assert(
     value.sensoryExpressions.every((expression) => hasJapaneseText(expression)) &&
       hasJapaneseText(value.reason),

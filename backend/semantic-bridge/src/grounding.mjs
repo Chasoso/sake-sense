@@ -1,5 +1,6 @@
 import supportCaseData from "../../../src/domain/data/sensory-support-cases.v0.1.json" with { type: "json" };
 import expressionData from "../../../src/domain/data/sensory-expressions.v0.1.json" with { type: "json" };
+import { authorizeSensoryTerms } from "./semantic-authorization.mjs";
 
 const expressionById = new Map(
   expressionData.expressions.map((expression) => [expression.id, expression]),
@@ -145,13 +146,27 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
       return expression?.termLinkStatus === "approved" ? expression.candidateTermIds : [];
     })
     .filter((id, index, ids) => allowedIds.has(id) && ids.indexOf(id) === index);
+  const semanticAuthorization = modelResponse.sensoryInterpretation
+    ? authorizeSensoryTerms(
+        modelResponse.sensoryInterpretation,
+        modelResponse.sensoryClassProposals ?? [],
+        [...allowedIds],
+      )
+    : null;
 
   return {
     ...(modelResponse.sensoryInterpretation
       ? { sensoryInterpretation: modelResponse.sensoryInterpretation }
       : {}),
+    sensoryClassProposals: modelResponse.sensoryClassProposals ?? [],
     sensoryExpressions: presentation.sensoryExpressions,
-    candidateTermIds,
+    candidateTermIds: semanticAuthorization?.authorizedTermIds ?? candidateTermIds,
+    ...(semanticAuthorization
+      ? {
+          authorization: semanticAuthorization.authorization,
+          authorizationConflicts: semanticAuthorization.authorizationConflicts,
+        }
+      : {}),
     observedFeatures,
     interpretationEvidence,
     unmappedFeatures:
