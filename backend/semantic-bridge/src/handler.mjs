@@ -1,4 +1,5 @@
 import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
+import { countRenderableProductMatches } from "./product-match-count.mjs";
 import {
   parseAndValidateRequest,
   SemanticBridgeRequestValidationError,
@@ -9,6 +10,7 @@ import {
   emitLifecycleEvent,
   buildProviderFailureDiagnostics,
   buildProviderValidationDiagnostics,
+  buildSemanticEvaluationDiagnostics,
 } from "./diagnostics.mjs";
 
 function apiResponse(statusCode, body, origin) {
@@ -116,6 +118,17 @@ export function createHandler({
         modality: requestValue.modality,
         model: env.BEDROCK_MODEL_ID,
       });
+      logger.info?.(
+        JSON.stringify(
+          buildSemanticEvaluationDiagnostics({
+            event,
+            modality: requestValue.modality,
+            input: requestValue.input,
+            response,
+            productMatchCount: countRenderableProductMatches(response.candidateTermIds),
+          }),
+        ),
+      );
       logger.info?.(
         JSON.stringify(
           buildShadowDiagnostics(response, event, requestValue.modality, env.BEDROCK_MODEL_ID),
