@@ -26,48 +26,53 @@ The Lambda uses the Bedrock Runtime Converse API with `outputConfig.textFormat` 
 
 The provider schema intentionally uses the Bedrock structured-output JSON Schema subset. In particular, legacy array fields are not constrained with `maxItems`; the reviewed grounding layer still deterministically replaces their user-facing and candidate values, and application validation remains the final contract check.
 
-## Human deployment
+## Deployment architecture
 
-Codex does not deploy this stack or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action in the AWS account before continuing; do not silently select another model.
+The production source of truth is `infra/aws/ai-semantic-bridge.yaml`. After the one-time bootstrap below, the normal path is:
 
-Build the Lambda bundle locally. The `@aws-sdk/client-bedrock-runtime` dependency is included in the single esbuild bundle, so deployment does not depend on the SDK version bundled with the Node.js 24 Lambda runtime:
-
-```bash
-npm ci
-npm run build:semantic-bridge
-npm run package:semantic-bridge
+```text
+merge to main
+  -> production Environment + GitHub OIDC
+  -> build and validate Lambda bundle
+  -> upload semantic-bridge/<GITHUB_SHA>.zip to the private artifact bucket
+  -> create and inspect a CloudFormation change set
+  -> execute only a change set that passes the safety gate
+  -> update sake-sense-ai-production
+  -> stack and Lambda verification
 ```
 
-Upload the bundle to a human-managed private artifact bucket using a commit-specific key:
+The workflow no longer calls `lambda update-function-code` directly. Lambda code, timeout, environment, API Gateway, permissions, and IAM resources are updated together by CloudFormation. The commit-specific S3 key is immutable and the artifact bucket is separate from the frontend website bucket.
 
-```bash
-aws s3 cp index.js.zip \
-  s3://<LAMBDA_ARTIFACT_BUCKET>/semantic-bridge/<GIT_SHA>.zip \
-  --region ap-northeast-1
-```
+The `@aws-sdk/client-bedrock-runtime` dependency is included in the single esbuild bundle, so deployment does not depend on the SDK version bundled with the Node.js 24 Lambda runtime. The package contains only `index.js`.
 
-Deploy the dedicated stack after the static hosting stack has produced the CloudFront domain:
+## One-time human bootstrap
 
-```bash
-aws cloudformation deploy \
-  --template-file infra/aws/ai-semantic-bridge.yaml \
-  --stack-name sake-sense-ai-production \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    AllowedOrigin=https://<CLOUDFRONT_DOMAIN> \
-    BedrockModelId=global.anthropic.claude-haiku-4-5-20251001-v1:0 \
-    LambdaCodeS3Bucket=<LAMBDA_ARTIFACT_BUCKET> \
-    LambdaCodeS3Key=semantic-bridge/<GIT_SHA>.zip \
-  --region ap-northeast-1
-```
+Codex does not deploy AWS resources or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action before continuing; do not silently select another model.
 
-`LambdaCodeS3Bucket` and `LambdaCodeS3Key` are required because the Lambda source is packaged outside CloudFormation. Do not use the website bucket unless its artifact retention and access policy are intentionally approved.
+The existing `sake-sense-production` static-hosting stack owns the private versioned semantic bridge artifact bucket, the GitHub OIDC deployment role, and the dedicated CloudFormation execution role. An account owner must update that stack once after this workflow/template change, using the existing OIDC provider parameters from [the static-hosting deployment guide](aws-static-hosting.md). This update is the intentional bootstrap boundary: it changes the GitHub role from direct Lambda code updates to scoped CloudFormation change-set access and `iam:PassRole` for one execution role.
 
-Set the following GitHub `production` Environment variable from the stack output:
+Record these stack outputs in the GitHub `production` Environment; do not commit them:
 
-- `VITE_SENSORY_BRIDGE_API_URL`: `SemanticBridgeApiEndpoint`
+- `DeploymentRoleArn` -> `AWS_ROLE_ARN`
+- `SemanticBridgeArtifactBucketName` -> `SEMANTIC_BRIDGE_ARTIFACT_BUCKET`
+- `SemanticBridgeCloudFormationExecutionRoleArn` -> `CLOUDFORMATION_EXECUTION_ROLE_ARN`
+- `CloudFrontDomainName` -> use the exact `https://<domain>` value for `SEMANTIC_BRIDGE_ALLOWED_ORIGIN` (no trailing slash)
+- `SemanticBridgeApiEndpoint` -> `VITE_SENSORY_BRIDGE_API_URL`
 
-The existing AWS deployment variables remain unchanged. The frontend explicitly selects the AI provider only when this Vite variable is present; local development, tests, and CI remain deterministic and no-network by default. The Voice path sends only locally derived `durationMs`, `averageIntensity`, `pauseCount`, and `endingBehavior`; microphone samples and audio buffers never leave the browser. The Lambda bundle is a single `index.js` file containing the pinned `@aws-sdk/client-bedrock-runtime` dependency; the Lambda runtime's bundled SDK is not relied upon.
+The production Environment must contain these non-secret variables:
+
+- `AWS_REGION` = `ap-northeast-1`
+- `AWS_ROLE_ARN`
+- `S3_BUCKET_NAME`
+- `CLOUDFRONT_DISTRIBUTION_ID`
+- `VITE_SENSORY_BRIDGE_API_URL`
+- `SEMANTIC_BRIDGE_STACK_NAME` = `sake-sense-ai-production`
+- `SEMANTIC_BRIDGE_ARTIFACT_BUCKET`
+- `SEMANTIC_BRIDGE_ALLOWED_ORIGIN` = exact CloudFront origin
+- `SEMANTIC_BRIDGE_MODEL_ID` = `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `CLOUDFORMATION_EXECUTION_ROLE_ARN`
+
+Keep production required reviewers and other Environment protection enabled. No static AWS access keys are used.
 
 ## Safeguards and boundaries
 
@@ -90,11 +95,15 @@ Bedrock costs are driven by input/output tokens and cross-region inference. Addi
 
 The Lambda logs only sanitized success/failure diagnostics. It does not log request payloads, prompts, model responses, landmarks, audio, or user text.
 
-## Automatic code deployment
+## Automatic deployment and fallback
 
-After the production stack and GitHub `production` Environment are configured, pushes to `main` automatically deploy backend changes through `.github/workflows/deploy-production.yml`. Changes under `backend/semantic-bridge/**` and shared runtime/package files trigger the semantic bridge job; frontend-only changes do not update Lambda. The job builds with `npm run build:semantic-bridge`, packages the single `index.js` bundle with `npm run package:semantic-bridge`, calls `aws lambda update-function-code` on the existing function, waits for `function-updated`, and verifies `LastUpdateStatus=Successful`.
+`.github/workflows/deploy-production.yml` runs on pushes to `main` and manual `workflow_dispatch`. Frontend and semantic bridge jobs remain independently path-triggered; a workflow dispatch runs both. Semantic bridge changes include `backend/semantic-bridge/**`, `infra/aws/ai-semantic-bridge.yaml`, the package helper, and shared runtime/package files.
 
-The workflow uses the same production OIDC role and environment protection as the frontend deployment. The role must have only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for the existing function. The workflow updates code only; Lambda configuration remains managed by `infra/aws/ai-semantic-bridge.yaml`. After changing the template timeout, redeploy the production CloudFormation stack once to apply the 30-second timeout; no IAM broadening or workflow configuration update is required. `workflow_dispatch` is available as a manual fallback and runs both deployment paths.
+The semantic bridge job runs `npm ci`, `npm run validate`, `npm run build:semantic-bridge`, and `npm run package:semantic-bridge`, uploads `semantic-bridge/${GITHUB_SHA}.zip`, and creates a uniquely named CloudFormation change set with `--role-arn` set to the dedicated execution role and the exact `AllowedOrigin`, model, bucket, and immutable key parameters. A deterministic safety gate permits only safe `Add` changes and `Modify` changes with `Replacement=False`/`Never`. `Remove`, replacement, unknown action/replacement values, and malformed change metadata fail closed; the change set is not executed and human review is required. A CloudFormation no-change result is a successful no-op and the temporary change set is cleaned up. Safe change sets are executed, then the workflow verifies `CREATE_COMPLETE`/`UPDATE_COMPLETE`, the stack Lambda resource, `LastUpdateStatus`, runtime, memory, and timeout.
+
+The dedicated CloudFormation execution role is the stack service role. After the one-time bootstrap associates it with `sake-sense-ai-production`, CloudFormation continues to use that role for later stack operations; the GitHub OIDC role only controls the named stack/change set and can pass that one role. The workflow does not bypass the gate for destructive changes.
+
+There is no routine CloudShell `aws cloudformation deploy` step after the bootstrap. `workflow_dispatch` is the manual GitHub fallback. Rollback is performed by deploying a reviewed earlier commit through `main`; the versioned artifact bucket retains prior packages. If a change set contains `Remove` or resource replacement, GitHub Actions stops before execution and reports that human action is required; the operator must review the listed logical resource/action/replacement values before using an approved manual process.
 
 ## Local validation
 

@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-frontend
+  group: production-deploy
   cancel-in-progress: false
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
             if printf '%s\n' "$changed_files" | grep -Eq '^(src/|public/|index.html|package.json|package-lock.json|\.nvmrc$|vite\.config\.[^/]+$|tsconfig[^/]*\.json$)'; then
               frontend=true
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|package.json|package-lock.json|\.nvmrc$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|infra/aws/ai-semantic-bridge\.yaml$|scripts/package-semantic-bridge\.mjs$|package.json|package-lock.json|\.nvmrc$)'; then
               backend=true
             fi
           fi
@@ -119,7 +119,7 @@ jobs:
         run: aws cloudfront create-invalidation --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" --paths "/*"
 
   deploy-semantic-bridge:
-    name: Package and deploy semantic bridge Lambda
+    name: Package and deploy semantic bridge stack
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -130,7 +130,11 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
-      SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME: ${{ vars.SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME }}
+      SEMANTIC_BRIDGE_STACK_NAME: ${{ vars.SEMANTIC_BRIDGE_STACK_NAME }}
+      SEMANTIC_BRIDGE_ARTIFACT_BUCKET: ${{ vars.SEMANTIC_BRIDGE_ARTIFACT_BUCKET }}
+      SEMANTIC_BRIDGE_ALLOWED_ORIGIN: ${{ vars.SEMANTIC_BRIDGE_ALLOWED_ORIGIN }}
+      SEMANTIC_BRIDGE_MODEL_ID: ${{ vars.SEMANTIC_BRIDGE_MODEL_ID }}
+      CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -156,12 +160,20 @@ jobs:
       - name: Check deployment configuration
         run: |
           set -euo pipefail
-          for variable in AWS_REGION AWS_ROLE_ARN SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME; do
+          for variable in AWS_REGION AWS_ROLE_ARN SEMANTIC_BRIDGE_STACK_NAME SEMANTIC_BRIDGE_ARTIFACT_BUCKET SEMANTIC_BRIDGE_ALLOWED_ORIGIN SEMANTIC_BRIDGE_MODEL_ID CLOUDFORMATION_EXECUTION_ROLE_ARN; do
             if [ -z "${!variable}" ]; then
               echo "Missing GitHub production variable: ${variable}" >&2
               exit 1
             fi
           done
+          case "${SEMANTIC_BRIDGE_ALLOWED_ORIGIN}" in
+            https://*) ;;
+            *) echo "SEMANTIC_BRIDGE_ALLOWED_ORIGIN must be an https origin" >&2; exit 1 ;;
+          esac
+          if [[ "${SEMANTIC_BRIDGE_ALLOWED_ORIGIN}" == */ ]]; then
+            echo "SEMANTIC_BRIDGE_ALLOWED_ORIGIN must not have a trailing slash" >&2
+            exit 1
+          fi
 
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v6
@@ -170,28 +182,123 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: sake-sense-production
 
-      - name: Update Lambda code in place
+      - name: Upload immutable Lambda artifact
         run: |
           set -euo pipefail
-          aws lambda update-function-code \
-            --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}" \
-            --zip-file fileb://backend/semantic-bridge/dist/index.js.zip \
-            --query '{FunctionName:FunctionName,RevisionId:RevisionId,LastModified:LastModified}' \
-            --output json
+          artifact_key="semantic-bridge/${GITHUB_SHA}.zip"
+          echo "ARTIFACT_KEY=${artifact_key}" >> "$GITHUB_ENV"
+          aws s3 cp backend/semantic-bridge/dist/index.js.zip \
+            "s3://${SEMANTIC_BRIDGE_ARTIFACT_BUCKET}/${artifact_key}" \
+            --only-show-errors
 
-      - name: Wait for Lambda update
-        run: aws lambda wait function-updated --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}"
-
-      - name: Verify Lambda deployment
+      - name: Deploy semantic bridge CloudFormation stack
         run: |
           set -euo pipefail
-          status="$(aws lambda get-function-configuration \
-            --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}" \
-            --query '{FunctionName:FunctionName,LastUpdateStatus:LastUpdateStatus,RevisionId:RevisionId,LastModified:LastModified}' \
+          change_set_name="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          change_set_file="${RUNNER_TEMP}/semantic-bridge-change-set-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          change_set_id=""
+          cleanup_change_set() {
+            if [ -n "$change_set_id" ]; then
+              aws cloudformation delete-change-set \
+                --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+                --change-set-name "$change_set_id" \
+                --region "${AWS_REGION}" \
+                >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_change_set EXIT
+
+          create_output="$(aws cloudformation create-change-set \
+            --template-body file://infra/aws/ai-semantic-bridge.yaml \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_name" \
+            --change-set-type UPDATE \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --role-arn "${CLOUDFORMATION_EXECUTION_ROLE_ARN}" \
+            --parameters \
+              ParameterKey=AllowedOrigin,ParameterValue="${SEMANTIC_BRIDGE_ALLOWED_ORIGIN}" \
+              ParameterKey=BedrockModelId,ParameterValue="${SEMANTIC_BRIDGE_MODEL_ID}" \
+              ParameterKey=LambdaCodeS3Bucket,ParameterValue="${SEMANTIC_BRIDGE_ARTIFACT_BUCKET}" \
+              ParameterKey=LambdaCodeS3Key,ParameterValue="${ARTIFACT_KEY}" \
+            --region "${AWS_REGION}" \
+            --query '{Id:Id}' \
             --output json)"
-          if [ "$(printf '%s' "$status" | jq -r '.LastUpdateStatus')" != "Successful" ]; then
-            echo "Lambda deployment verification failed" >&2
+          change_set_id="$(printf '%s' "$create_output" | jq -r '.Id // empty')"
+          if [ -z "$change_set_id" ]; then
+            echo "CloudFormation change set creation returned no identifier" >&2
             exit 1
           fi
-          echo "Lambda deployment successful"
-          printf '%s\n' "$status"
+
+          wait_status=0
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}" || wait_status=$?
+          if ! aws cloudformation describe-change-set \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}" \
+            --output json > "$change_set_file"; then
+            echo "Unable to inspect CloudFormation change set" >&2
+            exit 1
+          fi
+
+          set +e
+          gate_output="$(node scripts/check-cloudformation-change-set.mjs "$change_set_file")"
+          gate_status=$?
+          set -e
+          printf '%s\n' "$gate_output"
+          if [ "$gate_status" -eq 2 ]; then
+            echo "CloudFormation reported no changes; deployment is a successful no-op."
+            exit 0
+          fi
+          if [ "$wait_status" -ne 0 ] || [ "$gate_status" -ne 0 ]; then
+            echo "CloudFormation change set was not safe to execute. Human review required; the change set was not executed." >&2
+            exit 1
+          fi
+
+          aws cloudformation execute-change-set \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}"
+          change_set_id=""
+          aws cloudformation wait stack-update-complete \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --region "${AWS_REGION}"
+
+      - name: Verify semantic bridge stack and Lambda
+        run: |
+          set -euo pipefail
+          stack_status="$(aws cloudformation describe-stacks \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text)"
+          if [ "$stack_status" != "CREATE_COMPLETE" ] && [ "$stack_status" != "UPDATE_COMPLETE" ]; then
+            echo "CloudFormation stack verification failed: ${stack_status}" >&2
+            exit 1
+          fi
+          function_name="$(aws cloudformation describe-stack-resources \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --logical-resource-id SemanticBridgeFunction \
+            --query 'StackResources[0].PhysicalResourceId' \
+            --output text)"
+          function_status="$(aws lambda get-function-configuration \
+            --function-name "$function_name" \
+            --query '{FunctionName:FunctionName,Runtime:Runtime,MemorySize:MemorySize,Timeout:Timeout,LastUpdateStatus:LastUpdateStatus,LastModified:LastModified}' \
+            --output json)"
+          if ! printf '%s' "$function_status" | jq -e '(.LastUpdateStatus == "Successful") and (.Runtime == "nodejs24.x") and (.MemorySize == 256) and (.Timeout == 30)' >/dev/null; then
+            echo "Lambda verification failed" >&2
+            exit 1
+          fi
+          api_endpoint="$(aws cloudformation describe-stacks \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --query 'Stacks[0].Outputs[?OutputKey==`SemanticBridgeApiEndpoint`].OutputValue | [0]' \
+            --output text)"
+          if [ -z "$api_endpoint" ] || [ "$api_endpoint" = "None" ]; then
+            echo "SemanticBridgeApiEndpoint output is missing" >&2
+            exit 1
+          fi
+          echo "Semantic bridge deployment successful"
+          echo "StackStatus: ${stack_status}"
+          echo "SemanticBridgeApiEndpoint: ${api_endpoint}"
+          printf '%s\n' "$function_status"
