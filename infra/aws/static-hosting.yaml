@@ -283,6 +283,7 @@ Resources:
                   - iam:DeleteRole
                   - iam:DeleteRolePolicy
                   - iam:GetRole
+                  - iam:GetRolePolicy
                   - iam:ListRolePolicies
                   - iam:PutRolePolicy
                   - iam:TagRole
