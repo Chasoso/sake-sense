@@ -30,11 +30,17 @@ export async function invokeBedrock(request, env, clientFactory = defaultClientF
   const { client, ConverseCommand } = await clientFactory(env);
   const result = await client.send(new ConverseCommand(buildConverseInput(request, env)));
   const text = result.output?.message?.content?.find((item) => item.text)?.text;
-  if (!text) throw new SemanticBridgeProviderValidationError("empty model response");
+  if (!text) {
+    throw new SemanticBridgeProviderValidationError("empty model response", {
+      providerOutputKind: "empty",
+    });
+  }
   try {
     return JSON.parse(text);
   } catch {
-    throw new SemanticBridgeProviderValidationError("malformed model JSON");
+    throw new SemanticBridgeProviderValidationError("malformed model JSON", {
+      providerOutputKind: "string",
+    });
   }
 }
 

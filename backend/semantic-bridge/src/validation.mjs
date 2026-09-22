@@ -27,10 +27,13 @@ export class SemanticBridgeRequestValidationError extends Error {
 }
 
 export class SemanticBridgeProviderValidationError extends Error {
-  constructor(message) {
+  constructor(message, { code = "malformed_output", path = "$", providerOutputKind } = {}) {
     super(message);
     this.name = "SemanticBridgeProviderValidationError";
     this.statusCode = 502;
+    this.code = code;
+    this.path = path;
+    if (providerOutputKind) this.providerOutputKind = providerOutputKind;
   }
 }
 
@@ -42,8 +45,13 @@ function hasOnlyKeys(value, keys) {
   return isRecord(value) && Object.keys(value).every((key) => keys.includes(key));
 }
 
-function assert(condition, message, ErrorClass = SemanticBridgeRequestValidationError) {
-  if (!condition) throw new ErrorClass(message);
+function assert(
+  condition,
+  message,
+  ErrorClass = SemanticBridgeRequestValidationError,
+  metadata = {},
+) {
+  if (!condition) throw new ErrorClass(message, metadata);
 }
 
 function validateBodyInput(input) {
@@ -142,22 +150,46 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
 }
 
 export function validateModelResponse(value, allowedIds, request) {
-  assert(
-    isRecord(value) && Object.keys(value).every((key) => responseKeys.includes(key)),
-    "invalid model response fields",
-    SemanticBridgeProviderValidationError,
-  );
+  assert(isRecord(value), "invalid model response type", SemanticBridgeProviderValidationError, {
+    code: "invalid_type",
+    path: "$",
+  });
+  const unexpectedKey = Object.keys(value).find((key) => !responseKeys.includes(key));
+  assert(!unexpectedKey, "invalid model response fields", SemanticBridgeProviderValidationError, {
+    code: "unexpected_key",
+    path: unexpectedKey ? `$.${unexpectedKey}` : "$",
+  });
   for (const key of ["sensoryExpressions", "candidateTermIds"]) {
     assert(
-      Array.isArray(value[key]) && value[key].every((item) => typeof item === "string"),
+      Object.prototype.hasOwnProperty.call(value, key),
+      `missing model response field: ${key}`,
+      SemanticBridgeProviderValidationError,
+      { code: "missing_required_field", path: key },
+    );
+    assert(
+      Array.isArray(value[key]),
       "invalid model response array",
       SemanticBridgeProviderValidationError,
+      { code: "invalid_type", path: key },
+    );
+    assert(
+      value[key].every((item) => typeof item === "string"),
+      "invalid model response array item",
+      SemanticBridgeProviderValidationError,
+      { code: "invalid_type", path: key },
     );
   }
+  assert(
+    Object.prototype.hasOwnProperty.call(value, "reason"),
+    "missing model response field: reason",
+    SemanticBridgeProviderValidationError,
+    { code: "missing_required_field", path: "reason" },
+  );
   assert(
     typeof value.reason === "string" && value.reason.trim().length > 0,
     "invalid model response reason",
     SemanticBridgeProviderValidationError,
+    { code: "invalid_type", path: "reason" },
   );
   if (value.sensoryInterpretation !== undefined) {
     const interpretation = validateSensoryInterpretation(value.sensoryInterpretation);
@@ -165,6 +197,12 @@ export function validateModelResponse(value, allowedIds, request) {
       interpretation.ok,
       interpretation.ok ? "" : interpretation.error,
       SemanticBridgeProviderValidationError,
+      {
+        code: interpretation.ok ? "malformed_output" : (interpretation.code ?? "malformed_output"),
+        path: interpretation.ok
+          ? "sensoryInterpretation"
+          : `sensoryInterpretation.${interpretation.path ?? ""}`.replace(/\.$/, ""),
+      },
     );
   }
   assert(
@@ -172,16 +210,19 @@ export function validateModelResponse(value, allowedIds, request) {
       hasJapaneseText(value.reason),
     "model response must use Japanese user-facing text",
     SemanticBridgeProviderValidationError,
+    { code: "invalid_type", path: "sensoryExpressions/reason" },
   );
   assert(
     new Set(value.candidateTermIds).size === value.candidateTermIds.length,
     "duplicate candidate ID",
     SemanticBridgeProviderValidationError,
+    { code: "malformed_output", path: "candidateTermIds" },
   );
   assert(
     value.candidateTermIds.every((id) => allowedIds.has(id)),
     "unknown candidate ID",
     SemanticBridgeProviderValidationError,
+    { code: "malformed_output", path: "candidateTermIds" },
   );
   return applyReviewedGrounding(value, request, allowedIds);
 }

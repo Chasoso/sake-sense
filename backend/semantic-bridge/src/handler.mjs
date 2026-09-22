@@ -5,6 +5,7 @@ import {
   SemanticBridgeProviderValidationError,
   validateModelResponse,
 } from "./validation.mjs";
+import { buildProviderValidationDiagnostics } from "./diagnostics.mjs";
 
 function apiResponse(statusCode, body, origin) {
   return {
@@ -71,14 +72,17 @@ export function createHandler({
 } = {}) {
   return async (event) => {
     const origin = env.ALLOWED_ORIGIN;
+    let requestValue;
+    let providerOutput;
     try {
       const raw = event?.body || "";
-      const { value, allowedIds } = parseAndValidateRequest(raw);
-      const modelResponse = await invoke(value, env);
-      const response = validateModelResponse(modelResponse, allowedIds, value);
+      const parsed = parseAndValidateRequest(raw);
+      requestValue = parsed.value;
+      providerOutput = await invoke(requestValue, env);
+      const response = validateModelResponse(providerOutput, parsed.allowedIds, requestValue);
       logger.info?.(
         JSON.stringify(
-          buildShadowDiagnostics(response, event, value.modality, env.BEDROCK_MODEL_ID),
+          buildShadowDiagnostics(response, event, requestValue.modality, env.BEDROCK_MODEL_ID),
         ),
       );
       return apiResponse(200, response, origin);
@@ -91,7 +95,15 @@ export function createHandler({
           isRequestValidationFailure
             ? { category: "request_validation_failure" }
             : isProviderValidationFailure
-              ? { category: "provider_validation_failure" }
+              ? buildProviderValidationDiagnostics({
+                  error,
+                  event,
+                  modality: requestValue?.modality,
+                  input: requestValue?.input,
+                  model: env.BEDROCK_MODEL_ID,
+                  providerOutput,
+                  providerOutputKind: error?.providerOutputKind,
+                })
               : safeProviderErrorMetadata(error),
         ),
       );
