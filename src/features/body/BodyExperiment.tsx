@@ -834,13 +834,6 @@ export function BodyExperiment({
             {features && (
               <section className="body-features" aria-labelledby="body-features-title">
                 <h2 id="body-features-title">こんな動きでした</h2>
-                <p className="body-features__replay-status" aria-live="polite">
-                  {replayStatus === "initial" &&
-                    "リプレイには一時的に取得した骨格データだけを使います。"}
-                  {replayStatus === "playing" && "リプレイ中…"}
-                  {replayStatus === "paused" && "一時停止中。リプレイを再開できます。"}
-                  {replayStatus === "completed" && "リプレイが完了しました。"}
-                </p>
                 <ul>
                   {humanizeBodyFeatures(features)
                     .slice(0, 4)

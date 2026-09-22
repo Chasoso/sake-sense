@@ -472,7 +472,6 @@ h4 {
   background: var(--soft-surface);
 }
 
-.body-features__replay-status,
 .body-features__note {
   color: var(--muted);
   line-height: 1.7;
