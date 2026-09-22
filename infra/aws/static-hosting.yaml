@@ -227,6 +227,10 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: VerifySemanticBridgeLambda
+                Effect: Allow
+                Action: lambda:GetFunctionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${SemanticBridgeFunctionName}
 
   SemanticBridgeCloudFormationExecutionRole:
     Type: AWS::IAM::Role
