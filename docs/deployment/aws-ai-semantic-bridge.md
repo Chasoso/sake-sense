@@ -24,6 +24,8 @@ Raw camera frames, images, MediaPipe landmarks, pose history, microphone audio, 
 
 The Lambda uses the Bedrock Runtime Converse API with `outputConfig.textFormat` JSON Schema structured output. The application validator remains authoritative even when Bedrock returns a schema-constrained response.
 
+The provider schema intentionally uses the Bedrock structured-output JSON Schema subset. In particular, legacy array fields are not constrained with `maxItems`; the reviewed grounding layer still deterministically replaces their user-facing and candidate values, and application validation remains the final contract check.
+
 ## Human deployment
 
 Codex does not deploy this stack or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action in the AWS account before continuing; do not silently select another model.
