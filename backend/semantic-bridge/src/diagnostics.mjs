@@ -10,9 +10,36 @@ const BODY_INPUT_KEYS = [
 ];
 
 export const PROVIDER_ERROR_MESSAGE_MAX_LENGTH = 600;
+export const BEDROCK_PROVIDER_TIMEOUT_MS = 7_000;
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function buildLifecycleDiagnostics({
+  eventName,
+  event,
+  startedAt,
+  modality,
+  model,
+  requestSummary,
+}) {
+  const safeRequestSummary = sanitizeConverseRequestSummary(requestSummary);
+  return {
+    category: eventName,
+    ...(typeof event?.requestContext?.requestId === "string" &&
+    event.requestContext.requestId.trim()
+      ? { eventRequestId: event.requestContext.requestId }
+      : {}),
+    ...(typeof modality === "string" ? { modality } : {}),
+    ...(typeof model === "string" && model.trim() ? { model } : {}),
+    elapsedMs: Math.max(0, Date.now() - startedAt),
+    ...(safeRequestSummary ? { requestSummary: safeRequestSummary } : {}),
+  };
+}
+
+export function emitLifecycleEvent(logger, params) {
+  logger.info?.(JSON.stringify(buildLifecycleDiagnostics(params)));
 }
 
 export function sanitizeProviderErrorMessage(value) {
@@ -165,7 +192,7 @@ export function buildProviderValidationDiagnostics({
   };
 }
 
-export function buildProviderFailureDiagnostics({ error, event, modality, model }) {
+export function buildProviderFailureDiagnostics({ error, event, modality, model, elapsedMs }) {
   const sdkMetadata = isRecord(error?.$metadata) ? error.$metadata : null;
   const requestId = sdkMetadata?.requestId;
   const eventRequestId = event?.requestContext?.requestId;
@@ -179,6 +206,13 @@ export function buildProviderFailureDiagnostics({ error, event, modality, model 
     ...(typeof eventRequestId === "string" && eventRequestId.trim() ? { eventRequestId } : {}),
     ...(typeof modality === "string" ? { modality } : {}),
     ...(typeof model === "string" && model.trim() ? { model } : {}),
+    ...(typeof elapsedMs === "number" && Number.isFinite(elapsedMs)
+      ? { elapsedMs: Math.max(0, Math.round(elapsedMs)) }
+      : {}),
+    ...(typeof error?.failureKind === "string" ? { failureKind: error.failureKind } : {}),
+    ...(typeof error?.providerTimeoutMs === "number" && Number.isFinite(error.providerTimeoutMs)
+      ? { providerTimeoutMs: Math.max(0, Math.round(error.providerTimeoutMs)) }
+      : {}),
   };
 
   const errorMessage = sanitizeProviderErrorMessage(error?.message);

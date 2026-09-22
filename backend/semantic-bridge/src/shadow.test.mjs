@@ -151,7 +151,10 @@ describe("shadow AI sensory interpretation", () => {
     });
 
     await handler({ body: request("body", bodyInput), requestContext: { requestId: "req-123" } });
-    const log = logger.info.mock.calls[0][0];
+    const log = logger.info.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.includes('"category":"shadow_interpretation"'));
+    expect(log).toBeDefined();
     expect(log).toContain('"category":"shadow_interpretation"');
     expect(log).toContain('"requestId":"req-123"');
     expect(log).toContain('"semanticOutcome":"interpreted"');
