@@ -22,10 +22,12 @@ The infrastructure is defined in [infra/aws/static-hosting.yaml](../../infra/aws
 The stack creates:
 
 - a private, encrypted, versioned S3 bucket with public access blocked;
+- a separate private, encrypted, versioned S3 bucket for immutable semantic bridge Lambda artifacts;
 - a CloudFront distribution with an S3 Origin Access Control, HTTPS redirect, and the CloudFront default domain;
 - `/index.html` with a short/no-cache policy and hashed assets with the managed long-cache policy;
 - 403/404 responses mapped to `index.html` for the Vite SPA fallback without adding a routing library;
-- a GitHub Actions deployment role that trusts an existing account-level OIDC provider and is scoped to this repository/environment, the generated bucket, and the generated distribution.
+- a GitHub Actions deployment role that trusts an existing account-level OIDC provider and is scoped to this repository/environment, the generated buckets, generated distribution, and semantic bridge stack deployment;
+- a dedicated CloudFormation execution role restricted to the semantic bridge Lambda, API Gateway, IAM role family, and artifact prefix.
 
 The stack outputs the bucket name, distribution ID, distribution domain name, and deployment role ARN. CloudFront uses its default HTTPS certificate/domain; custom domains and ACM certificate policies are out of scope. No fixed AWS account ID, region, bucket name, or role ARN is stored in the repository.
 
@@ -81,10 +83,16 @@ These steps require an AWS account owner or administrator and are intentionally 
    - `AWS_ROLE_ARN`
    - `S3_BUCKET_NAME`
    - `CLOUDFRONT_DISTRIBUTION_ID`
+   - `SEMANTIC_BRIDGE_ARTIFACT_BUCKET` from `SemanticBridgeArtifactBucketName`
+   - `CLOUDFORMATION_EXECUTION_ROLE_ARN` from `SemanticBridgeCloudFormationExecutionRoleArn`
+   - `SEMANTIC_BRIDGE_STACK_NAME` = `sake-sense-ai-production`
+   - `SEMANTIC_BRIDGE_ALLOWED_ORIGIN` = `https://` plus the exact `CloudFrontDomainName`, without a trailing slash
+   - `SEMANTIC_BRIDGE_MODEL_ID` = `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+   - `VITE_SENSORY_BRIDGE_API_URL` from the semantic bridge stack output `SemanticBridgeApiEndpoint`
 
 8. Configure required reviewers or other environment protection appropriate for production.
 9. Verify that the workflow can only assume the role from the `production` environment for `Chasoso/sake-sense`.
-10. Run the production deployment workflow, or push the approved commit to `main`, and verify the CloudFront URL.
+10. Run the production deployment workflow, or push the approved commit to `main`, and verify the CloudFront URL and semantic bridge endpoint.
 
 The OIDC provider is an account-shared bootstrap resource and is intentionally not created by this application stack. The deployment role is stack-owned and references the provider ARN supplied by `GitHubOidcProviderArn`. This separation avoids a stack collision when the AWS account already has the GitHub provider.
 
@@ -108,10 +116,10 @@ Confirm that the output contains the exact subject above and the audience `sts.a
 `.github/workflows/deploy-production.yml` runs on pushes to `main` and manual `workflow_dispatch`. It detects changed paths and runs the frontend and semantic bridge deployment jobs independently:
 
 1. frontend changes run the existing repository validation/build, OIDC authentication, S3 sync, and CloudFront invalidation;
-2. `backend/semantic-bridge/**` changes (and shared package/runtime changes) run validation, build the Lambda bundle, package only `index.js`, assume the same OIDC role, update the existing Lambda code, wait for `function-updated`, and verify `LastUpdateStatus`;
+2. `backend/semantic-bridge/**`, `infra/aws/ai-semantic-bridge.yaml`, and shared package/runtime changes run validation, build the Lambda bundle, package only `index.js`, upload an immutable commit-keyed artifact, assume the same OIDC role, deploy the existing semantic bridge stack with its dedicated CloudFormation execution role, and verify stack/Lambda status;
 3. `workflow_dispatch` runs both deployment paths as a manual fallback.
 
-The workflow never uses static AWS access keys or AWS secrets. Pull requests do not trigger production deployment. Frontend-only changes do not update Lambda, and backend-only changes do not upload frontend assets.
+The workflow never uses static AWS access keys or AWS secrets. Pull requests do not trigger production deployment. Frontend-only changes do not update the semantic bridge stack, and backend-only changes do not upload frontend assets.
 
 ## Security boundary
 
@@ -120,17 +128,19 @@ The OIDC trust policy requires both:
 - audience `sts.amazonaws.com`;
 - subject `repo:Chasoso@128229844/sake-sense@1350297937:environment:production`.
 
-The role can list and manage objects only in the generated website bucket, create invalidations only for the generated distribution, and update code/read status for the explicitly named semantic bridge Lambda. It has no `AdministratorAccess`, account-wide wildcard permissions, function recreation permission, configuration-update permission, or infrastructure-update permission. Infrastructure updates remain a human bootstrap/maintenance action unless a separately reviewed workflow is introduced.
+The OIDC role can list/manage frontend objects only in the generated website bucket, upload only under `semantic-bridge/` in the separate artifact bucket, create invalidations only for the generated distribution, create/execute change sets for the named semantic bridge stack, and pass only the dedicated CloudFormation execution role to CloudFormation. It has no `AdministratorAccess`, direct Lambda code/configuration update permission, arbitrary `iam:PassRole`, or permission to deploy unrelated stacks. The execution role is trusted only by CloudFormation and is limited to the resource families in `infra/aws/ai-semantic-bridge.yaml`; API Gateway v2 management uses the API Gateway management resource path because those actions are not scoped by individual CloudFormation logical IDs.
 
 ## Semantic bridge deployment configuration
 
-The production GitHub Environment must contain these variables:
+The production GitHub Environment must contain these semantic bridge variables:
 
-- `AWS_REGION`
-- `AWS_ROLE_ARN`
-- `SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME` — normally `sake-sense-ai-production-handler`, matching the `SemanticBridgeFunctionName` parameter of the static-hosting stack and the existing semantic bridge stack name.
+- `SEMANTIC_BRIDGE_STACK_NAME` = `sake-sense-ai-production`
+- `SEMANTIC_BRIDGE_ARTIFACT_BUCKET`
+- `SEMANTIC_BRIDGE_ALLOWED_ORIGIN` (exact `https://<CloudFrontDomainName>`, no trailing slash)
+- `SEMANTIC_BRIDGE_MODEL_ID`
+- `CLOUDFORMATION_EXECUTION_ROLE_ARN`
 
-The `production` Environment protection and required reviewers remain in force. If the existing deployment role predates this workflow change, a human must update the static-hosting stack so its policy includes only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for that function.
+The `production` Environment protection and required reviewers remain in force. If the existing deployment role predates this workflow change, a human must update the `sake-sense-production` static-hosting stack once so it creates the artifact bucket and execution role and replaces direct Lambda update permission with the scoped CloudFormation policy. After that bootstrap, normal semantic bridge configuration changes are managed by `infra/aws/ai-semantic-bridge.yaml` through the workflow.
 
 ## Runtime configuration boundary
 
@@ -141,7 +151,7 @@ This issue does not add API Gateway, Lambda, Bedrock, an AI provider, a backend,
 - To redeploy the current commit, use the workflow's `workflow_dispatch`.
 - To roll back application code, deploy a reviewed earlier commit through `main`, then invalidate CloudFront again.
 - S3 versioning provides object history for operator-led recovery, but it is not an automatic application rollback mechanism.
-- Stack changes must be reviewed and applied by a human through the chosen AWS account/region.
+- Static-hosting bootstrap changes must be reviewed and applied once by a human through the chosen AWS account/region. Semantic bridge stack changes thereafter are applied by the protected production workflow.
 
 ## Validation
 
