@@ -105,17 +105,13 @@ Confirm that the output contains the exact subject above and the audience `sts.a
 
 ## Deployment
 
-`.github/workflows/deploy-production.yml` runs on pushes to `main` and manual `workflow_dispatch`. It:
+`.github/workflows/deploy-production.yml` runs on pushes to `main` and manual `workflow_dispatch`. It detects changed paths and runs the frontend and semantic bridge deployment jobs independently:
 
-1. checks out the repository;
-2. installs dependencies;
-3. runs the full repository validation and production build;
-4. assumes the deployment role through GitHub OIDC;
-5. syncs hashed build assets to S3 with long-lived cache headers;
-6. uploads `index.html` with no-cache headers;
-7. creates a CloudFront invalidation.
+1. frontend changes run the existing repository validation/build, OIDC authentication, S3 sync, and CloudFront invalidation;
+2. `backend/semantic-bridge/**` changes (and shared package/runtime changes) run validation, build the Lambda bundle, package only `index.js`, assume the same OIDC role, update the existing Lambda code, wait for `function-updated`, and verify `LastUpdateStatus`;
+3. `workflow_dispatch` runs both deployment paths as a manual fallback.
 
-The workflow never uses static AWS access keys or AWS secrets. Pull requests do not trigger production deployment.
+The workflow never uses static AWS access keys or AWS secrets. Pull requests do not trigger production deployment. Frontend-only changes do not update Lambda, and backend-only changes do not upload frontend assets.
 
 ## Security boundary
 
@@ -124,7 +120,17 @@ The OIDC trust policy requires both:
 - audience `sts.amazonaws.com`;
 - subject `repo:Chasoso@128229844/sake-sense@1350297937:environment:production`.
 
-The role can list and manage objects only in the generated website bucket and create invalidations only for the generated distribution. It has no `AdministratorAccess`, account-wide wildcard permissions, or infrastructure-update permission. Infrastructure updates remain a human bootstrap/maintenance action unless a separately reviewed workflow is introduced.
+The role can list and manage objects only in the generated website bucket, create invalidations only for the generated distribution, and update code/read status for the explicitly named semantic bridge Lambda. It has no `AdministratorAccess`, account-wide wildcard permissions, function recreation permission, configuration-update permission, or infrastructure-update permission. Infrastructure updates remain a human bootstrap/maintenance action unless a separately reviewed workflow is introduced.
+
+## Semantic bridge deployment configuration
+
+The production GitHub Environment must contain these variables:
+
+- `AWS_REGION`
+- `AWS_ROLE_ARN`
+- `SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME` — normally `sake-sense-ai-production-handler`, matching the `SemanticBridgeFunctionName` parameter of the static-hosting stack and the existing semantic bridge stack name.
+
+The `production` Environment protection and required reviewers remain in force. If the existing deployment role predates this workflow change, a human must update the static-hosting stack so its policy includes only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for that function.
 
 ## Runtime configuration boundary
 

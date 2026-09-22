@@ -1,4 +1,4 @@
-name: Deploy production frontend
+name: Deploy production
 
 on:
   push:
@@ -13,8 +13,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  changes:
+    name: Detect deployment changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.paths.outputs.frontend }}
+      backend: ${{ steps.paths.outputs.backend }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed deployment paths
+        id: paths
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            frontend=true
+            backend=true
+          else
+            changed_files="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
+            frontend=false
+            backend=false
+            if printf '%s\n' "$changed_files" | grep -Eq '^(src/|public/|index.html|package.json|package-lock.json|\.nvmrc$|vite\.config\.[^/]+$|tsconfig[^/]*\.json$)'; then
+              frontend=true
+            fi
+            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|package.json|package-lock.json|\.nvmrc$)'; then
+              backend=true
+            fi
+          fi
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+
+  deploy-frontend:
     name: Build and deploy frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -77,3 +117,81 @@ jobs:
 
       - name: Invalidate CloudFront
         run: aws cloudfront create-invalidation --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" --paths "/*"
+
+  deploy-semantic-bridge:
+    name: Package and deploy semantic bridge Lambda
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME: ${{ vars.SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate repository
+        run: npm run validate
+
+      - name: Build semantic bridge bundle
+        run: npm run build:semantic-bridge
+
+      - name: Package semantic bridge Lambda
+        run: npm run package:semantic-bridge
+
+      - name: Check deployment configuration
+        run: |
+          set -euo pipefail
+          for variable in AWS_REGION AWS_ROLE_ARN SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME; do
+            if [ -z "${!variable}" ]; then
+              echo "Missing GitHub production variable: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: sake-sense-production
+
+      - name: Update Lambda code in place
+        run: |
+          set -euo pipefail
+          aws lambda update-function-code \
+            --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}" \
+            --zip-file fileb://backend/semantic-bridge/dist/index.js.zip \
+            --query '{FunctionName:FunctionName,RevisionId:RevisionId,LastModified:LastModified}' \
+            --output json
+
+      - name: Wait for Lambda update
+        run: aws lambda wait function-updated --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}"
+
+      - name: Verify Lambda deployment
+        run: |
+          set -euo pipefail
+          status="$(aws lambda get-function-configuration \
+            --function-name "${SEMANTIC_BRIDGE_LAMBDA_FUNCTION_NAME}" \
+            --query '{FunctionName:FunctionName,LastUpdateStatus:LastUpdateStatus,RevisionId:RevisionId,LastModified:LastModified}' \
+            --output json)"
+          if [ "$(printf '%s' "$status" | jq -r '.LastUpdateStatus')" != "Successful" ]; then
+            echo "Lambda deployment verification failed" >&2
+            exit 1
+          fi
+          echo "Lambda deployment successful"
+          printf '%s\n' "$status"

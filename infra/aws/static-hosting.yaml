@@ -25,6 +25,11 @@ Parameters:
     Default: production
     Description: GitHub Environment used by the production deployment workflow.
     AllowedPattern: "^[A-Za-z0-9_.-]+$"
+  SemanticBridgeFunctionName:
+    Type: String
+    Default: sake-sense-ai-production-handler
+    Description: Existing semantic bridge Lambda function updated by the production workflow.
+    AllowedPattern: "^[A-Za-z0-9_-]+$"
   GitHubOidcProviderArn:
     Type: String
     Description: Existing IAM OIDC provider ARN for https://token.actions.githubusercontent.com.
@@ -158,6 +163,13 @@ Resources:
                 Effect: Allow
                 Action: cloudfront:CreateInvalidation
                 Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+              - Sid: UpdateSemanticBridgeFunctionCode
+                Effect: Allow
+                Action:
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:UpdateFunctionCode
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${SemanticBridgeFunctionName}
 
 Outputs:
   CloudFrontDistributionId:
