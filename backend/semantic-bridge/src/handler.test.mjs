@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildConverseInput } from "./bedrock.mjs";
+import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
 import { createHandler } from "./handler.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
@@ -85,6 +85,39 @@ describe("production semantic bridge Lambda", () => {
     expect(input.inferenceConfig).toEqual({ maxTokens: 256, temperature: 0.2 });
     expect(input.outputConfig.textFormat.type).toBe("json_schema");
     expect(input.system[0].text).toContain("not a taste measurement");
+  });
+
+  it("attaches only a structural request summary to Bedrock failures", async () => {
+    const providerError = new Error("ValidationException");
+    providerError.name = "ValidationException";
+    providerError.$metadata = { httpStatusCode: 400, requestId: "request-structure" };
+    class FakeConverseCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    const clientFactory = vi.fn(async () => ({
+      client: {
+        send: vi.fn(async () => {
+          throw providerError;
+        }),
+      },
+      ConverseCommand: FakeConverseCommand,
+    }));
+
+    await expect(
+      invokeBedrock({ modality: "body", input: bodyInput }, env, clientFactory),
+    ).rejects.toBe(providerError);
+    expect(providerError.converseRequestSummary).toEqual({
+      modelId: env.BEDROCK_MODEL_ID,
+      hasSystem: true,
+      messageCount: 1,
+      contentBlockTypes: ["text"],
+      hasInferenceConfig: true,
+      hasOutputConfig: true,
+      textFormatType: "json_schema",
+      schemaTopLevelKeys: ["additionalProperties", "properties", "required", "type"],
+    });
   });
 
   it("rebuilds canonical dictionary grounding on the backend", async () => {
@@ -503,17 +536,38 @@ describe("production semantic bridge Lambda", () => {
     expect(response.statusCode).toBe(502);
     expect(response.body).not.toContain("secret provider detail");
     expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({ category: "provider_failure", errorName: "Error" }),
+      JSON.stringify({
+        category: "provider_failure",
+        errorName: "Error",
+        modality: "body",
+        model: env.BEDROCK_MODEL_ID,
+      }),
     );
     expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
     expect(logger.error.mock.calls[0][0]).not.toContain("stack");
   });
 
-  it("logs safe AWS SDK provider metadata without exposing the error", async () => {
+  it("logs sanitized AWS provider diagnostics without exposing payloads", async () => {
     const logger = { info: vi.fn(), error: vi.fn() };
-    const awsError = new Error("secret provider detail");
+    const awsError = new Error(`Invalid schema\nkeyword\tfoo ${"x".repeat(700)}`);
     awsError.name = "ValidationException";
-    awsError.$metadata = { httpStatusCode: 400, requestId: "request-123" };
+    awsError.$fault = "client";
+    awsError.$metadata = {
+      httpStatusCode: 400,
+      requestId: "request-123",
+      retryable: false,
+    };
+    const requestShape = buildConverseInput(
+      { modality: "body", input: { ...bodyInput }, allowedTermIds: [] },
+      env,
+    );
+    requestShape.system = [{ text: "SYSTEM_PROMPT_SHOULD_NOT_APPEAR" }];
+    requestShape.messages = [{ role: "user", content: [{ text: "USER_TEXT_SHOULD_NOT_APPEAR" }] }];
+    requestShape.outputConfig.textFormat.structure.jsonSchema.schema = JSON.stringify({
+      type: "object",
+      enum: ["SCHEMA_ENUM_SHOULD_NOT_APPEAR"],
+    });
+    awsError.converseRequestSummary = summarizeConverseRequest(requestShape);
     const handler = createHandler({
       env,
       invoke: vi.fn(async () => {
@@ -521,18 +575,59 @@ describe("production semantic bridge Lambda", () => {
       }),
       logger,
     });
-    const response = await handler({ body: bodyRequest });
+    const response = await handler({
+      body: bodyRequest,
+      requestContext: { requestId: "correlation-123" },
+    });
     expect(response.statusCode).toBe(502);
     expect(response.body).toBe('{"error":"semantic bridge unavailable"}');
-    expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({
-        category: "provider_failure",
-        errorName: "ValidationException",
-        httpStatusCode: 400,
-        requestId: "request-123",
+    const log = logger.error.mock.calls[0][0];
+    const parsedLog = JSON.parse(log);
+    expect(parsedLog).toMatchObject({
+      category: "provider_failure",
+      errorName: "ValidationException",
+      httpStatusCode: 400,
+      requestId: "request-123",
+      awsRequestId: "correlation-123",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+      fault: "client",
+      retryable: false,
+      requestSummary: {
+        modelId: env.BEDROCK_MODEL_ID,
+        hasSystem: true,
+        messageCount: 1,
+        contentBlockTypes: ["text"],
+        hasInferenceConfig: true,
+        hasOutputConfig: true,
+        textFormatType: "json_schema",
+        schemaTopLevelKeys: ["enum", "type"],
+      },
+    });
+    expect(parsedLog.errorMessage).not.toContain("\n");
+    expect(parsedLog.errorMessage.length).toBeLessThanOrEqual(600);
+    expect(log).not.toContain("SYSTEM_PROMPT_SHOULD_NOT_APPEAR");
+    expect(log).not.toContain("USER_TEXT_SHOULD_NOT_APPEAR");
+    expect(log).not.toContain("SCHEMA_ENUM_SHOULD_NOT_APPEAR");
+  });
+
+  it("omits secret-like provider messages", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const awsError = new Error("Bearer SUPER_SECRET_TOKEN password=DO_NOT_LOG");
+    awsError.name = "ValidationException";
+    awsError.$metadata = { httpStatusCode: 400, requestId: "request-secret" };
+    const handler = createHandler({
+      env,
+      invoke: vi.fn(async () => {
+        throw awsError;
       }),
-    );
-    expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
+      logger,
+    });
+    await handler({ body: bodyRequest });
+    const log = logger.error.mock.calls[0][0];
+    expect(log).not.toContain("SUPER_SECRET_TOKEN");
+    expect(log).not.toContain("DO_NOT_LOG");
+    expect(log).not.toContain("errorMessage");
   });
 
   it("uses a safe name for unknown thrown values", async () => {
@@ -547,7 +642,12 @@ describe("production semantic bridge Lambda", () => {
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
     expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({ category: "provider_failure", errorName: "UnknownError" }),
+      JSON.stringify({
+        category: "provider_failure",
+        errorName: "UnknownError",
+        modality: "body",
+        model: env.BEDROCK_MODEL_ID,
+      }),
     );
     expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
   });
