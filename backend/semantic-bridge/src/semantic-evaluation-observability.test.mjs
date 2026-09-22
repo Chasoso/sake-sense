@@ -4,6 +4,7 @@ import {
   summarizeSemanticBridgeInput,
 } from "./diagnostics.mjs";
 import { countRenderableProductMatches } from "./product-match-count.mjs";
+import { findSakeProductMatches } from "../../../src/domain/sake-product-matching.ts";
 
 const event = { requestContext: { requestId: "evaluation-request-1" } };
 const bodyInput = {
@@ -149,6 +150,17 @@ describe("semantic evaluation observability", () => {
   });
 
   it("uses the existing product safety boundary for count-only diagnostics", () => {
+    for (const candidateTermIds of [
+      ["kire"],
+      ["tanrei"],
+      ["nojun"],
+      [],
+      ["sanmi", "unknown-term"],
+    ]) {
+      expect(countRenderableProductMatches(candidateTermIds)).toBe(
+        findSakeProductMatches(candidateTermIds).length,
+      );
+    }
     expect(countRenderableProductMatches(["kire"])).toBeGreaterThan(0);
     expect(countRenderableProductMatches(["tanrei"])).toBe(0);
     expect(countRenderableProductMatches(["nojun"])).toBe(0);
