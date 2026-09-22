@@ -143,7 +143,7 @@ The OIDC trust policy requires both:
 - audience `sts.amazonaws.com`;
 - subject `repo:Chasoso@128229844/sake-sense@1350297937:environment:production`.
 
-The OIDC role can list/manage frontend objects only in the generated website bucket, upload only under `semantic-bridge/` in the separate artifact bucket, create invalidations only for the generated distribution, create/inspect/execute/delete change sets for the named semantic bridge stack, and pass only the dedicated CloudFormation execution role to CloudFormation. It has no `AdministratorAccess`, direct Lambda code/configuration update permission, arbitrary `iam:PassRole`, or permission to deploy unrelated stacks. The workflow safety gate allows only safe Add/Modify changes; Remove, replacement, or unknown values fail closed without execution. The execution role is trusted only by CloudFormation and is limited to the resource families in `infra/aws/ai-semantic-bridge.yaml`; API Gateway v2 management uses the API Gateway management resource path because those actions are not scoped by individual CloudFormation logical IDs.
+The OIDC role can list/manage frontend objects only in the generated website bucket, upload only under `semantic-bridge/` in the separate artifact bucket, create invalidations only for the generated distribution, create/inspect/execute/delete change sets for the named semantic bridge stack, pass only the dedicated CloudFormation execution role to CloudFormation, and read the configuration of the one semantic bridge Lambda for post-deploy verification. It has no `AdministratorAccess`, direct Lambda code/configuration update permission, arbitrary `iam:PassRole`, or permission to deploy unrelated stacks. The workflow safety gate allows only safe Add/Modify changes; Remove, replacement, or unknown values fail closed without execution. The execution role is trusted only by CloudFormation and is limited to the resource families in `infra/aws/ai-semantic-bridge.yaml`; API Gateway v2 management uses the API Gateway management resource path because those actions are not scoped by individual CloudFormation logical IDs.
 
 ## Semantic bridge deployment configuration
 
@@ -155,7 +155,20 @@ The production GitHub Environment must contain these semantic bridge variables:
 - `SEMANTIC_BRIDGE_MODEL_ID`
 - `CLOUDFORMATION_EXECUTION_ROLE_ARN`
 
-The `production` Environment protection and required reviewers remain in force. If the existing deployment role predates this workflow change, a human must update the `sake-sense-production` static-hosting stack once so it creates the artifact bucket and execution role and replaces direct Lambda update permission with the scoped CloudFormation policy. After that bootstrap, normal semantic bridge configuration changes are managed by `infra/aws/ai-semantic-bridge.yaml` through the workflow. The execution role is also the CloudFormation service role for `sake-sense-ai-production`, so it is used for subsequent stack operations. A change set containing `Remove` or resource replacement is not executed automatically; the workflow fails closed and a human must review the safe change summary before any approved manual action.
+The `production` Environment protection and required reviewers remain in force. If the existing deployment role predates this workflow change, a human must update the `sake-sense-production` static-hosting stack once so it creates the artifact bucket and execution role, grants `lambda:GetFunctionConfiguration` for the named semantic bridge Lambda, and replaces direct Lambda update permission with the scoped CloudFormation policy. After that bootstrap, normal semantic bridge configuration changes are managed by `infra/aws/ai-semantic-bridge.yaml` through the workflow. The execution role is also the CloudFormation service role for `sake-sense-ai-production`, so it is used for subsequent stack operations. A change set containing `Remove` or resource replacement is not executed automatically; the workflow fails closed and a human must review the safe change summary before any approved manual action.
+
+After merging this permission change: fetch the latest `main`, update the existing `sake-sense-production` stack with the documented bootstrap command, confirm the `VerifySemanticBridgeLambda` statement on `sake-sense-production-github-deploy`, and rerun the protected Deploy production workflow with `workflow_dispatch`. The final Lambda verification must reach `LastUpdateStatus=Successful`.
+
+For a read-only confirmation, use the policy and role names defined by this template:
+
+```bash
+aws iam get-role-policy \
+  --role-name sake-sense-production-github-deploy \
+  --policy-name FrontendDeployment \
+  --query 'PolicyDocument.Statement[?Sid==`VerifySemanticBridgeLambda`]' \
+  --output json \
+  --region ap-northeast-1
+```
 
 ## Runtime configuration boundary
 
