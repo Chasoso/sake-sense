@@ -262,9 +262,19 @@ jobs:
             --change-set-name "$change_set_id" \
             --region "${AWS_REGION}"
           change_set_id=""
+          wait_status=0
           aws cloudformation wait stack-update-complete \
             --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
-            --region "${AWS_REGION}"
+            --region "${AWS_REGION}" || wait_status=$?
+          if [ "$wait_status" -ne 0 ]; then
+            echo "CloudFormation stack update failed. Relevant failed stack events:" >&2
+            aws cloudformation describe-stack-events \
+              --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+              --region "${AWS_REGION}" \
+              --query 'StackEvents[?ResourceStatus==`UPDATE_FAILED` || ResourceStatus==`CREATE_FAILED` || ResourceStatus==`DELETE_FAILED` || ResourceStatus==`UPDATE_ROLLBACK_FAILED` || ResourceStatus==`ROLLBACK_FAILED`] | [0:10].{Timestamp:Timestamp,LogicalResourceId:LogicalResourceId,ResourceType:ResourceType,ResourceStatus:ResourceStatus,ResourceStatusReason:ResourceStatusReason}' \
+              --output table >&2 || echo "Unable to retrieve failed CloudFormation stack events" >&2
+            exit "$wait_status"
+          fi
 
       - name: Verify semantic bridge stack and Lambda
         run: |

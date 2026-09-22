@@ -49,7 +49,7 @@ The `@aws-sdk/client-bedrock-runtime` dependency is included in the single esbui
 
 Codex does not deploy AWS resources or request model access. An AWS operator must first confirm that the selected global inference profile is available and enabled for the account in Bedrock. If AWS presents a model-access, quota, Marketplace, or first-use action, complete that action before continuing; do not silently select another model.
 
-The existing `sake-sense-production` static-hosting stack owns the private versioned semantic bridge artifact bucket, the GitHub OIDC deployment role, and the dedicated CloudFormation execution role. An account owner must update that stack once after this workflow/template change, using the existing OIDC provider parameters from [the static-hosting deployment guide](aws-static-hosting.md). This update is the intentional bootstrap boundary: it changes the GitHub role from direct Lambda code updates to scoped CloudFormation change-set access and `iam:PassRole` for one execution role.
+The existing `sake-sense-production` static-hosting stack owns the private versioned semantic bridge artifact bucket, the GitHub OIDC deployment role, and the dedicated CloudFormation execution role. An account owner must update that stack once after this workflow/template change, using the existing OIDC provider parameters from [the static-hosting deployment guide](aws-static-hosting.md). This update is the intentional bootstrap boundary: it changes the GitHub role from direct Lambda code updates to scoped CloudFormation change-set access and `iam:PassRole` for one execution role, and grants the execution role the confirmed `iam:GetRolePolicy` read permission required by CloudFormation.
 
 Record these stack outputs in the GitHub `production` Environment; do not commit them:
 
@@ -104,6 +104,8 @@ The semantic bridge job runs `npm ci`, `npm run validate`, `npm run build:semant
 The dedicated CloudFormation execution role is the stack service role. After the one-time bootstrap associates it with `sake-sense-ai-production`, CloudFormation continues to use that role for later stack operations; the GitHub OIDC role only controls the named stack/change set and can pass that one role. The workflow does not bypass the gate for destructive changes.
 
 There is no routine CloudShell `aws cloudformation deploy` step after the bootstrap. `workflow_dispatch` is the manual GitHub fallback. Rollback is performed by deploying a reviewed earlier commit through `main`; the versioned artifact bucket retains prior packages. If a change set contains `Remove` or resource replacement, GitHub Actions stops before execution and reports that human action is required; the operator must review the listed logical resource/action/replacement values before using an approved manual process.
+
+When the stack waiter fails, the workflow prints up to ten recent failed resource events (`UPDATE_FAILED`, `CREATE_FAILED`, `DELETE_FAILED`, `UPDATE_ROLLBACK_FAILED`, or `ROLLBACK_FAILED`) with only safe primitive fields, then exits non-zero. This makes the failed logical resource and status reason visible in GitHub Actions without exposing credentials, templates, or full AWS responses.
 
 ## Local validation
 
