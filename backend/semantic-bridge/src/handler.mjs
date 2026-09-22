@@ -1,4 +1,4 @@
-import { invokeBedrock } from "./bedrock.mjs";
+import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
 import {
   parseAndValidateRequest,
   SemanticBridgeRequestValidationError,
@@ -6,6 +6,7 @@ import {
   validateModelResponse,
 } from "./validation.mjs";
 import {
+  emitLifecycleEvent,
   buildProviderFailureDiagnostics,
   buildProviderValidationDiagnostics,
 } from "./diagnostics.mjs";
@@ -45,19 +46,87 @@ export function createHandler({
 } = {}) {
   return async (event) => {
     const origin = env.ALLOWED_ORIGIN;
+    const startedAt = Date.now();
     let requestValue;
     let providerOutput;
+    let requestSummary;
+    emitLifecycleEvent(logger, {
+      eventName: "semantic_bridge_request_received",
+      event,
+      startedAt,
+      model: env.BEDROCK_MODEL_ID,
+    });
     try {
       const raw = event?.body || "";
       const parsed = parseAndValidateRequest(raw);
       requestValue = parsed.value;
+      emitLifecycleEvent(logger, {
+        eventName: "semantic_bridge_request_validated",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+      });
+      requestSummary = summarizeConverseRequest(buildConverseInput(requestValue, env));
+      emitLifecycleEvent(logger, {
+        eventName: "bedrock_request_prepared",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+        requestSummary,
+      });
+      emitLifecycleEvent(logger, {
+        eventName: "bedrock_invoke_started",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+        requestSummary,
+      });
       providerOutput = await invoke(requestValue, env);
+      emitLifecycleEvent(logger, {
+        eventName: "bedrock_invoke_succeeded",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+        requestSummary,
+      });
+      emitLifecycleEvent(logger, {
+        eventName: "provider_validation_started",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+      });
       const response = validateModelResponse(providerOutput, parsed.allowedIds, requestValue);
+      emitLifecycleEvent(logger, {
+        eventName: "provider_validation_succeeded",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+      });
+      emitLifecycleEvent(logger, {
+        eventName: "grounding_completed",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+      });
       logger.info?.(
         JSON.stringify(
           buildShadowDiagnostics(response, event, requestValue.modality, env.BEDROCK_MODEL_ID),
         ),
       );
+      emitLifecycleEvent(logger, {
+        eventName: "semantic_bridge_response_completed",
+        event,
+        startedAt,
+        modality: requestValue.modality,
+        model: env.BEDROCK_MODEL_ID,
+      });
       return apiResponse(200, response, origin);
     } catch (error) {
       const isRequestValidationFailure = error instanceof SemanticBridgeRequestValidationError;
@@ -82,6 +151,7 @@ export function createHandler({
                   event,
                   modality: requestValue?.modality,
                   model: env.BEDROCK_MODEL_ID,
+                  elapsedMs: Date.now() - startedAt,
                 }),
         ),
       );

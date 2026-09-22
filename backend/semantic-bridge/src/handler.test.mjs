@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
+import { BEDROCK_PROVIDER_TIMEOUT_MS } from "./diagnostics.mjs";
 import { createHandler } from "./handler.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
@@ -42,12 +43,64 @@ function testHandler(invoke = vi.fn(async () => emptyResponse)) {
 }
 
 describe("production semantic bridge Lambda", () => {
+  it("keeps the provider deadline below the 30-second Lambda budget", () => {
+    expect(BEDROCK_PROVIDER_TIMEOUT_MS).toBe(25_000);
+    expect(BEDROCK_PROVIDER_TIMEOUT_MS).toBeLessThan(30_000);
+  });
+
   it("accepts body and voice structured payloads", async () => {
     const invoke = vi.fn(async () => emptyResponse);
     const handler = testHandler(invoke);
     expect((await handler({ body: bodyRequest })).statusCode).toBe(200);
     expect((await handler({ body: voiceRequest })).statusCode).toBe(200);
     expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits ordered lifecycle events before and after the provider call", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const invoke = vi.fn(async () => {
+      const categories = logger.info.mock.calls.map(([message]) => JSON.parse(message).category);
+      expect(categories).toEqual([
+        "semantic_bridge_request_received",
+        "semantic_bridge_request_validated",
+        "bedrock_request_prepared",
+        "bedrock_invoke_started",
+      ]);
+      return emptyResponse;
+    });
+    const handler = createHandler({ env, invoke, logger });
+
+    const response = await handler({
+      body: bodyRequest,
+      requestContext: { requestId: "event-lifecycle" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(logger.info.mock.calls.map(([message]) => JSON.parse(message).category)).toEqual([
+      "semantic_bridge_request_received",
+      "semantic_bridge_request_validated",
+      "bedrock_request_prepared",
+      "bedrock_invoke_started",
+      "bedrock_invoke_succeeded",
+      "provider_validation_started",
+      "provider_validation_succeeded",
+      "grounding_completed",
+      "shadow_interpretation",
+      "semantic_bridge_response_completed",
+    ]);
+    const lifecycleLog = JSON.parse(logger.info.mock.calls[2][0]);
+    expect(lifecycleLog).toMatchObject({
+      category: "bedrock_request_prepared",
+      eventRequestId: "event-lifecycle",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+      requestSummary: {
+        messageCount: 1,
+        contentBlockTypes: ["text"],
+        textFormatType: "json_schema",
+      },
+    });
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain("duration");
   });
 
   it("rejects malformed, oversized, unexpected, invalid, unknown, duplicate, and unmapped data", async () => {
@@ -118,6 +171,92 @@ describe("production semantic bridge Lambda", () => {
       textFormatType: "json_schema",
       schemaTopLevelKeys: ["additionalProperties", "properties", "required", "type"],
     });
+  });
+
+  it("aborts a stuck Bedrock call before the Lambda hard timeout", async () => {
+    const providerError = new Error("The operation was aborted");
+    providerError.name = "AbortError";
+    class FakeConverseCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    const clientFactory = vi.fn(async () => ({
+      client: {
+        send: vi.fn(
+          (_command, { abortSignal }) =>
+            new Promise((_, reject) => {
+              const abort = () => reject(providerError);
+              if (abortSignal.aborted) abort();
+              else abortSignal.addEventListener("abort", abort, { once: true });
+            }),
+        ),
+      },
+      ConverseCommand: FakeConverseCommand,
+    }));
+
+    let caught;
+    try {
+      await invokeBedrock({ modality: "body", input: bodyInput }, env, clientFactory, {
+        providerTimeoutMs: 10,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(providerError);
+    expect(caught.failureKind).toBe("timeout");
+    expect(caught.providerTimeoutMs).toBe(10);
+    expect(caught.converseRequestSummary).toMatchObject({
+      messageCount: 1,
+      textFormatType: "json_schema",
+    });
+  });
+
+  it("logs a sanitized timeout failure and keeps the safe 502 response", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const timeoutError = new Error("The operation was aborted");
+    timeoutError.name = "AbortError";
+    timeoutError.failureKind = "timeout";
+    timeoutError.providerTimeoutMs = 25_000;
+    timeoutError.$metadata = { requestId: "request-timeout", httpStatusCode: 504 };
+    timeoutError.converseRequestSummary = {
+      modelId: env.BEDROCK_MODEL_ID,
+      hasSystem: true,
+      messageCount: 1,
+      contentBlockTypes: ["text"],
+      hasInferenceConfig: true,
+      hasOutputConfig: true,
+      textFormatType: "json_schema",
+      schemaTopLevelKeys: ["properties", "type"],
+    };
+    const handler = createHandler({
+      env,
+      logger,
+      invoke: vi.fn(async () => {
+        throw timeoutError;
+      }),
+    });
+
+    const response = await handler({
+      body: bodyRequest,
+      requestContext: { requestId: "event-timeout" },
+    });
+
+    expect(response.statusCode).toBe(502);
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log).toMatchObject({
+      category: "provider_failure",
+      failureKind: "timeout",
+      providerTimeoutMs: 25_000,
+      eventRequestId: "event-timeout",
+      requestId: "request-timeout",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+    });
+    expect(typeof log.elapsedMs).toBe("number");
+    expect(log.elapsedMs).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(log)).not.toContain("bodyInput");
   });
 
   it("rebuilds canonical dictionary grounding on the backend", async () => {
@@ -535,14 +674,14 @@ describe("production semantic bridge Lambda", () => {
     const response = await failing({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
     expect(response.body).not.toContain("secret provider detail");
-    expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({
-        category: "provider_failure",
-        errorName: "Error",
-        modality: "body",
-        model: env.BEDROCK_MODEL_ID,
-      }),
-    );
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log).toMatchObject({
+      category: "provider_failure",
+      errorName: "Error",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+    });
+    expect(log.elapsedMs).toBeGreaterThanOrEqual(0);
     expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
     expect(logger.error.mock.calls[0][0]).not.toContain("stack");
   });
@@ -670,14 +809,14 @@ describe("production semantic bridge Lambda", () => {
     });
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(502);
-    expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify({
-        category: "provider_failure",
-        errorName: "UnknownError",
-        modality: "body",
-        model: env.BEDROCK_MODEL_ID,
-      }),
-    );
+    const log = JSON.parse(logger.error.mock.calls[0][0]);
+    expect(log).toMatchObject({
+      category: "provider_failure",
+      errorName: "UnknownError",
+      modality: "body",
+      model: env.BEDROCK_MODEL_ID,
+    });
+    expect(log.elapsedMs).toBeGreaterThanOrEqual(0);
     expect(logger.error.mock.calls[0][0]).not.toContain("secret provider detail");
   });
 });

@@ -1,5 +1,6 @@
 import { responseSchema, systemInstruction } from "./schema.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
+import { BEDROCK_PROVIDER_TIMEOUT_MS } from "./diagnostics.mjs";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -47,7 +48,8 @@ export function summarizeConverseRequest(request) {
   };
 }
 
-function attachConverseRequestSummary(error, requestSummary) {
+function attachConverseRequestSummary(error, requestSummary, timeoutMs) {
+  const failureMetadata = timeoutMs ? { failureKind: "timeout", providerTimeoutMs: timeoutMs } : {};
   if (error && typeof error === "object") {
     try {
       Object.defineProperty(error, "converseRequestSummary", {
@@ -55,6 +57,13 @@ function attachConverseRequestSummary(error, requestSummary) {
         enumerable: false,
         value: requestSummary,
       });
+      for (const [key, value] of Object.entries(failureMetadata)) {
+        Object.defineProperty(error, key, {
+          configurable: true,
+          enumerable: false,
+          value,
+        });
+      }
       return error;
     } catch {
       // Fall through for frozen or otherwise non-extensible SDK errors.
@@ -68,6 +77,7 @@ function attachConverseRequestSummary(error, requestSummary) {
   if (isRecord(error?.$metadata)) wrapped.$metadata = error.$metadata;
   if (typeof error?.$fault === "string") wrapped.$fault = error.$fault;
   wrapped.converseRequestSummary = requestSummary;
+  Object.assign(wrapped, failureMetadata);
   return wrapped;
 }
 
@@ -96,14 +106,29 @@ export function buildConverseInput(request, env) {
   };
 }
 
-export async function invokeBedrock(request, env, clientFactory = defaultClientFactory) {
+export async function invokeBedrock(
+  request,
+  env,
+  clientFactory = defaultClientFactory,
+  { providerTimeoutMs = BEDROCK_PROVIDER_TIMEOUT_MS } = {},
+) {
   const { client, ConverseCommand } = await clientFactory(env);
   const converseInput = buildConverseInput(request, env);
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), providerTimeoutMs);
   let result;
   try {
-    result = await client.send(new ConverseCommand(converseInput));
+    result = await client.send(new ConverseCommand(converseInput), {
+      abortSignal: abortController.signal,
+    });
   } catch (error) {
-    throw attachConverseRequestSummary(error, summarizeConverseRequest(converseInput));
+    throw attachConverseRequestSummary(
+      error,
+      summarizeConverseRequest(converseInput),
+      abortController.signal.aborted ? providerTimeoutMs : undefined,
+    );
+  } finally {
+    clearTimeout(timeoutId);
   }
   const text = result.output?.message?.content?.find((item) => item.text)?.text;
   if (!text) {
