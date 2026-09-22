@@ -74,7 +74,8 @@ The existing AWS deployment variables remain unchanged. The frontend explicitly 
 - API Gateway route: `POST /semantic-bridge`
 - CORS: one configured CloudFront origin; no wildcard
 - Throttling target: 1 request/second, burst 5
-- Lambda timeout: 10 seconds
+- Lambda timeout: 30 seconds
+- Bedrock provider timeout: 25 seconds, leaving a five-second application cleanup and diagnostics margin before the Lambda hard timeout.
 - Request size limit: 12,000 bytes
 - Bedrock output limit: 256 tokens; low temperature
 - Candidate IDs are restricted to mapped dictionary IDs from the canonical repository JSON. The browser supplies IDs only; Lambda reconstructs `displayTerm`, `definitionSummary`, and `dimensions` before building the Bedrock prompt, and the browser validates the response again.
@@ -93,7 +94,7 @@ The Lambda logs only sanitized success/failure diagnostics. It does not log requ
 
 After the production stack and GitHub `production` Environment are configured, pushes to `main` automatically deploy backend changes through `.github/workflows/deploy-production.yml`. Changes under `backend/semantic-bridge/**` and shared runtime/package files trigger the semantic bridge job; frontend-only changes do not update Lambda. The job builds with `npm run build:semantic-bridge`, packages the single `index.js` bundle with `npm run package:semantic-bridge`, calls `aws lambda update-function-code` on the existing function, waits for `function-updated`, and verifies `LastUpdateStatus=Successful`.
 
-The workflow uses the same production OIDC role and environment protection as the frontend deployment. The role must have only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for the existing function. No Lambda configuration, environment variables, IAM role, API Gateway resource, or function lifecycle is changed by the workflow. `workflow_dispatch` is available as a manual fallback and runs both deployment paths.
+The workflow uses the same production OIDC role and environment protection as the frontend deployment. The role must have only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for the existing function. The workflow updates code only; Lambda configuration remains managed by `infra/aws/ai-semantic-bridge.yaml`. After changing the template timeout, redeploy the production CloudFormation stack once to apply the 30-second timeout; no IAM broadening or workflow configuration update is required. `workflow_dispatch` is available as a manual fallback and runs both deployment paths.
 
 ## Local validation
 

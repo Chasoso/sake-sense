@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildConverseInput, invokeBedrock, summarizeConverseRequest } from "./bedrock.mjs";
+import { BEDROCK_PROVIDER_TIMEOUT_MS } from "./diagnostics.mjs";
 import { createHandler } from "./handler.mjs";
 import { SemanticBridgeProviderValidationError } from "./validation.mjs";
 
@@ -42,6 +43,11 @@ function testHandler(invoke = vi.fn(async () => emptyResponse)) {
 }
 
 describe("production semantic bridge Lambda", () => {
+  it("keeps the provider deadline below the 30-second Lambda budget", () => {
+    expect(BEDROCK_PROVIDER_TIMEOUT_MS).toBe(25_000);
+    expect(BEDROCK_PROVIDER_TIMEOUT_MS).toBeLessThan(30_000);
+  });
+
   it("accepts body and voice structured payloads", async () => {
     const invoke = vi.fn(async () => emptyResponse);
     const handler = testHandler(invoke);
@@ -212,7 +218,7 @@ describe("production semantic bridge Lambda", () => {
     const timeoutError = new Error("The operation was aborted");
     timeoutError.name = "AbortError";
     timeoutError.failureKind = "timeout";
-    timeoutError.providerTimeoutMs = 7_000;
+    timeoutError.providerTimeoutMs = 25_000;
     timeoutError.$metadata = { requestId: "request-timeout", httpStatusCode: 504 };
     timeoutError.converseRequestSummary = {
       modelId: env.BEDROCK_MODEL_ID,
@@ -242,7 +248,7 @@ describe("production semantic bridge Lambda", () => {
     expect(log).toMatchObject({
       category: "provider_failure",
       failureKind: "timeout",
-      providerTimeoutMs: 7_000,
+      providerTimeoutMs: 25_000,
       eventRequestId: "event-timeout",
       requestId: "request-timeout",
       modality: "body",

@@ -10,7 +10,7 @@ const BODY_INPUT_KEYS = [
 ];
 
 export const PROVIDER_ERROR_MESSAGE_MAX_LENGTH = 600;
-export const BEDROCK_PROVIDER_TIMEOUT_MS = 7_000;
+export const BEDROCK_PROVIDER_TIMEOUT_MS = 25_000;
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
