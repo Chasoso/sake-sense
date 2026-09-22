@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:semantic-bridge": "esbuild backend/semantic-bridge/src/handler.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=backend/semantic-bridge/dist/index.js",
+    "package:semantic-bridge": "node scripts/package-semantic-bridge.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

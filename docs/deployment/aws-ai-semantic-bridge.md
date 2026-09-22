@@ -33,8 +33,7 @@ Build the Lambda bundle locally. The `@aws-sdk/client-bedrock-runtime` dependenc
 ```bash
 npm ci
 npm run build:semantic-bridge
-cd backend/semantic-bridge/dist
-zip -q index.js.zip index.js
+npm run package:semantic-bridge
 ```
 
 Upload the bundle to a human-managed private artifact bucket using a commit-specific key:
@@ -86,7 +85,13 @@ The Lambda role uses the three resources required by the documented Global Cross
 
 Bedrock costs are driven by input/output tokens and cross-region inference. Additional cost drivers are API Gateway requests, Lambda duration/requests, and CloudWatch logs. Idle serverless cost is minimal, but public traffic remains the principal uncontrolled risk.
 
-The Lambda logs only a sanitized success/failure category. It does not log request payloads, prompts, model responses, landmarks, audio, or user text.
+The Lambda logs only sanitized success/failure diagnostics. It does not log request payloads, prompts, model responses, landmarks, audio, or user text.
+
+## Automatic code deployment
+
+After the production stack and GitHub `production` Environment are configured, pushes to `main` automatically deploy backend changes through `.github/workflows/deploy-production.yml`. Changes under `backend/semantic-bridge/**` and shared runtime/package files trigger the semantic bridge job; frontend-only changes do not update Lambda. The job builds with `npm run build:semantic-bridge`, packages the single `index.js` bundle with `npm run package:semantic-bridge`, calls `aws lambda update-function-code` on the existing function, waits for `function-updated`, and verifies `LastUpdateStatus=Successful`.
+
+The workflow uses the same production OIDC role and environment protection as the frontend deployment. The role must have only `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, and `lambda:UpdateFunctionCode` for the existing function. No Lambda configuration, environment variables, IAM role, API Gateway resource, or function lifecycle is changed by the workflow. `workflow_dispatch` is available as a manual fallback and runs both deployment paths.
 
 ## Local validation
 
