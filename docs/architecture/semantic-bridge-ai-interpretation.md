@@ -421,6 +421,26 @@ conflict levels. Record the input summary, validated profile, class proposals,
 authorization result, and legacy comparison without requiring exact free-text
 equality.
 
+## Issue #119 review clarifications
+
+Semantic authorization and legacy presentation are temporarily decoupled.
+An authorized semantic route can therefore coexist with an empty legacy
+`sensoryExpressions` array and the legacy no-match `reason` when no reviewed
+support case matches the raw input. The structured authorization metadata is
+the explanation of the route; this is an explicit Human Experience evaluation
+item, not a free-text mapping opportunity.
+
+`tanrei` and `nojun` are selectable semantic terms, but selectability does not
+create product evidence. Current product data has zero direct or accepted-
+variant references for `tanrei`, and `nojun` has no normally renderable
+reference. A term may therefore be authorized while product matching safely
+returns no products. Evidence, provenance, availability, and renderability
+rules remain unchanged.
+
+An explicit `unmapped` sensory-class proposal is a reviewed no-match signal
+and stops all normal term authorization, even if the validated profile also
+satisfies a strong route. It cannot be mixed with normal class proposals.
+
 ## Human approval checklist
 
 - [ ] AI sensory interpretation responsibility boundary approved

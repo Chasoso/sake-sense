@@ -138,6 +138,7 @@ export function evaluateSemanticRoute(route, profile, proposed) {
 export function authorizeSensoryTerms(interpretation, proposals = [], allowedIds = []) {
   const empty = { authorizedTermIds: [], authorization: [], authorizationConflicts: [] };
   if (!interpretation || interpretation.outcome !== "interpreted") return empty;
+  if (proposals.length === 1 && proposals[0] === "unmapped") return empty;
 
   const proposalSet = new Set(proposals);
   const candidates = routeDefinitions

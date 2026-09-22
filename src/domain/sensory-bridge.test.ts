@@ -238,6 +238,50 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     if (response.ok) expect(response.value.candidateTermIds).toEqual(["kire"]);
   });
 
+  it("fails closed for malformed semantic authorization metadata", () => {
+    const base = {
+      sensoryInterpretation: {
+        outcome: "interpreted" as const,
+        semanticExpression: "縺吶▲縺ｨ謚慕ｼｱ縺ｫ蜿取據縺吶ｋ諢溘§",
+        semanticProfile: {
+          timeQuality: "unknown" as const,
+          weightQuality: "unknown" as const,
+          flowQuality: "unknown" as const,
+          directness: "unknown" as const,
+          persistence: "unknown" as const,
+          resolution: "unknown" as const,
+          continuity: "unknown" as const,
+          rhythmicity: "unknown" as const,
+          expansion: "unknown" as const,
+          spread: "unknown" as const,
+          smoothness: "unknown" as const,
+          roundness: "unknown" as const,
+        },
+      },
+      sensoryClassProposals: [],
+      sensoryExpressions: [],
+      candidateTermIds: [],
+      unmappedFeatures: [],
+      reason: "譁ｰ縺励＞諢溘§",
+      authorization: [],
+      authorizationConflicts: [],
+    };
+    for (const authorization of [null, ["bad"], [{}]]) {
+      expect(() =>
+        validateSensoryBridgeResponse({ ...base, authorization } as never),
+      ).not.toThrow();
+      expect(validateSensoryBridgeResponse({ ...base, authorization } as never).ok).toBe(false);
+    }
+    for (const authorizationConflicts of [null, [{}]]) {
+      expect(() =>
+        validateSensoryBridgeResponse({ ...base, authorizationConflicts } as never),
+      ).not.toThrow();
+      expect(validateSensoryBridgeResponse({ ...base, authorizationConflicts } as never).ok).toBe(
+        false,
+      );
+    }
+  });
+
   it("derives Body fixture candidates only through approved expression links", async () => {
     const provider = createFixtureSensoryBridgeProvider();
     const cases = [

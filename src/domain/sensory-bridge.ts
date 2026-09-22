@@ -167,6 +167,10 @@ const responseKeys = new Set([
   "authorizationConflicts",
 ]);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 export function buildSensoryBridgeInput(features: BodyMovementFeatures): SensoryBridgeInput {
   return {
     duration: !features.hasMeaningfulMovement
@@ -389,11 +393,12 @@ export function validateSensoryBridgeResponse(
     if (!Array.isArray(record.authorization) || !Array.isArray(record.authorizationConflicts)) {
       return { ok: false, error: "semantic authorization metadata is missing" };
     }
-    const authorization = record.authorization as Array<Record<string, unknown>>;
-    const authorizationConflicts = record.authorizationConflicts as Array<Record<string, unknown>>;
+    const authorization = record.authorization as unknown[];
+    const authorizationConflicts = record.authorizationConflicts as unknown[];
     if (
       authorization.some(
         (entry) =>
+          !isRecord(entry) ||
           typeof entry.termId !== "string" ||
           !allowedIds.has(entry.termId) ||
           !sensoryClassValues.includes(entry.sensoryClass as SensoryClassProposal) ||
@@ -401,9 +406,11 @@ export function validateSensoryBridgeResponse(
           !Number.isInteger(entry.supportCount) ||
           (entry.supportCount as number) < 1,
       ) ||
-      new Set(authorization.map((entry) => entry.termId)).size !== authorization.length ||
+      new Set(authorization.filter(isRecord).map((entry) => entry.termId)).size !==
+        authorization.length ||
       authorizationConflicts.some(
         (conflict) =>
+          !isRecord(conflict) ||
           !Array.isArray(conflict.termIds) ||
           conflict.termIds.length !== 2 ||
           conflict.termIds.some((termId) => typeof termId !== "string") ||
@@ -412,7 +419,10 @@ export function validateSensoryBridgeResponse(
           ) ||
           (conflict.removedTermId !== undefined && typeof conflict.removedTermId !== "string"),
       ) ||
-      authorization.map((entry) => entry.termId).join("\u0000") !== candidateTermIds.join("\u0000")
+      authorization
+        .filter(isRecord)
+        .map((entry) => entry.termId)
+        .join("\u0000") !== candidateTermIds.join("\u0000")
     ) {
       return { ok: false, error: "invalid semantic authorization metadata" };
     }

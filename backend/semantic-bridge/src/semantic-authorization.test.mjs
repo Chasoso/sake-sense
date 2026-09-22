@@ -194,6 +194,19 @@ describe("AI-first deterministic sensory authorization", () => {
     ).toEqual([]);
   });
 
+  it("lets an explicit unmapped proposal override a strong route", () => {
+    const result = authorizeSensoryTerms(
+      interpretation({ smoothness: "smooth", continuity: "continuous" }),
+      ["unmapped"],
+      allTerms,
+    );
+    expect(result).toEqual({
+      authorizedTermIds: [],
+      authorization: [],
+      authorizationConflicts: [],
+    });
+  });
+
   it.each([
     [["smooth-flow"], true],
     [["unmapped"], true],
