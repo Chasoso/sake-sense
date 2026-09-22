@@ -26,6 +26,7 @@ import {
   type MotionExperimentDiagnostic,
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
+import { BODY_CAMERA_PRESENTATION_MIRRORED } from "./body-camera-presentation";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 import {
   drawContour,
@@ -640,7 +641,12 @@ export function BodyExperiment({
         data-analysis-state={isAnalyzing ? "analyzing" : "idle"}
         aria-label="身体表現のカメラ入力"
       >
-        <div className="body-camera" data-status={status} aria-live="polite">
+        <div
+          className="body-camera"
+          data-status={status}
+          data-presentation-mirrored={BODY_CAMERA_PRESENTATION_MIRRORED}
+          aria-live="polite"
+        >
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
           <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
 

@@ -417,9 +417,11 @@ h4 {
   height: 100%;
   min-height: 18rem;
   object-fit: cover;
+  transform: none;
 }
 
-.body-camera > video {
+.body-camera[data-presentation-mirrored="true"] > video,
+.body-camera[data-presentation-mirrored="true"] > canvas {
   transform: scaleX(-1);
 }
 
