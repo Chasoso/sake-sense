@@ -194,26 +194,77 @@ jobs:
       - name: Deploy semantic bridge CloudFormation stack
         run: |
           set -euo pipefail
-          if ! aws cloudformation deploy \
-            --template-file infra/aws/ai-semantic-bridge.yaml \
+          change_set_name="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          change_set_file="${RUNNER_TEMP}/semantic-bridge-change-set-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          change_set_id=""
+          cleanup_change_set() {
+            if [ -n "$change_set_id" ]; then
+              aws cloudformation delete-change-set \
+                --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+                --change-set-name "$change_set_id" \
+                --region "${AWS_REGION}" \
+                >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_change_set EXIT
+
+          create_output="$(aws cloudformation create-change-set \
+            --template-body file://infra/aws/ai-semantic-bridge.yaml \
             --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_name" \
+            --change-set-type UPDATE \
             --capabilities CAPABILITY_NAMED_IAM \
             --role-arn "${CLOUDFORMATION_EXECUTION_ROLE_ARN}" \
-            --parameter-overrides \
-              AllowedOrigin="${SEMANTIC_BRIDGE_ALLOWED_ORIGIN}" \
-              BedrockModelId="${SEMANTIC_BRIDGE_MODEL_ID}" \
-              LambdaCodeS3Bucket="${SEMANTIC_BRIDGE_ARTIFACT_BUCKET}" \
-              LambdaCodeS3Key="${ARTIFACT_KEY}" \
-            --region "${AWS_REGION}"; then
-            echo "CloudFormation deployment failed. Recent stack events:" >&2
-            if ! aws cloudformation describe-stack-events \
-              --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
-              --query 'StackEvents[0:5].{LogicalResourceId:LogicalResourceId,ResourceStatus:ResourceStatus,ResourceStatusReason:ResourceStatusReason}' \
-              --output table >&2; then
-              echo "Unable to read recent stack events" >&2
-            fi
+            --parameters \
+              ParameterKey=AllowedOrigin,ParameterValue="${SEMANTIC_BRIDGE_ALLOWED_ORIGIN}" \
+              ParameterKey=BedrockModelId,ParameterValue="${SEMANTIC_BRIDGE_MODEL_ID}" \
+              ParameterKey=LambdaCodeS3Bucket,ParameterValue="${SEMANTIC_BRIDGE_ARTIFACT_BUCKET}" \
+              ParameterKey=LambdaCodeS3Key,ParameterValue="${ARTIFACT_KEY}" \
+            --region "${AWS_REGION}" \
+            --query '{Id:Id}' \
+            --output json)"
+          change_set_id="$(printf '%s' "$create_output" | jq -r '.Id // empty')"
+          if [ -z "$change_set_id" ]; then
+            echo "CloudFormation change set creation returned no identifier" >&2
             exit 1
           fi
+
+          wait_status=0
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}" || wait_status=$?
+          if ! aws cloudformation describe-change-set \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}" \
+            --output json > "$change_set_file"; then
+            echo "Unable to inspect CloudFormation change set" >&2
+            exit 1
+          fi
+
+          set +e
+          gate_output="$(node scripts/check-cloudformation-change-set.mjs "$change_set_file")"
+          gate_status=$?
+          set -e
+          printf '%s\n' "$gate_output"
+          if [ "$gate_status" -eq 2 ]; then
+            echo "CloudFormation reported no changes; deployment is a successful no-op."
+            exit 0
+          fi
+          if [ "$wait_status" -ne 0 ] || [ "$gate_status" -ne 0 ]; then
+            echo "CloudFormation change set was not safe to execute. Human review required; the change set was not executed." >&2
+            exit 1
+          fi
+
+          aws cloudformation execute-change-set \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --change-set-name "$change_set_id" \
+            --region "${AWS_REGION}"
+          change_set_id=""
+          aws cloudformation wait stack-update-complete \
+            --stack-name "${SEMANTIC_BRIDGE_STACK_NAME}" \
+            --region "${AWS_REGION}"
 
       - name: Verify semantic bridge stack and Lambda
         run: |

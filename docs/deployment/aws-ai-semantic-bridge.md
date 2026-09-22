@@ -35,7 +35,9 @@ merge to main
   -> production Environment + GitHub OIDC
   -> build and validate Lambda bundle
   -> upload semantic-bridge/<GITHUB_SHA>.zip to the private artifact bucket
-  -> CloudFormation deploy/update of sake-sense-ai-production
+  -> create and inspect a CloudFormation change set
+  -> execute only a change set that passes the safety gate
+  -> update sake-sense-ai-production
   -> stack and Lambda verification
 ```
 
@@ -97,9 +99,11 @@ The Lambda logs only sanitized success/failure diagnostics. It does not log requ
 
 `.github/workflows/deploy-production.yml` runs on pushes to `main` and manual `workflow_dispatch`. Frontend and semantic bridge jobs remain independently path-triggered; a workflow dispatch runs both. Semantic bridge changes include `backend/semantic-bridge/**`, `infra/aws/ai-semantic-bridge.yaml`, the package helper, and shared runtime/package files.
 
-The semantic bridge job runs `npm ci`, `npm run validate`, `npm run build:semantic-bridge`, and `npm run package:semantic-bridge`, uploads `semantic-bridge/${GITHUB_SHA}.zip`, then runs `aws cloudformation deploy` with `--role-arn` set to the dedicated execution role and the exact `AllowedOrigin`, model, bucket, and immutable key parameters. It verifies `CREATE_COMPLETE`/`UPDATE_COMPLETE`, the stack Lambda resource, `LastUpdateStatus`, runtime, memory, and timeout. Failed deployment commands fail the workflow and print only recent safe stack event metadata.
+The semantic bridge job runs `npm ci`, `npm run validate`, `npm run build:semantic-bridge`, and `npm run package:semantic-bridge`, uploads `semantic-bridge/${GITHUB_SHA}.zip`, and creates a uniquely named CloudFormation change set with `--role-arn` set to the dedicated execution role and the exact `AllowedOrigin`, model, bucket, and immutable key parameters. A deterministic safety gate permits only safe `Add` changes and `Modify` changes with `Replacement=False`/`Never`. `Remove`, replacement, unknown action/replacement values, and malformed change metadata fail closed; the change set is not executed and human review is required. A CloudFormation no-change result is a successful no-op and the temporary change set is cleaned up. Safe change sets are executed, then the workflow verifies `CREATE_COMPLETE`/`UPDATE_COMPLETE`, the stack Lambda resource, `LastUpdateStatus`, runtime, memory, and timeout.
 
-There is no routine CloudShell `aws cloudformation deploy` step after the bootstrap. `workflow_dispatch` is the manual GitHub fallback. Rollback is performed by deploying a reviewed earlier commit through `main`; the versioned artifact bucket retains prior packages.
+The dedicated CloudFormation execution role is the stack service role. After the one-time bootstrap associates it with `sake-sense-ai-production`, CloudFormation continues to use that role for later stack operations; the GitHub OIDC role only controls the named stack/change set and can pass that one role. The workflow does not bypass the gate for destructive changes.
+
+There is no routine CloudShell `aws cloudformation deploy` step after the bootstrap. `workflow_dispatch` is the manual GitHub fallback. Rollback is performed by deploying a reviewed earlier commit through `main`; the versioned artifact bucket retains prior packages. If a change set contains `Remove` or resource replacement, GitHub Actions stops before execution and reports that human action is required; the operator must review the listed logical resource/action/replacement values before using an approved manual process.
 
 ## Local validation
 
