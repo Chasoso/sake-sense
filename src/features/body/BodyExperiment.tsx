@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Camera, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Camera, Pause, Play, RotateCcw } from "lucide-react";
 import { runBodySemanticExperiment, type ExperimentResult } from "../../domain/experiment";
 import {
   extractBodyMovementFeatures,
@@ -29,6 +29,13 @@ import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-lay
 import { BODY_CAMERA_PRESENTATION_MIRRORED } from "./body-camera-presentation";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 import {
+  clampReplayPosition,
+  getReplayControlAction,
+  getReplayStartTimestamp,
+  transitionReplayStatus,
+  type ReplayStatus,
+} from "./replay-control";
+import {
   drawContour,
   drawContours,
   extractInnerContours,
@@ -55,8 +62,6 @@ import {
   RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
-
-type ReplayStatus = "idle" | "ready" | "replaying" | "completed";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -119,7 +124,7 @@ export function BodyExperiment({
   const [error, setError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
   const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
-  const [replayStatus, setReplayStatus] = useState<ReplayStatus>("idle");
+  const [replayStatus, setReplayStatus] = useState<ReplayStatus>("initial");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -138,6 +143,7 @@ export function BodyExperiment({
   const animationRef = useRef<number | null>(null);
   const replayAnimationRef = useRef<number | null>(null);
   const replayStartedAtRef = useRef(0);
+  const replayElapsedRef = useRef(0);
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
   const sampleAttemptsRef = useRef(0);
@@ -176,6 +182,64 @@ export function BodyExperiment({
     if (replayAnimationRef.current !== null) cancelAnimationFrame(replayAnimationRef.current);
     replayAnimationRef.current = null;
   };
+
+  const startReplayAt = (positionMs: number, action: "start" | "resume") => {
+    if (!capturedFrames.length) return;
+    stopReplay();
+    const durationMs = getReplayDurationMs(capturedFrames);
+    const nextPositionMs = clampReplayPosition(positionMs, durationMs);
+    replayElapsedRef.current = nextPositionMs;
+    setReplayStatus((current) => transitionReplayStatus(current, action));
+    replayStartedAtRef.current = getReplayStartTimestamp(performance.now(), nextPositionMs);
+    const renderReplay = (timestamp: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        stopReplay();
+        return;
+      }
+      const elapsed = Math.min(Math.max(timestamp - replayStartedAtRef.current, 0), durationMs);
+      replayElapsedRef.current = elapsed;
+      const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
+      if (frameIndex >= 0) drawPose(canvas, capturedFrames[frameIndex].landmarks);
+      if (elapsed >= durationMs) {
+        const finalFrame = capturedFrames.at(-1);
+        if (finalFrame) drawPose(canvas, finalFrame.landmarks);
+        replayAnimationRef.current = null;
+        replayElapsedRef.current = durationMs;
+        setReplayStatus((current) => transitionReplayStatus(current, "complete"));
+        return;
+      }
+      replayAnimationRef.current = requestAnimationFrame(renderReplay);
+    };
+    replayAnimationRef.current = requestAnimationFrame(renderReplay);
+  };
+
+  const pauseReplay = () => {
+    if (replayStatus !== "playing") return;
+    const durationMs = getReplayDurationMs(capturedFrames);
+    replayElapsedRef.current = clampReplayPosition(
+      performance.now() - replayStartedAtRef.current,
+      durationMs,
+    );
+    stopReplay();
+    setReplayStatus((current) => transitionReplayStatus(current, "pause"));
+  };
+
+  const handleReplayControl = () => {
+    const action = getReplayControlAction(replayStatus);
+    if (action === "restart") startReplayAt(0, "start");
+    else if (action === "pause") pauseReplay();
+    else startReplayAt(replayElapsedRef.current, "resume");
+  };
+
+  const replayAriaLabel =
+    replayStatus === "playing"
+      ? "リプレイを一時停止"
+      : replayStatus === "paused"
+        ? "リプレイを再開"
+        : replayStatus === "completed"
+          ? "最初からリプレイ"
+          : "リプレイを開始";
 
   useEffect(
     () => () => {
@@ -488,7 +552,8 @@ export function BodyExperiment({
           ),
         );
       }
-      setReplayStatus(capturedFrames.length ? "ready" : "idle");
+      replayElapsedRef.current = 0;
+      setReplayStatus("initial");
       setFeatures(captured);
       setStatus("captured");
       stopCapture();
@@ -511,7 +576,8 @@ export function BodyExperiment({
     contourResetCountRef.current = 0;
     segmentationStartedAtRef.current = performance.now();
     setSegmentationMetrics(null);
-    setReplayStatus("idle");
+    replayElapsedRef.current = 0;
+    setReplayStatus("initial");
     setFeatures(null);
     setResult(null);
     setIsAnalyzing(false);
@@ -528,7 +594,8 @@ export function BodyExperiment({
     framesRef.current = [];
     setCapturedFrames([]);
     setMotionDiagnostic(null);
-    setReplayStatus("idle");
+    replayElapsedRef.current = 0;
+    setReplayStatus("initial");
     setFeatures(null);
     setResult(null);
     setIsAnalyzing(false);
@@ -536,34 +603,9 @@ export function BodyExperiment({
     void prepareCamera();
   };
 
-  const replay = () => {
-    if (!capturedFrames.length) return;
-    stopReplay();
-    setReplayStatus("replaying");
-    replayStartedAtRef.current = performance.now();
-    const renderReplay = (timestamp: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        stopReplay();
-        return;
-      }
-      const elapsed = timestamp - replayStartedAtRef.current;
-      const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) drawPose(canvas, capturedFrames[frameIndex].landmarks);
-      if (elapsed >= getReplayDurationMs(capturedFrames)) {
-        const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) drawPose(canvas, finalFrame.landmarks);
-        replayAnimationRef.current = null;
-        setReplayStatus("completed");
-        return;
-      }
-      replayAnimationRef.current = requestAnimationFrame(renderReplay);
-    };
-    replayAnimationRef.current = requestAnimationFrame(renderReplay);
-  };
-
   const analyze = async () => {
-    stopReplay();
+    if (replayStatus === "playing") pauseReplay();
+    else stopReplay();
     if (!features || isAnalyzing) return;
     setError("");
     setIsAnalyzing(true);
@@ -665,10 +707,16 @@ export function BodyExperiment({
             <button
               className="body-camera__replay-control"
               type="button"
-              onClick={replay}
-              aria-label="動きをもう一度見る"
+              onClick={handleReplayControl}
+              aria-label={replayAriaLabel}
             >
-              <Play size={24} strokeWidth={1.8} aria-hidden="true" />
+              {replayStatus === "playing" ? (
+                <Pause size={24} strokeWidth={1.8} aria-hidden="true" />
+              ) : replayStatus === "paused" ? (
+                <Play size={24} strokeWidth={1.8} aria-hidden="true" />
+              ) : (
+                <RotateCcw size={24} strokeWidth={1.8} aria-hidden="true" />
+              )}
             </button>
           )}
           {status !== "captured" && (
@@ -786,12 +834,6 @@ export function BodyExperiment({
             {features && (
               <section className="body-features" aria-labelledby="body-features-title">
                 <h2 id="body-features-title">こんな動きでした</h2>
-                <p className="body-features__replay-status" aria-live="polite">
-                  {replayStatus === "ready" &&
-                    "リプレイには一時的に取得した骨格データだけを使います。"}
-                  {replayStatus === "replaying" && "あなたの動きをリプレイ中…"}
-                  {replayStatus === "completed" && "リプレイが完了しました。"}
-                </p>
                 <ul>
                   {humanizeBodyFeatures(features)
                     .slice(0, 4)
