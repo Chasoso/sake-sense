@@ -38,6 +38,7 @@ export function ExperimentModes() {
               <button
                 className="button button--primary"
                 type="button"
+                data-mode="body"
                 onClick={() => setMode("body")}
               >
                 <PersonStanding size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -46,6 +47,7 @@ export function ExperimentModes() {
               <button
                 className="button button--secondary"
                 type="button"
+                data-mode="sources"
                 onClick={() => setMode("sources")}
               >
                 <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -54,6 +56,7 @@ export function ExperimentModes() {
               <button
                 className="button button--secondary"
                 type="button"
+                data-mode="voice"
                 onClick={() => setMode("voice")}
               >
                 <Mic size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -62,6 +65,7 @@ export function ExperimentModes() {
               <button
                 className="button button--secondary"
                 type="button"
+                data-mode="gesture"
                 onClick={() => setMode("gesture")}
               >
                 <PenLine size={20} strokeWidth={1.8} aria-hidden="true" />
