@@ -123,7 +123,7 @@ test("calibrates deterministic Gesture families through the real pointer path", 
   page,
 }) => {
   await page.goto("/");
-  await page.locator(".start-screen__actions button").nth(2).click();
+  await page.locator('[data-mode="gesture"]').click();
   const results = [];
   for (const [index, sample] of samples.entries()) {
     if (index > 0) await page.locator(".text-button").click();
