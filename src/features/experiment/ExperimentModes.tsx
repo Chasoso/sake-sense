@@ -1,13 +1,18 @@
-import { Mic, PenLine, PersonStanding } from "lucide-react";
+import { BookOpen, Mic, PenLine, PersonStanding } from "lucide-react";
 import { useState } from "react";
 import { BodyExperiment } from "../body/BodyExperiment";
 import { GestureExperiment } from "./GestureExperiment";
 import { VoiceExperiment } from "./VoiceExperiment";
 import logoHorizontal from "../../assets/brand/logo-horizontal.png";
 import heroSakeCup from "../../assets/brand/hero-sake-cup.png";
+import { SourcesPage } from "../sources/SourcesPage";
 
 export function ExperimentModes() {
-  const [mode, setMode] = useState<"start" | "body" | "voice" | "gesture">("start");
+  const [mode, setMode] = useState<"start" | "body" | "voice" | "gesture" | "sources">("start");
+
+  if (mode === "sources") {
+    return <SourcesPage onBack={() => setMode("start")} />;
+  }
 
   if (mode === "start") {
     return (
@@ -37,6 +42,14 @@ export function ExperimentModes() {
               >
                 <PersonStanding size={20} strokeWidth={1.8} aria-hidden="true" />
                 <span>体で表現する</span>
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setMode("sources")}
+              >
+                <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
+                <span>出典・情報源</span>
               </button>
               <button
                 className="button button--secondary"
