@@ -70,6 +70,7 @@ import {
   RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
+import { drawPoseGuidance, POSE_GUIDANCE_STYLES } from "./body-pose-guidance";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -151,6 +152,9 @@ export function BodyExperiment({
   const spatialContourRef = useRef<HTMLCanvasElement>(null);
   const temporalOnlyContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
+  const outerOnlyRef = useRef<HTMLCanvasElement>(null);
+  const subtleArmsRef = useRef<HTMLCanvasElement>(null);
+  const subtleTorsoRef = useRef<HTMLCanvasElement>(null);
   const contourStabilizerRef = useRef(new ContourStabilizer());
   const temporalOnlyStabilizerRef = useRef(new ContourStabilizer());
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -401,6 +405,7 @@ export function BodyExperiment({
     const poseStartedAt = readSegmentationSpikeClock();
     const detection = landmarker.detectForVideo(video, timestamp);
     const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
+    const bodyLandmarks = detection.landmarks[0] ? toBodyLandmarks(detection.landmarks[0]) : null;
     if (segmentationSpike) {
       const cameraCanvas = segmentationCameraRef.current;
       if (cameraCanvas) {
@@ -562,6 +567,52 @@ export function BodyExperiment({
             );
           }
         }
+        const drawComparisonVariant = (
+          ref: typeof contourRef,
+          poseVariant?: "subtle-arms" | "subtle-arms-torso",
+        ) => {
+          const canvas = ref.current;
+          const context = canvas?.getContext("2d");
+          if (!canvas || !context) return;
+          drawContours(
+            context,
+            stabilization.contour ? [stabilization.contour] : [],
+            canvas.width,
+            canvas.height,
+            "#ead7a0",
+            mask.width,
+            mask.height,
+          );
+          drawContours(
+            context,
+            innerContours,
+            canvas.width,
+            canvas.height,
+            `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
+            mask.width,
+            mask.height,
+            INNER_CONTOUR_LINE_WIDTH_SCALE,
+            false,
+          );
+          if (poseVariant) {
+            drawPoseGuidance(context, bodyLandmarks, poseVariant, canvas.width, canvas.height);
+          }
+        };
+        if (outerOnlyRef.current) {
+          const context = outerOnlyRef.current.getContext("2d");
+          if (context)
+            drawContours(
+              context,
+              stabilization.contour ? [stabilization.contour] : [],
+              outerOnlyRef.current.width,
+              outerOnlyRef.current.height,
+              "#ead7a0",
+              mask.width,
+              mask.height,
+            );
+        }
+        drawComparisonVariant(subtleArmsRef, "subtle-arms");
+        drawComparisonVariant(subtleTorsoRef, "subtle-arms-torso");
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
         setSegmentationMetrics({
@@ -644,11 +695,14 @@ export function BodyExperiment({
               contourRef.current.height,
             );
         }
+        [outerOnlyRef, subtleArmsRef, subtleTorsoRef].forEach((ref) => {
+          const context = ref.current?.getContext("2d");
+          if (context && ref.current)
+            context.clearRect(0, 0, ref.current.width, ref.current.height);
+        });
       }
     }
-    const landmarks = detection.landmarks[0];
-    if (landmarks) {
-      const bodyLandmarks = toBodyLandmarks(landmarks);
+    if (bodyLandmarks) {
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
       drawPose(canvasRef.current!, bodyLandmarks);
     } else invalidFrameCountRef.current += 1;
@@ -947,7 +1001,27 @@ export function BodyExperiment({
               </figure>
               <figure>
                 <canvas ref={contourRef} width="320" height="180" />
-                <figcaption>Temporally stabilized contour</figcaption>
+                <figcaption>Outer + inner contours</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={outerOnlyRef} width="320" height="180" />
+                <figcaption>Outer contour only (reference)</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={subtleArmsRef} width="320" height="180" />
+                <figcaption>
+                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms"].label} · opacity{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms"].opacity} · width{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms"].strokeWidth}
+                </figcaption>
+              </figure>
+              <figure>
+                <canvas ref={subtleTorsoRef} width="320" height="180" />
+                <figcaption>
+                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms-torso"].label} · opacity{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms-torso"].opacity} · width{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth}
+                </figcaption>
               </figure>
             </div>
             {segmentationMetrics && (
