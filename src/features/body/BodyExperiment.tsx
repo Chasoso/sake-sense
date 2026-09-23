@@ -22,6 +22,11 @@ import {
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 import {
+  getBodyFrameElapsedMs,
+  shouldCollectBodyFrame,
+  type BodyFrameLoopMode,
+} from "./body-frame-loop";
+import {
   createBodyCaptureCountdownScheduler,
   type BodyCaptureCountdown,
 } from "./body-capture-countdown";
@@ -449,6 +454,7 @@ export function BodyExperiment({
   const cameraRequestIdRef = useRef(0);
   const activeCameraDeviceIdRef = useRef<string | undefined>(undefined);
   const activeCameraFacingModeRef = useRef<CameraFacingMode | undefined>(undefined);
+  const frameLoopModeRef = useRef<BodyFrameLoopMode>("idle");
   const countdownSchedulerRef = useRef<ReturnType<
     typeof createBodyCaptureCountdownScheduler
   > | null>(null);
@@ -484,6 +490,7 @@ export function BodyExperiment({
   const stopCapture = () => {
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
+    frameLoopModeRef.current = "idle";
     stopCameraStream();
     closePoseLandmarker();
     resetDisplayedContour();
@@ -580,6 +587,7 @@ export function BodyExperiment({
   const resetCaptureStateForCameraSwitch = () => {
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
+    frameLoopModeRef.current = "idle";
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
@@ -696,11 +704,18 @@ export function BodyExperiment({
   };
 
   const sample = (timestamp: number) => {
+    const frameLoopMode = frameLoopModeRef.current;
+    if (frameLoopMode === "idle") {
+      animationRef.current = null;
+      return;
+    }
+    animationRef.current = null;
+    const isRecording = shouldCollectBodyFrame(frameLoopMode);
     const video = videoRef.current;
     const landmarker = landmarkerRef.current;
     if (!video || !landmarker) return;
-    const elapsed = timestamp - startedAtRef.current;
-    sampleAttemptsRef.current += 1;
+    const elapsed = getBodyFrameElapsedMs(frameLoopMode, timestamp, startedAtRef.current);
+    if (isRecording) sampleAttemptsRef.current += 1;
     const poseStartedAt = readSegmentationSpikeClock();
     const detection = landmarker.detectForVideo(video, timestamp);
     const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
@@ -923,22 +938,24 @@ export function BodyExperiment({
             );
           }
         }
-        hybridSnapshotRef.current = createBodyHybridDisplaySnapshot(
-          stabilization.contour ?? [],
-          innerContours,
-          bodyLandmarks,
-          mask.width,
-          mask.height,
-        );
-        hybridReplayFramesRef.current.push(
-          createBodyHybridReplayFrame(
-            elapsed,
+        if (isRecording) {
+          hybridSnapshotRef.current = createBodyHybridDisplaySnapshot(
             stabilization.contour ?? [],
             innerContours,
+            bodyLandmarks,
             mask.width,
             mask.height,
-          ),
-        );
+          );
+          hybridReplayFramesRef.current.push(
+            createBodyHybridReplayFrame(
+              elapsed,
+              stabilization.contour ?? [],
+              innerContours,
+              mask.width,
+              mask.height,
+            ),
+          );
+        }
         if (outerOnlyRef.current) {
           const context = outerOnlyRef.current.getContext("2d");
           if (context)
@@ -970,9 +987,9 @@ export function BodyExperiment({
             );
           });
         }
-        segmentationFrameCountRef.current += 1;
+        if (isRecording) segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
-        if (segmentationSpike) {
+        if (isRecording && segmentationSpike) {
           setSegmentationMetrics({
             frameCount: segmentationFrameCountRef.current,
             elapsedMs,
@@ -1069,12 +1086,14 @@ export function BodyExperiment({
         });
       }
     }
-    if (bodyLandmarks) {
+    if (bodyLandmarks && !BODY_HYBRID_SEGMENTATION_ENABLED) {
+      drawPose(canvasRef.current!, bodyLandmarks);
+    }
+    if (isRecording && bodyLandmarks) {
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
-      if (!BODY_HYBRID_SEGMENTATION_ENABLED) drawPose(canvasRef.current!, bodyLandmarks);
-    } else invalidFrameCountRef.current += 1;
+    } else if (isRecording) invalidFrameCountRef.current += 1;
     detection.close();
-    if (elapsed >= 3000) {
+    if (isRecording && elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
       setCapturedFrames(capturedFrames);
@@ -1096,7 +1115,7 @@ export function BodyExperiment({
       stopCapture();
       return;
     }
-    animationRef.current = requestAnimationFrame(sample);
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
   };
 
   const startActualCapture = () => {
@@ -1123,9 +1142,10 @@ export function BodyExperiment({
     setResult(null);
     setIsAnalyzing(false);
     setError("");
+    frameLoopModeRef.current = "recording";
     setStatus("capturing");
     startedAtRef.current = performance.now();
-    animationRef.current = requestAnimationFrame(sample);
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
   };
 
   useEffect(() => {
@@ -1142,7 +1162,9 @@ export function BodyExperiment({
   const beginCountdown = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
     startActualCaptureRef.current = startActualCapture;
-    countdownSchedulerRef.current?.begin();
+    if (!countdownSchedulerRef.current?.begin()) return;
+    frameLoopModeRef.current = "preview";
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
   };
 
   const handleBack = () => {
