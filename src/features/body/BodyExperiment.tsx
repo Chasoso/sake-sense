@@ -8,7 +8,7 @@ import {
   type BodyMovementFeatures,
   type BodyPoseFrame,
 } from "../../domain/body";
-import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
+import { getReplayDurationMs } from "../../domain/body-replay";
 import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import {
@@ -71,7 +71,6 @@ import {
   createBodyHybridDisplaySnapshot,
   createBodyHybridReplayFrame,
   drawPoseGuidance,
-  getBodyHybridReplayFrame,
   BODY_HYBRID_CONTOUR_COLOR,
   BODY_HYBRID_CONTOUR_STYLE,
   BODY_HYBRID_HALO_VARIANTS,
@@ -85,8 +84,10 @@ import {
 } from "./body-hybrid-comparison";
 import {
   getObjectFitCoverTransform,
+  projectNormalizedPointToViewport,
   projectNormalizedPointToCoverViewport,
 } from "./body-camera-cover";
+import { getBodyReplayPresentationFrame } from "./replay-presentation";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -126,17 +127,28 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
 
 function drawHybridGeometryCanvas(
   canvas: HTMLCanvasElement,
-  geometry: Pick<BodyHybridDisplaySnapshot, "outerContour" | "innerContours"> | null,
+  geometry: Pick<
+    BodyHybridDisplaySnapshot,
+    "sourceWidth" | "sourceHeight" | "outerContour" | "innerContours"
+  > | null,
 ): void {
   const context = canvas.getContext("2d");
   if (!context) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (!geometry) return;
+  const viewport = getLiveOverlayViewport(canvas);
+  const transform = getObjectFitCoverTransform(
+    geometry.sourceWidth,
+    geometry.sourceHeight,
+    viewport.width,
+    viewport.height,
+  );
   const toCanvasPoints = (points: readonly { x: number; y: number }[]) =>
-    points.map((point) => ({
-      x: (point.x / 320) * canvas.width,
-      y: (point.y / 160) * canvas.height,
-    }));
+    projectViewportPointsToCanvas(
+      points.map((point) => projectNormalizedPointToViewport(point, transform)),
+      canvas,
+      viewport,
+    );
   context.save();
   context.strokeStyle = BODY_HYBRID_CONTOUR_COLOR;
   context.lineCap = "round";
@@ -166,6 +178,53 @@ function drawHybridGeometryCanvas(
     BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
   );
   context.restore();
+}
+
+function projectReplayLandmarks(
+  landmarks: readonly BodyLandmark[] | null,
+  geometry: Pick<BodyHybridDisplaySnapshot, "sourceWidth" | "sourceHeight"> | null,
+  canvas: HTMLCanvasElement,
+): BodyLandmark[] | null {
+  if (!landmarks || !geometry) return landmarks ? [...landmarks] : null;
+  const viewport = getLiveOverlayViewport(canvas);
+  const transform = getObjectFitCoverTransform(
+    geometry.sourceWidth,
+    geometry.sourceHeight,
+    viewport.width,
+    viewport.height,
+  );
+  return landmarks.map((landmark) => {
+    const projected = projectNormalizedPointToViewport(landmark, transform);
+    return {
+      ...landmark,
+      x: projected.x / viewport.width,
+      y: projected.y / viewport.height,
+    };
+  });
+}
+
+function renderReplayFrameAt(
+  canvas: HTMLCanvasElement,
+  elapsedMs: number,
+  capturedFrames: BodyPoseFrame[],
+  hybridReplayFrames: readonly BodyHybridReplayFrame[],
+  hybridSnapshot: BodyHybridDisplaySnapshot | null,
+): void {
+  const selected = getBodyReplayPresentationFrame(
+    elapsedMs,
+    capturedFrames,
+    hybridReplayFrames,
+    hybridSnapshot,
+  );
+  if (!selected) return;
+  drawHybridGeometryCanvas(canvas, selected.geometry);
+  drawPoseGuidance(
+    canvas.getContext("2d")!,
+    projectReplayLandmarks(selected.poseFrame.landmarks, selected.geometry, canvas),
+    "subtle-arms-torso-face",
+    canvas.width,
+    canvas.height,
+  );
 }
 
 type CanvasContourPoint = { x: number; y: number };
@@ -442,35 +501,9 @@ export function BodyExperiment({
       }
       const elapsed = Math.min(Math.max(timestamp - replayStartedAtRef.current, 0), durationMs);
       replayElapsedRef.current = elapsed;
-      const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) {
-        drawHybridGeometryCanvas(
-          canvas,
-          getBodyHybridReplayFrame(hybridReplayFrames, elapsed) ?? hybridSnapshot,
-        );
-        drawPoseGuidance(
-          canvas.getContext("2d")!,
-          capturedFrames[frameIndex].landmarks,
-          "subtle-arms-torso-face",
-          canvas.width,
-          canvas.height,
-        );
-      }
+      renderReplayFrameAt(canvas, elapsed, capturedFrames, hybridReplayFrames, hybridSnapshot);
       if (elapsed >= durationMs) {
-        const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) {
-          drawHybridGeometryCanvas(
-            canvas,
-            getBodyHybridReplayFrame(hybridReplayFrames, durationMs) ?? hybridSnapshot,
-          );
-          drawPoseGuidance(
-            canvas.getContext("2d")!,
-            finalFrame.landmarks,
-            "subtle-arms-torso-face",
-            canvas.width,
-            canvas.height,
-          );
-        }
+        renderReplayFrameAt(canvas, durationMs, capturedFrames, hybridReplayFrames, hybridSnapshot);
         replayAnimationRef.current = null;
         replayElapsedRef.current = durationMs;
         setReplayStatus((current) => transitionReplayStatus(current, "complete"));
@@ -480,6 +513,22 @@ export function BodyExperiment({
     };
     replayAnimationRef.current = requestAnimationFrame(renderReplay);
   };
+
+  useEffect(() => {
+    if (status !== "captured" || replayStatus !== "initial" || !capturedFrames.length) return;
+    const frame = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      renderReplayFrameAt(
+        canvas,
+        getReplayDurationMs(capturedFrames),
+        capturedFrames,
+        hybridReplayFrames,
+        hybridSnapshot,
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [status, replayStatus, capturedFrames, hybridReplayFrames, hybridSnapshot]);
 
   const pauseReplay = () => {
     if (replayStatus !== "playing") return;
@@ -1180,7 +1229,11 @@ export function BodyExperiment({
           <canvas
             ref={canvasRef}
             className={
-              status === "capturing" || status === "ready" ? "body-camera__live-overlay" : undefined
+              status === "capturing" || status === "ready"
+                ? "body-camera__live-overlay"
+                : status === "captured"
+                  ? "body-camera__replay-overlay"
+                  : undefined
             }
             width="640"
             height="360"

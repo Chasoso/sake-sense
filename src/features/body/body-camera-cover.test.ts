@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getAspectPreservingTransform,
   getObjectFitCoverTransform,
   projectNormalizedPointToCoverViewport,
 } from "./body-camera-cover";
@@ -40,5 +41,37 @@ describe("body camera cover projection", () => {
     expect(right.x).toBeGreaterThan(1000);
     expect(left.y).toBe(500);
     expect(right.y).toBe(500);
+  });
+
+  it("preserves portrait geometry with a uniform replay projection", () => {
+    const transform = getAspectPreservingTransform(1080, 1920, 360, 480, "cover");
+    const left = projectNormalizedPointToCoverViewport({ x: 0.4, y: 0.4 }, transform);
+    const right = projectNormalizedPointToCoverViewport({ x: 0.4 + 200 / 1080, y: 0.4 }, transform);
+    const bottom = projectNormalizedPointToCoverViewport(
+      { x: 0.4, y: 0.4 + 200 / 1920 },
+      transform,
+    );
+
+    expect(right.x - left.x).toBeCloseTo(bottom.y - left.y);
+  });
+
+  it("preserves landscape geometry with a uniform waiting projection", () => {
+    const transform = getAspectPreservingTransform(1920, 1080, 320, 160, "contain");
+    const left = projectNormalizedPointToCoverViewport({ x: 0.4, y: 0.4 }, transform);
+    const right = projectNormalizedPointToCoverViewport({ x: 0.4 + 200 / 1920, y: 0.4 }, transform);
+    const bottom = projectNormalizedPointToCoverViewport(
+      { x: 0.4, y: 0.4 + 200 / 1080 },
+      transform,
+    );
+
+    expect(right.x - left.x).toBeCloseTo(bottom.y - left.y);
+    expect(transform.offsetX).toBeGreaterThan(0);
+  });
+
+  it("keeps the shared contour and pose center at the viewport center", () => {
+    const transform = getAspectPreservingTransform(1080, 1920, 360, 480, "cover");
+    const point = { x: 0.5, y: 0.5 };
+
+    expect(projectNormalizedPointToCoverViewport(point, transform)).toEqual({ x: 180, y: 240 });
   });
 });
