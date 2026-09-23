@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
+import type { BodyHybridDisplaySnapshot } from "../body/body-pose-guidance";
 import {
   createSyntheticWavePath,
   type SyntheticWavePoint,
@@ -7,7 +8,6 @@ import {
 } from "../../domain/voice";
 import {
   getBodyDisplayWords,
-  getBodySkeletonGeometry,
   getBodyDissolveOpacity,
   getBodyAbsorbedPoint,
   getBodyLightProgress,
@@ -26,6 +26,7 @@ type ExpressionTransformProps =
       frames: BodyPoseFrame[];
       presentation?: "body-screen";
       decorative?: boolean;
+      hybridSnapshot?: BodyHybridDisplaySnapshot | null;
       waveHistory?: never;
       voiceFeatures?: never;
     }
@@ -43,6 +44,16 @@ function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
   if (stage === 1) return "輪郭をたどる";
   if (stage === 2) return "感覚の形へ";
   return "ことばの入口へ";
+}
+
+function absorbedContourPath(contour: Array<{ x: number; y: number }>, progress: number): string {
+  return contour
+    .map((point, index) => {
+      const absorbed = getBodyAbsorbedPoint(point, progress);
+      return `${index === 0 ? "M" : "L"} ${absorbed.x.toFixed(1)} ${absorbed.y.toFixed(1)}`;
+    })
+    .concat("Z")
+    .join(" ");
 }
 
 export function ExpressionTransform(props: ExpressionTransformProps) {
@@ -68,7 +79,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         : getVoiceIntermediateWords(props.features),
     [props.mode, props.features],
   );
-  const bodySkeleton = props.mode === "body" ? getBodySkeletonGeometry(props.frames) : null;
+  const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);
   const bodyOpacity = getBodyDissolveOpacity(progress);
@@ -108,31 +119,37 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                 }}
               />
               <g className="expression-transform__body-dissolve" style={{ opacity: bodyOpacity }}>
-                {bodySkeleton?.skeletonSegments.map((segment, index) => {
-                  const start = getBodyAbsorbedPoint(segment.start, progress);
-                  const end = getBodyAbsorbedPoint(segment.end, progress);
-                  return (
-                    <path
-                      className="expression-transform__body-skeleton"
-                      d={`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`}
-                      key={`segment-${index}`}
-                    />
-                  );
-                })}
-                {bodySkeleton?.skeletonPoints.map((point, index) =>
-                  (() => {
-                    const absorbedPoint = getBodyAbsorbedPoint(point, progress);
-                    return (
-                      <circle
-                        className="expression-transform__body-joint"
-                        cx={absorbedPoint.x}
-                        cy={absorbedPoint.y}
-                        key={`${point.x}-${point.y}-${index}`}
-                        r="3.5"
+                {bodyHybrid ? (
+                  <>
+                    {bodyHybrid.outerContour.length > 1 && (
+                      <path
+                        className="expression-transform__body-hybrid-outer"
+                        d={absorbedContourPath(bodyHybrid.outerContour, progress)}
                       />
-                    );
-                  })(),
-                )}
+                    )}
+                    {bodyHybrid.innerContours.map((contour, index) =>
+                      contour.length > 1 ? (
+                        <path
+                          className="expression-transform__body-hybrid-inner"
+                          d={absorbedContourPath(contour, progress)}
+                          key={`inner-${index}`}
+                        />
+                      ) : null,
+                    )}
+                    {bodyHybrid.poseCurves.map(({ from, control, to, kind }, index) => {
+                      const start = getBodyAbsorbedPoint(from, progress);
+                      const bend = getBodyAbsorbedPoint(control, progress);
+                      const end = getBodyAbsorbedPoint(to, progress);
+                      return (
+                        <path
+                          className={`expression-transform__body-hybrid-${kind}`}
+                          d={`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} Q ${bend.x.toFixed(1)} ${bend.y.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`}
+                          key={`pose-${kind}-${index}`}
+                        />
+                      );
+                    })}
+                  </>
+                ) : null}
               </g>
             </svg>
           ) : (

@@ -168,6 +168,49 @@ export type PoseGuidanceCurveSegment = PoseGuidanceSegment & {
   kind: "body" | "face";
 };
 
+export type BodyHybridDisplaySnapshot = {
+  outerContour: Array<{ x: number; y: number }>;
+  innerContours: Array<Array<{ x: number; y: number }>>;
+  poseCurves: PoseGuidanceCurveSegment[];
+};
+
+function scaleContourPoint(
+  point: { x: number; y: number },
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  return { x: (point.x / width) * 320, y: (point.y / height) * 160 };
+}
+
+function scalePosePoint(point: { x: number; y: number }): { x: number; y: number } {
+  return { x: point.x * 320, y: point.y * 160 };
+}
+
+/** Creates only transient, normalized display geometry for live-to-waiting handoff. */
+export function createBodyHybridDisplaySnapshot(
+  outerContour: readonly { x: number; y: number }[],
+  innerContours: readonly (readonly { x: number; y: number }[])[],
+  landmarks: readonly BodyLandmark[] | null | undefined,
+  maskWidth: number,
+  maskHeight: number,
+): BodyHybridDisplaySnapshot {
+  const poseCurves = getPoseGuidanceCurveSegments(landmarks, "subtle-arms-torso-face").map(
+    ({ from, control, to, kind }) => ({
+      from: scalePosePoint(from),
+      control: scalePosePoint(control),
+      to: scalePosePoint(to),
+      kind,
+    }),
+  );
+  return {
+    outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    innerContours: innerContours.map((contour) =>
+      contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    ),
+    poseCurves,
+  };
+}
+
 export function getPoseGuidanceCurveSegments(
   landmarks: readonly BodyLandmark[] | null | undefined,
   variant: PoseGuidanceVariantId,

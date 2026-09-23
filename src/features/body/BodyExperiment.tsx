@@ -9,12 +9,7 @@ import {
   type BodyPoseFrame,
 } from "../../domain/body";
 import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
-import {
-  createBodyPoseLandmarker,
-  createBodySegmentationSpikeLandmarker,
-  isCameraSupported,
-  toBodyLandmarks,
-} from "./body-pose";
+import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import {
   createFixtureSensoryBridgeProvider,
@@ -70,7 +65,12 @@ import {
   RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
-import { drawPoseGuidance, POSE_GUIDANCE_STYLES } from "./body-pose-guidance";
+import {
+  createBodyHybridDisplaySnapshot,
+  drawPoseGuidance,
+  POSE_GUIDANCE_STYLES,
+  type BodyHybridDisplaySnapshot,
+} from "./body-pose-guidance";
 import { BODY_POSE_CONNECTIONS } from "./body-pose-connections";
 
 function isSegmentationSpikeEnabled(): boolean {
@@ -80,6 +80,8 @@ function isSegmentationSpikeEnabled(): boolean {
     new URLSearchParams(window.location.search).get("bodySegmentationSpike") === "1"
   );
 }
+
+const BODY_HYBRID_SEGMENTATION_ENABLED = true;
 
 function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): void {
   const context = canvas.getContext("2d");
@@ -106,6 +108,38 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
   });
 }
 
+function drawHybridSnapshotCanvas(
+  canvas: HTMLCanvasElement,
+  snapshot: BodyHybridDisplaySnapshot | null,
+): void {
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (!snapshot) return;
+  const drawContour = (points: readonly { x: number; y: number }[], opacity: number) => {
+    if (points.length < 2) return;
+    context.globalAlpha = opacity;
+    context.beginPath();
+    points.forEach((point, index) => {
+      const x = (point.x / 320) * canvas.width;
+      const y = (point.y / 160) * canvas.height;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    });
+    context.closePath();
+    context.stroke();
+  };
+  context.save();
+  context.strokeStyle = "#ead7a0";
+  context.lineWidth = Math.max(1, (canvas.width / 320) * 1.4);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  drawContour(snapshot.outerContour, 1);
+  context.lineWidth = Math.max(1, (canvas.width / 320) * 1);
+  snapshot.innerContours.forEach((contour) => drawContour(contour, INNER_CONTOUR_OPACITY));
+  context.restore();
+}
+
 export function BodyExperiment({
   onFallback,
   onBack,
@@ -118,6 +152,7 @@ export function BodyExperiment({
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
+  const [hybridSnapshot, setHybridSnapshot] = useState<BodyHybridDisplaySnapshot | null>(null);
   const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
   const [replayStatus, setReplayStatus] = useState<ReplayStatus>("initial");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -152,6 +187,7 @@ export function BodyExperiment({
   const replayElapsedRef = useRef(0);
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
+  const hybridSnapshotRef = useRef<BodyHybridDisplaySnapshot | null>(null);
   const sampleAttemptsRef = useRef(0);
   const invalidFrameCountRef = useRef(0);
   const segmentationFrameCountRef = useRef(0);
@@ -217,10 +253,28 @@ export function BodyExperiment({
       const elapsed = Math.min(Math.max(timestamp - replayStartedAtRef.current, 0), durationMs);
       replayElapsedRef.current = elapsed;
       const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) drawPose(canvas, capturedFrames[frameIndex].landmarks);
+      if (frameIndex >= 0) {
+        drawHybridSnapshotCanvas(canvas, hybridSnapshot);
+        drawPoseGuidance(
+          canvas.getContext("2d")!,
+          capturedFrames[frameIndex].landmarks,
+          "subtle-arms-torso-face",
+          canvas.width,
+          canvas.height,
+        );
+      }
       if (elapsed >= durationMs) {
         const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) drawPose(canvas, finalFrame.landmarks);
+        if (finalFrame) {
+          drawHybridSnapshotCanvas(canvas, hybridSnapshot);
+          drawPoseGuidance(
+            canvas.getContext("2d")!,
+            finalFrame.landmarks,
+            "subtle-arms-torso-face",
+            canvas.width,
+            canvas.height,
+          );
+        }
         replayAnimationRef.current = null;
         replayElapsedRef.current = durationMs;
         setReplayStatus((current) => transitionReplayStatus(current, "complete"));
@@ -275,6 +329,8 @@ export function BodyExperiment({
     clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
+    hybridSnapshotRef.current = null;
+    setHybridSnapshot(null);
     setMotionDiagnostic(null);
     setSegmentationMetrics(null);
     replayElapsedRef.current = 0;
@@ -357,9 +413,7 @@ export function BodyExperiment({
         actualFacingMode === "user" || actualFacingMode === "environment"
           ? actualFacingMode
           : undefined;
-      const landmarker = await (segmentationSpike
-        ? createBodySegmentationSpikeLandmarker()
-        : createBodyPoseLandmarker());
+      const landmarker = await createBodySegmentationLandmarker();
       if (requestId !== cameraRequestIdRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         landmarker.close();
@@ -393,7 +447,7 @@ export function BodyExperiment({
     const detection = landmarker.detectForVideo(video, timestamp);
     const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
     const bodyLandmarks = detection.landmarks[0] ? toBodyLandmarks(detection.landmarks[0]) : null;
-    if (segmentationSpike) {
+    if (BODY_HYBRID_SEGMENTATION_ENABLED) {
       const cameraCanvas = segmentationCameraRef.current;
       if (cameraCanvas) {
         cameraCanvas
@@ -554,6 +608,47 @@ export function BodyExperiment({
             );
           }
         }
+        const liveCanvas = canvasRef.current;
+        if (liveCanvas) {
+          const context = liveCanvas.getContext("2d");
+          if (context) {
+            context.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+            drawContours(
+              context,
+              stabilization.contour ? [stabilization.contour] : [],
+              liveCanvas.width,
+              liveCanvas.height,
+              "#ead7a0",
+              mask.width,
+              mask.height,
+            );
+            drawContours(
+              context,
+              innerContours,
+              liveCanvas.width,
+              liveCanvas.height,
+              `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
+              mask.width,
+              mask.height,
+              INNER_CONTOUR_LINE_WIDTH_SCALE,
+              false,
+            );
+            drawPoseGuidance(
+              context,
+              bodyLandmarks,
+              "subtle-arms-torso-face",
+              liveCanvas.width,
+              liveCanvas.height,
+            );
+          }
+        }
+        hybridSnapshotRef.current = createBodyHybridDisplaySnapshot(
+          stabilization.contour ?? [],
+          innerContours,
+          bodyLandmarks,
+          mask.width,
+          mask.height,
+        );
         const drawComparisonVariant = (
           ref: typeof contourRef,
           poseVariant?: "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face",
@@ -603,37 +698,39 @@ export function BodyExperiment({
         drawComparisonVariant(subtleFaceRef, "subtle-arms-torso-face");
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
-        setSegmentationMetrics({
-          frameCount: segmentationFrameCountRef.current,
-          elapsedMs,
-          approximateFps:
-            elapsedMs > 0 ? (segmentationFrameCountRef.current * 1000) / elapsedMs : 0,
-          poseMaskMs,
-          thresholdMs,
-          foregroundComponentMs,
-          foregroundComponentCount: foregroundComponents.length,
-          preprocessingMs: 0,
-          contourMs,
-          selectionMs,
-          simplificationMs,
-          smoothingMs,
-          resamplingMs,
-          spatialAveragingMs,
-          holeDetectionMs,
-          holeFilteringMs,
-          innerContourMs,
-          innerContourCount: innerContours.length,
-          acceptedHoleArea: acceptedHoles.reduce((area, hole) => area + hole.area, 0),
-          windingMs,
-          alignmentMs: stabilization.alignmentMs,
-          temporalSmoothingMs: stabilization.temporalSmoothingMs,
-          rawContourPointCount: primaryContour?.length ?? 0,
-          stabilizedContourPointCount: stabilization.contour?.length ?? 0,
-          alignmentOffset: stabilization.alignmentOffset,
-          averageTemporalCorrectionDistance: stabilization.averageCorrectionDistance,
-          resetCount: contourResetCountRef.current,
-          finalContourPointCount: finalContour?.length ?? 0,
-        });
+        if (segmentationSpike) {
+          setSegmentationMetrics({
+            frameCount: segmentationFrameCountRef.current,
+            elapsedMs,
+            approximateFps:
+              elapsedMs > 0 ? (segmentationFrameCountRef.current * 1000) / elapsedMs : 0,
+            poseMaskMs,
+            thresholdMs,
+            foregroundComponentMs,
+            foregroundComponentCount: foregroundComponents.length,
+            preprocessingMs: 0,
+            contourMs,
+            selectionMs,
+            simplificationMs,
+            smoothingMs,
+            resamplingMs,
+            spatialAveragingMs,
+            holeDetectionMs,
+            holeFilteringMs,
+            innerContourMs,
+            innerContourCount: innerContours.length,
+            acceptedHoleArea: acceptedHoles.reduce((area, hole) => area + hole.area, 0),
+            windingMs,
+            alignmentMs: stabilization.alignmentMs,
+            temporalSmoothingMs: stabilization.temporalSmoothingMs,
+            rawContourPointCount: primaryContour?.length ?? 0,
+            stabilizedContourPointCount: stabilization.contour?.length ?? 0,
+            alignmentOffset: stabilization.alignmentOffset,
+            averageTemporalCorrectionDistance: stabilization.averageCorrectionDistance,
+            resetCount: contourResetCountRef.current,
+            finalContourPointCount: finalContour?.length ?? 0,
+          });
+        }
       } else {
         const temporalOnlyContour = temporalOnlyStabilizerRef.current.update(null);
         const stabilization = contourStabilizerRef.current.update(null);
@@ -683,6 +780,9 @@ export function BodyExperiment({
               contourRef.current.height,
             );
         }
+        const liveCanvas = canvasRef.current;
+        if (liveCanvas)
+          liveCanvas.getContext("2d")?.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
         [outerOnlyRef, subtleArmsRef, subtleTorsoRef, subtleFaceRef].forEach((ref) => {
           const context = ref.current?.getContext("2d");
           if (context && ref.current)
@@ -692,13 +792,14 @@ export function BodyExperiment({
     }
     if (bodyLandmarks) {
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
-      drawPose(canvasRef.current!, bodyLandmarks);
+      if (!BODY_HYBRID_SEGMENTATION_ENABLED) drawPose(canvasRef.current!, bodyLandmarks);
     } else invalidFrameCountRef.current += 1;
     detection.close();
     if (elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
       setCapturedFrames(capturedFrames);
+      setHybridSnapshot(hybridSnapshotRef.current);
       if (import.meta.env.DEV) {
         setMotionDiagnostic(
           createRealCaptureDiagnostics(
@@ -725,6 +826,8 @@ export function BodyExperiment({
     clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
+    hybridSnapshotRef.current = null;
+    setHybridSnapshot(null);
     setMotionDiagnostic(null);
     sampleAttemptsRef.current = 0;
     invalidFrameCountRef.current = 0;
@@ -749,6 +852,8 @@ export function BodyExperiment({
     clearPoseCanvas();
     framesRef.current = [];
     setCapturedFrames([]);
+    hybridSnapshotRef.current = null;
+    setHybridSnapshot(null);
     setMotionDiagnostic(null);
     replayElapsedRef.current = 0;
     setReplayStatus("initial");
@@ -794,7 +899,8 @@ export function BodyExperiment({
             <ExpressionTransform
               mode="body"
               features={features}
-              frames={capturedFrames}
+              frames={[]}
+              hybridSnapshot={hybridSnapshot}
               presentation="body-screen"
               decorative={Boolean(result)}
             />
@@ -1060,7 +1166,12 @@ export function BodyExperiment({
           </div>
         )}
         {status === "captured" && isAnalyzing && features && (
-          <ExpressionTransform mode="body" features={features} frames={capturedFrames} />
+          <ExpressionTransform
+            mode="body"
+            features={features}
+            frames={[]}
+            hybridSnapshot={hybridSnapshot}
+          />
         )}
         {status === "captured" && !isAnalyzing && (
           <section className="body-capture-review-actions" aria-label="記録した動きの操作">

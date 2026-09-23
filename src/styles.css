@@ -1176,6 +1176,37 @@ input {
   stroke-width: 1.5;
 }
 
+.expression-transform__body-hybrid-outer {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.4;
+}
+
+.expression-transform__body-hybrid-inner {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+.expression-transform__body-hybrid-body {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.1;
+  opacity: 0.78;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.expression-transform__body-hybrid-face {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 0.75;
+  opacity: 0.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .expression-transform__body-joint {
   fill: var(--gold);
   transition: opacity 500ms ease;

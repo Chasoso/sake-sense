@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BodyLandmark } from "../../domain/body";
 import { BODY_POSE_UPPER_BODY_CONNECTIONS } from "./body-pose-connections";
 import {
+  createBodyHybridDisplaySnapshot,
   getPoseGuidanceCurveSegments,
   getPoseGuidancePaths,
   getPoseGuidanceSegments,
@@ -34,6 +35,37 @@ describe("body pose guidance", () => {
       points.map((point) => indexByPoint.get(`${point.x}:${point.y}`)),
     );
     expect(pairs).toEqual(BODY_POSE_UPPER_BODY_CONNECTIONS);
+  });
+
+  it("creates a derived display snapshot without retaining raw input shape", () => {
+    const source = landmarks();
+    const snapshot = createBodyHybridDisplaySnapshot(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 50 },
+      ],
+      [
+        [
+          { x: 10, y: 20 },
+          { x: 30, y: 40 },
+        ],
+      ],
+      source,
+      100,
+      50,
+    );
+    expect(snapshot.outerContour).toEqual([
+      { x: 0, y: 0 },
+      { x: 320, y: 160 },
+    ]);
+    expect(snapshot.innerContours).toEqual([
+      [
+        { x: 32, y: 64 },
+        { x: 96, y: 128 },
+      ],
+    ]);
+    expect(snapshot.poseCurves.every(({ kind }) => kind === "body" || kind === "face")).toBe(true);
+    expect(snapshot).not.toHaveProperty("landmarks");
   });
 
   it("keeps upper-body torso guidance when hips are unavailable", () => {
