@@ -5,8 +5,10 @@ import {
   type BodyMovementFeatures,
 } from "./body";
 import type { VoiceFeatures } from "./voice";
+import type { GestureFeatures } from "./gesture";
 import {
   evaluateBodySensorySupport,
+  evaluateGestureSensorySupport,
   evaluateVoiceSensorySupport,
   getApprovedCandidateTermIdsForSupport,
   getSensoryExpressionDisplayTextsForSupport,
@@ -28,6 +30,15 @@ export const sensoryClassValues = [
 ] as const;
 export type SensoryClassProposal = (typeof sensoryClassValues)[number];
 
+const reviewedGestureTermRelations: Record<string, SensoryClassProposal> = {
+  atoaji: "lingering-after-feel",
+  kire: "clean-fade",
+  nameraka: "smooth-flow",
+  marui: "rounded-enveloping",
+  tanrei: "light-delicate",
+  nojun: "rich-full",
+};
+
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
   ending: "abrupt" | "gradual" | "continued" | "unknown";
@@ -48,9 +59,21 @@ export type VoiceSensoryBridgeInput = {
   endingBehavior: "maintained" | "fading" | "unknown";
 };
 
+export type GestureSensoryBridgeInput = {
+  durationMs: number;
+  pointCount: number;
+  pathLength: number;
+  averageSpeed: number;
+  spread: number;
+  horizontalDirectionChanges: number;
+  endingSpeedRatio: number;
+  abruptEnding: boolean;
+};
+
 export type SensoryBridgeObservableInput =
   | { modality: "body"; features: SensoryBridgeInput }
-  | { modality: "voice"; features: VoiceSensoryBridgeInput };
+  | { modality: "voice"; features: VoiceSensoryBridgeInput }
+  | { modality: "gesture"; features: GestureSensoryBridgeInput };
 
 export type SensoryBridgeResponse = {
   /** Validated AI interpretation retained separately from authorized terms. */
@@ -100,6 +123,11 @@ export type SensoryBridgeRequest =
   | {
       modality: "voice";
       input: VoiceSensoryBridgeInput;
+      allowedTermIds: string[];
+    }
+  | {
+      modality: "gesture";
+      input: GestureSensoryBridgeInput;
       allowedTermIds: string[];
     };
 
@@ -211,6 +239,34 @@ export function buildVoiceSensoryBridgeRequest(
   };
 }
 
+export function buildGestureSensoryBridgeInput(
+  features: GestureFeatures,
+): GestureSensoryBridgeInput {
+  return {
+    durationMs: Math.min(Math.max(Math.round(features.durationMs), 0), 60_000),
+    pointCount: Math.min(Math.max(Math.round(features.pointCount), 0), 2_000),
+    pathLength: Math.min(Math.max(Number(features.pathLength.toFixed(2)), 0), 100_000),
+    averageSpeed: Math.min(Math.max(Number(features.averageSpeed.toFixed(5)), 0), 1_000),
+    spread: Math.min(Math.max(Number(features.spread.toFixed(2)), 0), 1_000),
+    horizontalDirectionChanges: Math.min(
+      Math.max(Math.round(features.horizontalDirectionChanges), 0),
+      1_000,
+    ),
+    endingSpeedRatio: Math.min(Math.max(Number(features.endingSpeedRatio.toFixed(3)), 0), 100),
+    abruptEnding: features.abruptEnding === true,
+  };
+}
+
+export function buildGestureSensoryBridgeRequest(
+  features: GestureFeatures,
+): Extract<SensoryBridgeRequest, { modality: "gesture" }> {
+  return {
+    modality: "gesture",
+    input: buildGestureSensoryBridgeInput(features),
+    allowedTermIds: getSelectableSensoryTermIds(),
+  };
+}
+
 export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
   return dictionaryData.entries
     .filter((entry) => entry.vocabularyStatus === "selectable")
@@ -225,6 +281,17 @@ export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
 
 export function getSelectableSensoryTermIds(): string[] {
   return serializeSensoryDictionaryContext().map((entry) => entry.id);
+}
+
+function getGestureAuthorizationForSupport(
+  support: ReturnType<typeof evaluateGestureSensorySupport>,
+): NonNullable<SensoryBridgeResponse["authorization"]> {
+  return getApprovedCandidateTermIdsForSupport(support).flatMap((termId) => {
+    const sensoryClass = reviewedGestureTermRelations[termId];
+    return sensoryClass
+      ? [{ termId, sensoryClass, level: "strong" as const, supportCount: 1 }]
+      : [];
+  });
 }
 
 export function getSensoryDictionaryContextForIds(
@@ -434,7 +501,7 @@ export function validateSensoryBridgeResponse(
 }
 
 function featureList(
-  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput | GestureSensoryBridgeInput,
   includeUnknown = false,
 ): string[] {
   return Object.entries(input)
@@ -461,7 +528,9 @@ export function applyReviewedSemanticGrounding(
   const support =
     request.modality === "body"
       ? evaluateBodySensorySupport(request.input)
-      : evaluateVoiceSensorySupport(request.input);
+      : request.modality === "voice"
+        ? evaluateVoiceSensorySupport(request.input)
+        : { matchedCaseIds: [], resultKind: "unmapped" as const, expressionIds: [] };
   const matchedCases = sensorySupportCases.filter((case_) =>
     support.matchedCaseIds.includes(case_.id),
   );
@@ -483,16 +552,30 @@ export function applyReviewedSemanticGrounding(
   const observedFeatures = featureList(request.input, true);
   const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
   const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
-  const approvedCandidateTermIds = getApprovedCandidateTermIdsForSupport(support).filter((id) =>
-    request.allowedTermIds.includes(id),
-  );
-  const legacySensoryExpressions = getSensoryExpressionDisplayTextsForSupport(support);
+  const approvedCandidateTermIds =
+    request.modality === "gesture"
+      ? (response.authorization ?? [])
+          .map((entry) => entry.termId)
+          .filter((id) => request.allowedTermIds.includes(id))
+      : getApprovedCandidateTermIdsForSupport(support).filter((id) =>
+          request.allowedTermIds.includes(id),
+        );
+  const legacySensoryExpressions =
+    request.modality === "gesture"
+      ? response.sensoryExpressions
+      : getSensoryExpressionDisplayTextsForSupport(support);
   const legacyReason =
     support.resultKind === "expression"
       ? "既存のレビュー済みルールに基づく既定の感覚表現です。"
       : support.resultKind === "interpretation-state"
         ? "既存のレビュー済みルールでは候補を一つに確定しません。"
         : "既存のレビュー済みルールでは安全な感覚表現を確定しません。";
+  const approvedAuthorization =
+    request.modality === "gesture"
+      ? (response.authorization ?? []).filter((entry) =>
+          request.allowedTermIds.includes(entry.termId),
+        )
+      : response.authorization;
 
   return {
     ...response,
@@ -509,7 +592,8 @@ export function applyReviewedSemanticGrounding(
     interpretationStateId: support.interpretationStateId ?? null,
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
-    reason: legacyReason,
+    reason: request.modality === "gesture" ? response.reason : legacyReason,
+    ...(request.modality === "gesture" ? { authorization: approvedAuthorization } : {}),
   };
 }
 
@@ -517,6 +601,18 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
     async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
+      if (request.modality === "gesture") {
+        const support = evaluateGestureSensorySupport(request.input);
+        const authorization = getGestureAuthorizationForSupport(support);
+        return applyReviewedSemanticGrounding(request, {
+          sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
+          candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
+          unmappedFeatures: [],
+          reason: `観測した指の動きのreviewed case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
+          authorization,
+          authorizationConflicts: [],
+        });
+      }
       if (request.modality === "voice") {
         const support = evaluateVoiceSensorySupport(request.input);
         return applyReviewedSemanticGrounding(request, {
@@ -539,7 +635,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
 }
 
 export function createFallbackSensoryBridgeResponse(
-  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput | GestureSensoryBridgeInput,
   reason = "橋渡しを利用できないため、観測した動きだけを表示します。",
 ): SensoryBridgeResponse {
   return {

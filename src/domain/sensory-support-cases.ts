@@ -5,6 +5,7 @@ import {
   sensoryExpressions,
   sensoryInterpretationStates,
 } from "./sensory-expressions";
+import type { GestureFeatures } from "./gesture";
 import type { SensoryBridgeInput, VoiceSensoryBridgeInput } from "./sensory-bridge";
 
 export type SensorySupportCaseStatus = "active" | "experimental" | "deferred" | "legacy";
@@ -14,6 +15,24 @@ type NumericRange = { minimum?: number; maximum?: number };
 type BodyFeaturePattern = Partial<SensoryBridgeInput>;
 type VoiceFeaturePattern = Partial<Omit<VoiceSensoryBridgeInput, "durationMs">> & {
   durationMs?: NumericRange;
+};
+type GestureFeaturePattern = Partial<
+  Record<keyof GestureFeatures, boolean | number | NumericRange>
+>;
+
+type GestureSupportCase = {
+  id: string;
+  resultKind: SensorySupportCaseResultKind;
+  featurePattern: GestureFeaturePattern;
+  expressionIds: string[];
+};
+
+type EvaluableSupportCase = {
+  id: string;
+  resultKind: SensorySupportCaseResultKind;
+  featurePattern: Record<string, unknown>;
+  expressionIds: string[];
+  interpretationStateId?: string;
 };
 
 export type SensorySupportCase = {
@@ -57,6 +76,81 @@ export type SensorySupportEvaluation = {
 
 export const sensorySupportCaseDataset = supportCaseData as SensorySupportCaseDataset;
 export const sensorySupportCases = sensorySupportCaseDataset.cases;
+
+/**
+ * Small, reviewed Gesture movement cases. These describe movement qualities,
+ * never symbolic shapes or the user's drawing intent.
+ */
+export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
+  {
+    id: "gesture-short-fast-abrupt-clean-fade",
+    resultKind: "expression",
+    featurePattern: {
+      durationMs: { maximum: 700 },
+      averageSpeed: { minimum: 0.1 },
+      spread: { maximum: 100 },
+      endingSpeedRatio: { minimum: 0.75 },
+      abruptEnding: true,
+    },
+    expressionIds: ["clean-fade"],
+  },
+  {
+    id: "gesture-slow-long-lingering-after-feel",
+    resultKind: "expression",
+    featurePattern: {
+      durationMs: { minimum: 1_200 },
+      averageSpeed: { maximum: 0.1 },
+      spread: { maximum: 180 },
+      horizontalDirectionChanges: { maximum: 1 },
+      endingSpeedRatio: { maximum: 0.74 },
+      abruptEnding: false,
+    },
+    expressionIds: ["lingering-after-feel"],
+  },
+  {
+    id: "gesture-broad-spreading-rounded-enveloping",
+    resultKind: "expression",
+    featurePattern: {
+      durationMs: { minimum: 700 },
+      pathLength: { minimum: 120 },
+      spread: { minimum: 120 },
+      horizontalDirectionChanges: { maximum: 2 },
+    },
+    expressionIds: ["rounded-enveloping"],
+  },
+  {
+    id: "gesture-repeated-direction-changes-wavering",
+    resultKind: "unmapped",
+    featurePattern: {
+      pointCount: { minimum: 5 },
+      horizontalDirectionChanges: { minimum: 3 },
+    },
+    expressionIds: [],
+  },
+  {
+    id: "gesture-smooth-continuous-flow",
+    resultKind: "expression",
+    featurePattern: {
+      durationMs: { minimum: 700 },
+      pathLength: { minimum: 80 },
+      averageSpeed: { minimum: 0.02, maximum: 0.25 },
+      horizontalDirectionChanges: { maximum: 1 },
+      endingSpeedRatio: { maximum: 0.74 },
+      abruptEnding: false,
+    },
+    expressionIds: ["smooth-flow"],
+  },
+  {
+    id: "gesture-compact-insufficient",
+    resultKind: "unmapped",
+    featurePattern: {
+      pointCount: { maximum: 4 },
+      pathLength: { maximum: 40 },
+      spread: { maximum: 60 },
+    },
+    expressionIds: [],
+  },
+];
 
 const supportCaseStatuses = new Set<string>(["active", "experimental", "deferred", "legacy"]);
 const resultKinds = new Set<string>(["expression", "unmapped", "interpretation-state"]);
@@ -111,7 +205,22 @@ function matchesVoicePattern(
   });
 }
 
-function patternSpecificity(case_: SensorySupportCase): number {
+function matchesGesturePattern(input: GestureFeatures, pattern: GestureFeaturePattern): boolean {
+  return Object.entries(pattern).every(([key, expected]) => {
+    const actual = input[key as keyof GestureFeatures];
+    if (typeof expected === "object" && expected !== null) {
+      const range = expected as NumericRange;
+      return (
+        typeof actual === "number" &&
+        (range.minimum === undefined || actual >= range.minimum) &&
+        (range.maximum === undefined || actual <= range.maximum)
+      );
+    }
+    return actual === expected;
+  });
+}
+
+function patternSpecificity(case_: EvaluableSupportCase): number {
   return Object.keys(case_.featurePattern).length;
 }
 
@@ -120,7 +229,7 @@ export function isRuntimeEligibleSupportCase(case_: SensorySupportCase): boolean
   return case_.status === "active" || case_.status === "experimental";
 }
 
-function evaluateMatchedCases(matches: SensorySupportCase[]): SensorySupportEvaluation {
+function evaluateMatchedCases(matches: EvaluableSupportCase[]): SensorySupportEvaluation {
   if (!matches.length) return { matchedCaseIds: [], resultKind: "unmapped", expressionIds: [] };
 
   const highestStateSpecificity = Math.max(
@@ -198,6 +307,17 @@ export function evaluateVoiceSensorySupport(
         case_.modality === "voice" &&
         matchesVoicePattern(input, case_.featurePattern as VoiceFeaturePattern),
     ),
+  );
+}
+
+export function evaluateGestureSensorySupport(
+  input: GestureFeatures,
+  cases: readonly GestureSupportCase[] = gestureSensorySupportCases,
+): SensorySupportEvaluation {
+  return evaluateMatchedCases(
+    cases
+      .filter((case_) => case_.resultKind === "expression" || case_.resultKind === "unmapped")
+      .filter((case_) => matchesGesturePattern(input, case_.featurePattern)),
   );
 }
 

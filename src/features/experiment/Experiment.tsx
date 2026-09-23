@@ -498,7 +498,11 @@ export function Result({
             <span className="translation-step__label">あなたの表現</span>
             <strong>
               {result.expression ||
-                (result.inputSource === "voice" ? "声で表現しました" : "表現しました")}
+                (result.inputSource === "voice"
+                  ? "声で表現しました"
+                  : result.inputSource === "gesture"
+                    ? "指の動きで表現しました"
+                    : "表現しました")}
             </strong>
           </section>
         )}

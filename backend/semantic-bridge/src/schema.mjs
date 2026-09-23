@@ -10,6 +10,16 @@ export const bodyInputKeys = [
 ];
 
 export const voiceInputKeys = ["durationMs", "averageIntensity", "pauseCount", "endingBehavior"];
+export const gestureInputKeys = [
+  "durationMs",
+  "pointCount",
+  "pathLength",
+  "averageSpeed",
+  "spread",
+  "horizontalDirectionChanges",
+  "endingSpeedRatio",
+  "abruptEnding",
+];
 
 export const responseKeys = [
   "sensoryInterpretation",
@@ -94,7 +104,7 @@ export const responseSchema = {
 };
 
 export const systemInstruction = [
-  "Interpret only the supplied compact observable body or voice features as a cautious, metaphorical sensory impression.",
+  "Interpret only the supplied compact observable body, voice, or gesture features as a cautious, metaphorical sensory impression.",
   "Use the complete feature combination holistically; do not apply one-to-one feature-to-value rules or reconstruct the reviewed support-case table.",
   "The input is not a taste measurement. Do not claim to detect actual sake taste, emotion, personality, preference, demographics, intoxication, health, or objective quality.",
   "Return semantic outcome interpreted, ambiguous, or insufficient. These are semantic states, not provider or transport failures.",
