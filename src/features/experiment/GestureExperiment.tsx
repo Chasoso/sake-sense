@@ -13,6 +13,7 @@ import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
+import { evaluateGestureSensorySupport } from "../../domain/sensory-support-cases";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -135,6 +136,9 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   };
 
   if (result) {
+    const gestureCalibrationEnabled =
+      import.meta.env.DEV && import.meta.env.VITE_GESTURE_CALIBRATION === "true";
+    const calibrationResponse = result.sensoryBridge?.response;
     return (
       <main className="experience-screen" aria-labelledby="result-title">
         <nav className="experience-screen__nav" aria-label="画面の移動">
@@ -145,6 +149,17 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
           <span className="experience-screen__brand">Sake Sense</span>
         </nav>
         <Result result={result} onTryAgain={reset} />
+        {gestureCalibrationEnabled && result.sensoryBridge?.modality === "gesture" && (
+          <pre data-testid="gesture-calibration-diagnostics" hidden>
+            {JSON.stringify({
+              features: result.gesture,
+              matchedCaseIds: calibrationResponse?.groundingCaseIds ?? [],
+              resultKind: evaluateGestureSensorySupport(result.gesture).resultKind,
+              expressionIds: calibrationResponse?.groundingExpressionIds ?? [],
+              candidateTermIds: calibrationResponse?.candidateTermIds ?? [],
+            })}
+          </pre>
+        )}
       </main>
     );
   }

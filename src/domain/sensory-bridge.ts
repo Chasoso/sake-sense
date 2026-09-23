@@ -12,6 +12,7 @@ import {
   evaluateVoiceSensorySupport,
   getApprovedCandidateTermIdsForSupport,
   getSensoryExpressionDisplayTextsForSupport,
+  gestureSensorySupportCases,
   sensorySupportCases,
 } from "./sensory-support-cases";
 import {
@@ -530,10 +531,10 @@ export function applyReviewedSemanticGrounding(
       ? evaluateBodySensorySupport(request.input)
       : request.modality === "voice"
         ? evaluateVoiceSensorySupport(request.input)
-        : { matchedCaseIds: [], resultKind: "unmapped" as const, expressionIds: [] };
-  const matchedCases = sensorySupportCases.filter((case_) =>
-    support.matchedCaseIds.includes(case_.id),
-  );
+        : evaluateGestureSensorySupport(request.input);
+  const supportCases =
+    request.modality === "gesture" ? gestureSensorySupportCases : sensorySupportCases;
+  const matchedCases = supportCases.filter((case_) => support.matchedCaseIds.includes(case_.id));
   const selectedCases =
     support.resultKind === "expression"
       ? matchedCases.filter((case_) =>

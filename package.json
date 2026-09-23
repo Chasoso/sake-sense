@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "test:e2e:gesture-calibration": "playwright test tests/e2e/gesture-calibration.spec.ts",
     "test:coverage": "vitest run --coverage",
     "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
     "validate:sensory-expressions": "node scripts/quality/validate-sensory-expressions.mjs",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.2",
