@@ -493,19 +493,6 @@ export function Result({
         <p>{presentation.introduction}</p>
       </div>
       <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
-        {!isBodyResult && presentation.modality !== "gesture" && (
-          <section className="translation-step translation-step--expression">
-            <span className="translation-step__label">あなたの表現</span>
-            <strong>
-              {result.expression ||
-                (result.inputSource === "voice"
-                  ? "声で表現しました"
-                  : result.inputSource === "gesture"
-                    ? "指の動きで表現しました"
-                    : "表現しました")}
-            </strong>
-          </section>
-        )}
         {(bodyObservations.length > 0 || sensoryHints.length > 0) && (
           <section className="translation-step translation-step--observed">
             <span className="translation-step__label">{presentation.observedLabel}</span>
