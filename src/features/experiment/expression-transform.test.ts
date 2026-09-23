@@ -5,6 +5,7 @@ import {
   getBodyDisplayWords,
   getBodyDissolveOpacity,
   getBodyDissolveScale,
+  getBodyAbsorptionRotation,
   getBodyIntermediateWords,
   getBodyLightProgress,
   getBodySkeletonGeometry,
@@ -86,7 +87,9 @@ describe("expression transformation", () => {
       scale: getBodyDissolveScale(progress),
     }));
     expect(samples[0]).toEqual({ light: 0, opacity: 1, scale: 1 });
-    expect(samples.at(-1)).toEqual({ light: 1, opacity: 0, scale: 0.9 });
+    expect(samples.at(-1)?.light).toBe(1);
+    expect(samples.at(-1)?.opacity).toBe(0);
+    expect(samples.at(-1)?.scale).toBeCloseTo(0.22);
     expect(
       samples.every((sample, index) => index === 0 || sample.light >= samples[index - 1].light),
     ).toBe(true);
@@ -98,6 +101,13 @@ describe("expression transformation", () => {
     ).toBe(true);
     expect(samples[2].light).toBeGreaterThan(0);
     expect(samples[2].opacity).toBeGreaterThan(0);
+  });
+
+  it("draws the Body skeleton into the center light with a restrained swirl", () => {
+    expect(getBodyAbsorptionRotation(0)).toBe(0);
+    expect(getBodyAbsorptionRotation(0.5)).toBeGreaterThan(0);
+    expect(getBodyAbsorptionRotation(1)).toBe(12);
+    expect(getBodyDissolveScale(1)).toBeLessThan(0.3);
   });
 
   it("selects a visible upper-body frame near the center", () => {

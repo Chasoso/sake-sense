@@ -155,7 +155,11 @@ export function getBodyDissolveOpacity(progress: number): number {
 }
 
 export function getBodyDissolveScale(progress: number): number {
-  return 1 - getBodyDissolveProgress(progress) * 0.1;
+  return 1 - getBodyDissolveProgress(progress) * 0.78;
+}
+
+export function getBodyAbsorptionRotation(progress: number): number {
+  return getBodyDissolveProgress(progress) * 12;
 }
 
 export function getTransformStage(elapsedMs: number): TransformStage {

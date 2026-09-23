@@ -10,6 +10,7 @@ import {
   getBodySkeletonGeometry,
   getBodyDissolveOpacity,
   getBodyDissolveScale,
+  getBodyAbsorptionRotation,
   getBodyLightProgress,
   getBodyTransformProgress,
   getTransformProgress,
@@ -73,6 +74,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const bodyLightProgress = getBodyLightProgress(progress);
   const bodyOpacity = getBodyDissolveOpacity(progress);
   const bodyScale = getBodyDissolveScale(progress);
+  const bodyAbsorptionRotation = getBodyAbsorptionRotation(progress);
   const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
 
@@ -110,7 +112,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
               />
               <g
                 className="expression-transform__body-dissolve"
-                transform={`translate(160 80) scale(${bodyScale}) translate(-160 -80)`}
+                transform={`translate(160 80) rotate(${bodyAbsorptionRotation} 0 0) scale(${bodyScale}) translate(-160 -80)`}
                 style={{ opacity: bodyOpacity }}
               >
                 <path
