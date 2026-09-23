@@ -1,10 +1,10 @@
 export const SEGMENTATION_THRESHOLD = 0.5;
 export const RAW_MASK_ISO_LEVEL = 0.5;
-export const CONTOUR_SIMPLIFY_TOLERANCE = 0.8;
+export const CONTOUR_SIMPLIFY_TOLERANCE = 0.6;
 export const CONTOUR_SMOOTHING_PASSES = 1;
 export const CONTOUR_RESAMPLE_POINT_COUNT = 96;
 export const CONTOUR_SPATIAL_AVERAGING_RADIUS = 0;
-export const CONTOUR_TEMPORAL_ALPHA = 0.75;
+export const CONTOUR_TEMPORAL_ALPHA = 0.6;
 
 export type ContourPresentationVariant = {
   id: "current" | "detail-plus" | "detail-plus-plus" | "responsive";

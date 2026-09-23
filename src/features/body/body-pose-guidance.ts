@@ -9,15 +9,15 @@ export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
 export const BODY_HYBRID_CONTOUR_COLOR = "#ead7a0";
 export const BODY_HYBRID_CONTOUR_STYLE = {
-  outerGlowOpacity: 0.16,
-  outerGlowWidthScale: 2.2,
-  outerCoreOpacity: 0.86,
-  outerCoreWidthScale: 1.1,
-  outerCoreStrokeWidth: 1.4,
+  outerGlowOpacity: 0.32,
+  outerGlowWidthScale: 3.2,
+  outerCoreOpacity: 0.7,
+  outerCoreWidthScale: 0.8,
+  outerCoreStrokeWidth: 0.8,
   innerOpacity: 0.58,
   innerWidthScale: 0.9,
   innerStrokeWidth: 1,
-  glowBlurPx: 3,
+  glowBlurPx: 10,
 } as const;
 
 export type BodyHybridHaloVariant = {
