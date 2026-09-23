@@ -147,6 +147,21 @@ function bucketIntensity(value) {
   return "high";
 }
 
+function bucketCount(value) {
+  if (!Number.isFinite(value)) return "unknown";
+  if (value <= 4) return "small";
+  if (value <= 32) return "medium";
+  return "large";
+}
+
+function bucketMagnitude(value) {
+  if (!Number.isFinite(value)) return "unknown";
+  if (value <= 0) return "none";
+  if (value <= 1) return "small";
+  if (value <= 10) return "medium";
+  return "large";
+}
+
 export function summarizeSemanticBridgeInput(modality, input) {
   if (!isRecord(input)) return { kind: Array.isArray(input) ? "array" : typeof input };
   if (modality === "body") {
@@ -158,6 +173,20 @@ export function summarizeSemanticBridgeInput(modality, input) {
       intensityBucket: bucketIntensity(input.averageIntensity),
       pauseCount: Number.isInteger(input.pauseCount) ? input.pauseCount : "unknown",
       endingBehavior: input.endingBehavior,
+    };
+  }
+  if (modality === "gesture") {
+    return {
+      durationMsBucket: bucketDuration(input.durationMs),
+      pointCountBucket: bucketCount(input.pointCount),
+      pathLengthBucket: bucketMagnitude(input.pathLength),
+      averageSpeedBucket: bucketMagnitude(input.averageSpeed),
+      spreadBucket: bucketMagnitude(input.spread),
+      directionChangeCount: Number.isInteger(input.horizontalDirectionChanges)
+        ? input.horizontalDirectionChanges
+        : "unknown",
+      endingSpeedRatioBucket: bucketMagnitude(input.endingSpeedRatio),
+      abruptEnding: typeof input.abruptEnding === "boolean" ? input.abruptEnding : "unknown",
     };
   }
   return { kind: "unknown_modality" };

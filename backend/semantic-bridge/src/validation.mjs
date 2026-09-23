@@ -1,4 +1,4 @@
-import { bodyInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
+import { bodyInputKeys, gestureInputKeys, responseKeys, voiceInputKeys } from "./schema.mjs";
 import { applyReviewedGrounding } from "./grounding.mjs";
 import { validateSensoryInterpretation } from "./sensory-interpretation.mjs";
 import { validateSensoryClassProposals } from "./semantic-authorization.mjs";
@@ -84,6 +84,35 @@ function validateVoiceInput(input) {
   assert(voiceValues.endingBehavior.includes(input.endingBehavior), "invalid voice ending");
 }
 
+function validateGestureInput(input) {
+  assert(hasOnlyKeys(input, gestureInputKeys), "invalid gesture input fields");
+  for (const key of [
+    "durationMs",
+    "pointCount",
+    "pathLength",
+    "averageSpeed",
+    "spread",
+    "horizontalDirectionChanges",
+    "endingSpeedRatio",
+  ]) {
+    assert(Number.isFinite(input[key]) && input[key] >= 0, "invalid gesture input value");
+  }
+  assert(input.durationMs <= 60_000, "invalid gesture duration");
+  assert(
+    Number.isInteger(input.pointCount) && input.pointCount <= 2_000,
+    "invalid gesture point count",
+  );
+  assert(input.pathLength <= 100_000, "invalid gesture path length");
+  assert(input.averageSpeed <= 1_000, "invalid gesture average speed");
+  assert(input.spread <= 1_000, "invalid gesture spread");
+  assert(
+    Number.isInteger(input.horizontalDirectionChanges) && input.horizontalDirectionChanges <= 1_000,
+    "invalid gesture direction changes",
+  );
+  assert(input.endingSpeedRatio <= 100, "invalid gesture ending ratio");
+  assert(typeof input.abruptEnding === "boolean", "invalid gesture ending");
+}
+
 function canonicalEntriesById() {
   return new Map(
     dictionaryData.entries
@@ -135,9 +164,13 @@ export function parseAndValidateRequest(raw, { maxBytes = 12_000 } = {}) {
     throw new SemanticBridgeRequestValidationError("malformed JSON");
   }
   assert(hasOnlyKeys(value, ["modality", "input", "allowedTermIds"]), "invalid request fields");
-  assert(value.modality === "body" || value.modality === "voice", "invalid modality");
+  assert(
+    value.modality === "body" || value.modality === "voice" || value.modality === "gesture",
+    "invalid modality",
+  );
   if (value.modality === "body") validateBodyInput(value.input);
-  else validateVoiceInput(value.input);
+  else if (value.modality === "voice") validateVoiceInput(value.input);
+  else validateGestureInput(value.input);
   const { ids, context } = validateAllowedTermIds(value.allowedTermIds);
   return {
     value: {

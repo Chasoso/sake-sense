@@ -12,6 +12,7 @@ import { bodyToRepresentation, type BodyMovementFeatures } from "./body";
 import {
   applyReviewedSemanticGrounding,
   buildSensoryBridgeInput,
+  buildGestureSensoryBridgeRequest,
   buildVoiceSensoryBridgeRequest,
   createFallbackSensoryBridgeResponse,
   createFixtureSensoryBridgeProvider,
@@ -92,6 +93,12 @@ export type ExperimentResult = {
     | {
         modality: "voice";
         input: Extract<SensoryBridgeRequest, { modality: "voice" }>["input"];
+        response: SensoryBridgeResponse;
+        provider: SensoryBridgeProviderKind;
+      }
+    | {
+        modality: "gesture";
+        input: Extract<SensoryBridgeRequest, { modality: "gesture" }>["input"];
         response: SensoryBridgeResponse;
         provider: SensoryBridgeProviderKind;
       };
@@ -359,6 +366,55 @@ export async function runVoiceSemanticExperiment(
           : "日本酒語への橋渡しを利用できなかったため、観測した声の特徴のみ表示しています。",
     sensoryBridge: {
       modality: "voice",
+      input: request.input,
+      response,
+      provider: providerStatus,
+    },
+  };
+}
+
+export async function runGestureSemanticExperiment(
+  gestureFeatures: GestureFeatures,
+  provider: SensoryBridgeProvider = createFixtureSensoryBridgeProvider(),
+): Promise<ExperimentResult | { error: string }> {
+  if (gestureFeatures.pointCount < 2 || gestureFeatures.pathLength <= 0) {
+    return { error: "指の動きで線を描いてから試してください。" };
+  }
+  const request = buildGestureSensoryBridgeRequest(gestureFeatures);
+  let response: SensoryBridgeResponse;
+  let providerStatus: SensoryBridgeProviderKind = provider.kind;
+  try {
+    const validation = validateSensoryBridgeResponse(await provider.interpret(request));
+    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
+    else {
+      response = createFallbackSensoryBridgeResponse(request.input, validation.error);
+      providerStatus = "fallback";
+    }
+  } catch {
+    response = createFallbackSensoryBridgeResponse(request.input);
+    providerStatus = "fallback";
+  }
+  const entryById = new Map(dictionaryData.entries.map((entry) => [entry.id, entry]));
+  const candidates = response.candidateTermIds.flatMap((id) => {
+    const entry = entryById.get(id);
+    return entry ? [{ entry, matchedBy: "gesture" as const, explanation: response.reason }] : [];
+  });
+  return {
+    expression: "",
+    inputSource: "gesture",
+    voiceFeatures: null,
+    bodyFeatures: null,
+    gesture: gestureFeatures,
+    representation: gestureToRepresentation(gestureFeatures),
+    candidates,
+    sakeProducts: findSakeProductMatches(response.candidateTermIds),
+    interpretation: candidates.length ? "gesture-only" : "no-match",
+    message:
+      providerStatus === "fallback"
+        ? "Gesture Sensory Bridgeを利用できなかったため、観測した動きだけを表示しています。"
+        : "観測した指の動きから、日本酒の言葉への入口を探しました。",
+    sensoryBridge: {
+      modality: "gesture",
       input: request.input,
       response,
       provider: providerStatus,

@@ -5,6 +5,7 @@ import {
   type BodyMovementFeatures,
 } from "./body";
 import type { VoiceFeatures } from "./voice";
+import type { GestureFeatures } from "./gesture";
 import {
   evaluateBodySensorySupport,
   evaluateVoiceSensorySupport,
@@ -48,9 +49,21 @@ export type VoiceSensoryBridgeInput = {
   endingBehavior: "maintained" | "fading" | "unknown";
 };
 
+export type GestureSensoryBridgeInput = {
+  durationMs: number;
+  pointCount: number;
+  pathLength: number;
+  averageSpeed: number;
+  spread: number;
+  horizontalDirectionChanges: number;
+  endingSpeedRatio: number;
+  abruptEnding: boolean;
+};
+
 export type SensoryBridgeObservableInput =
   | { modality: "body"; features: SensoryBridgeInput }
-  | { modality: "voice"; features: VoiceSensoryBridgeInput };
+  | { modality: "voice"; features: VoiceSensoryBridgeInput }
+  | { modality: "gesture"; features: GestureSensoryBridgeInput };
 
 export type SensoryBridgeResponse = {
   /** Validated AI interpretation retained separately from authorized terms. */
@@ -100,6 +113,11 @@ export type SensoryBridgeRequest =
   | {
       modality: "voice";
       input: VoiceSensoryBridgeInput;
+      allowedTermIds: string[];
+    }
+  | {
+      modality: "gesture";
+      input: GestureSensoryBridgeInput;
       allowedTermIds: string[];
     };
 
@@ -207,6 +225,34 @@ export function buildVoiceSensoryBridgeRequest(
   return {
     modality: "voice",
     input: buildVoiceSensoryBridgeInput(features),
+    allowedTermIds: getSelectableSensoryTermIds(),
+  };
+}
+
+export function buildGestureSensoryBridgeInput(
+  features: GestureFeatures,
+): GestureSensoryBridgeInput {
+  return {
+    durationMs: Math.min(Math.max(Math.round(features.durationMs), 0), 60_000),
+    pointCount: Math.min(Math.max(Math.round(features.pointCount), 0), 2_000),
+    pathLength: Math.min(Math.max(Number(features.pathLength.toFixed(2)), 0), 100_000),
+    averageSpeed: Math.min(Math.max(Number(features.averageSpeed.toFixed(5)), 0), 1_000),
+    spread: Math.min(Math.max(Number(features.spread.toFixed(2)), 0), 1_000),
+    horizontalDirectionChanges: Math.min(
+      Math.max(Math.round(features.horizontalDirectionChanges), 0),
+      1_000,
+    ),
+    endingSpeedRatio: Math.min(Math.max(Number(features.endingSpeedRatio.toFixed(3)), 0), 100),
+    abruptEnding: features.abruptEnding === true,
+  };
+}
+
+export function buildGestureSensoryBridgeRequest(
+  features: GestureFeatures,
+): Extract<SensoryBridgeRequest, { modality: "gesture" }> {
+  return {
+    modality: "gesture",
+    input: buildGestureSensoryBridgeInput(features),
     allowedTermIds: getSelectableSensoryTermIds(),
   };
 }
@@ -434,7 +480,7 @@ export function validateSensoryBridgeResponse(
 }
 
 function featureList(
-  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput | GestureSensoryBridgeInput,
   includeUnknown = false,
 ): string[] {
   return Object.entries(input)
@@ -461,7 +507,9 @@ export function applyReviewedSemanticGrounding(
   const support =
     request.modality === "body"
       ? evaluateBodySensorySupport(request.input)
-      : evaluateVoiceSensorySupport(request.input);
+      : request.modality === "voice"
+        ? evaluateVoiceSensorySupport(request.input)
+        : { matchedCaseIds: [], resultKind: "unmapped" as const, expressionIds: [] };
   const matchedCases = sensorySupportCases.filter((case_) =>
     support.matchedCaseIds.includes(case_.id),
   );
@@ -483,10 +531,18 @@ export function applyReviewedSemanticGrounding(
   const observedFeatures = featureList(request.input, true);
   const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
   const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
-  const approvedCandidateTermIds = getApprovedCandidateTermIdsForSupport(support).filter((id) =>
-    request.allowedTermIds.includes(id),
-  );
-  const legacySensoryExpressions = getSensoryExpressionDisplayTextsForSupport(support);
+  const approvedCandidateTermIds =
+    request.modality === "gesture"
+      ? (response.authorization ?? [])
+          .map((entry) => entry.termId)
+          .filter((id) => request.allowedTermIds.includes(id))
+      : getApprovedCandidateTermIdsForSupport(support).filter((id) =>
+          request.allowedTermIds.includes(id),
+        );
+  const legacySensoryExpressions =
+    request.modality === "gesture"
+      ? response.sensoryExpressions
+      : getSensoryExpressionDisplayTextsForSupport(support);
   const legacyReason =
     support.resultKind === "expression"
       ? "既存のレビュー済みルールに基づく既定の感覚表現です。"
@@ -509,7 +565,7 @@ export function applyReviewedSemanticGrounding(
     interpretationStateId: support.interpretationStateId ?? null,
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
-    reason: legacyReason,
+    reason: request.modality === "gesture" ? response.reason : legacyReason,
   };
 }
 
@@ -517,6 +573,42 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
   return {
     kind: "fixture",
     async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
+      if (request.modality === "gesture") {
+        return applyReviewedSemanticGrounding(request, {
+          sensoryInterpretation: {
+            outcome: "interpreted",
+            sensoryExpression: "指の動きの特徴をfixtureで解釈しました。",
+            semanticProfile: {
+              timeQuality: "sustained",
+              weightQuality: "unknown",
+              flowQuality: "free",
+              directness: "direct",
+              persistence: "moderate",
+              resolution: "gradual",
+              continuity: "continuous",
+              rhythmicity: "singular",
+              expansion: "neutral",
+              spread: "neutral",
+              smoothness: "smooth",
+              roundness: "unknown",
+            },
+          },
+          sensoryClassProposals: ["smooth-flow"],
+          sensoryExpressions: ["なめらかな動きの印象"],
+          candidateTermIds: [],
+          unmappedFeatures: [],
+          reason: "観測した指の動きから、なめらかな流れの印象をfixtureで確認しました。",
+          authorization: [
+            {
+              termId: "nameraka",
+              sensoryClass: "smooth-flow",
+              level: "strong",
+              supportCount: 2,
+            },
+          ],
+          authorizationConflicts: [],
+        });
+      }
       if (request.modality === "voice") {
         const support = evaluateVoiceSensorySupport(request.input);
         return applyReviewedSemanticGrounding(request, {
@@ -539,7 +631,7 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
 }
 
 export function createFallbackSensoryBridgeResponse(
-  input: SensoryBridgeInput | VoiceSensoryBridgeInput,
+  input: SensoryBridgeInput | VoiceSensoryBridgeInput | GestureSensoryBridgeInput,
   reason = "橋渡しを利用できないため、観測した動きだけを表示します。",
 ): SensoryBridgeResponse {
   return {

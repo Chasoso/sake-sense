@@ -38,6 +38,23 @@ const voiceRequest = JSON.stringify({
   allowedTermIds: ["kire", "atoaji"],
 });
 
+const gestureInput = {
+  durationMs: 1200,
+  pointCount: 12,
+  pathLength: 18.25,
+  averageSpeed: 0.015,
+  spread: 4.5,
+  horizontalDirectionChanges: 2,
+  endingSpeedRatio: 0.4,
+  abruptEnding: false,
+};
+
+const gestureRequest = JSON.stringify({
+  modality: "gesture",
+  input: gestureInput,
+  allowedTermIds: ["kire", "nameraka"],
+});
+
 const emptyResponse = {
   sensoryExpressions: [],
   candidateTermIds: [],
@@ -54,12 +71,48 @@ describe("production semantic bridge Lambda", () => {
     expect(BEDROCK_PROVIDER_TIMEOUT_MS).toBeLessThan(30_000);
   });
 
-  it("accepts body and voice structured payloads", async () => {
+  it("accepts body, voice, and gesture structured payloads", async () => {
     const invoke = vi.fn(async () => emptyResponse);
     const handler = testHandler(invoke);
     expect((await handler({ body: bodyRequest })).statusCode).toBe(200);
     expect((await handler({ body: voiceRequest })).statusCode).toBe(200);
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect((await handler({ body: gestureRequest })).statusCode).toBe(200);
+    expect(invoke).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps Gesture requests compact and reports gesture diagnostics safely", async () => {
+    const invoke = vi.fn(async () => emptyResponse);
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const handler = createHandler({ env, invoke, logger });
+    const response = await handler({
+      body: gestureRequest,
+      requestContext: { requestId: "gesture-request" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const request = invoke.mock.calls[0][0];
+    expect(request).toMatchObject({
+      modality: "gesture",
+      input: gestureInput,
+      allowedTermIds: ["kire", "nameraka"],
+    });
+    expect(JSON.stringify(request)).not.toContain('"x":');
+    expect(JSON.stringify(request)).not.toContain('"y":');
+    expect(JSON.stringify(request)).not.toContain('"t":');
+    const evaluation = logger.info.mock.calls
+      .map(([message]) => JSON.parse(message))
+      .find((entry) => entry.category === "semantic_evaluation");
+    expect(evaluation).toMatchObject({
+      category: "semantic_evaluation",
+      eventRequestId: "gesture-request",
+      modality: "gesture",
+      inputSummary: {
+        durationMsBucket: "medium",
+        pointCountBucket: "medium",
+        pathLengthBucket: "large",
+        abruptEnding: false,
+      },
+    });
   });
 
   it("emits ordered lifecycle events before and after the provider call", async () => {

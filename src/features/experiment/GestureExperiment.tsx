@@ -1,9 +1,18 @@
 import { useRef, useState } from "react";
 import { ArrowLeft, RotateCcw } from "lucide-react";
-import { runLocalExperiment, type ExperimentResult } from "../../domain/experiment";
-import { createGesturePath, type GesturePoint, type GestureStroke } from "../../domain/gesture";
+import { runGestureSemanticExperiment, type ExperimentResult } from "../../domain/experiment";
+import {
+  createGesturePath,
+  extractGestureFeatures,
+  type GesturePoint,
+  type GestureStroke,
+} from "../../domain/gesture";
 import { clientToViewBoxPoint } from "./coordinate";
 import { Result } from "./Experiment";
+import {
+  createFixtureSensoryBridgeProvider,
+  createHttpSensoryBridgeProvider,
+} from "../../domain/sensory-bridge";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -89,18 +98,26 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   };
 
   const canAnalyze = strokes.some((stroke) => stroke.length >= 2);
-  const analyze = () => {
+  const analyze = async () => {
     if (isAnalyzing || !canAnalyze) return;
     setIsAnalyzing(true);
-    const next = runLocalExperiment("gesture", strokes);
-    if ("error" in next) {
-      setError(next.error);
-      setResult(null);
-    } else {
-      setError("");
-      setResult({ ...next, expression: "", inputSource: "gesture" });
+    try {
+      const features = extractGestureFeatures(strokes);
+      const endpoint = import.meta.env.VITE_SENSORY_BRIDGE_API_URL as string | undefined;
+      const provider = endpoint?.trim()
+        ? createHttpSensoryBridgeProvider(endpoint.trim())
+        : createFixtureSensoryBridgeProvider();
+      const next = await runGestureSemanticExperiment(features, provider);
+      if ("error" in next) {
+        setError(next.error);
+        setResult(null);
+      } else {
+        setError("");
+        setResult(next);
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
-    setIsAnalyzing(false);
   };
 
   const reset = () => {

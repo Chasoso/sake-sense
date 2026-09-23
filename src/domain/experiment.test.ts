@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   runBodySemanticExperiment,
+  runGestureSemanticExperiment,
   runLocalExperiment,
   runVoiceSemanticExperiment,
 } from "./experiment";
 import type { BodyMovementFeatures } from "./body";
+import type { GestureFeatures } from "./gesture";
 import type { VoiceFeatures } from "./voice";
 
 const stroke = [
@@ -37,6 +39,16 @@ const voiceFeatures: VoiceFeatures = {
   averageIntensity: 0.4,
   pauseCount: 1,
   endingBehavior: "fading",
+};
+const gestureFeatures: GestureFeatures = {
+  pointCount: 12,
+  durationMs: 1200,
+  pathLength: 18.25,
+  averageSpeed: 0.015,
+  spread: 4.5,
+  horizontalDirectionChanges: 2,
+  endingSpeedRatio: 0.4,
+  abruptEnding: false,
 };
 
 describe("experiment integration boundaries", () => {
@@ -210,5 +222,105 @@ describe("experiment integration boundaries", () => {
     if ("error" in unsupported) return;
     expect(unsupported.sensoryBridge?.response.candidateTermIds).toEqual([]);
     expect(unsupported.sakeProducts).toEqual([]);
+  });
+
+  it("sends only deterministic GestureFeatures to the Gesture Sensory Bridge", async () => {
+    let received: unknown;
+    const result = await runGestureSemanticExperiment(gestureFeatures, {
+      kind: "ai",
+      interpret: async (request) => {
+        received = request;
+        return {
+          sensoryInterpretation: {
+            outcome: "interpreted",
+            sensoryExpression: "繧峨↑繧√ｉ縺九↑蜍輔″",
+            semanticProfile: {
+              timeQuality: "sustained",
+              weightQuality: "unknown",
+              flowQuality: "free",
+              directness: "direct",
+              persistence: "moderate",
+              resolution: "gradual",
+              continuity: "continuous",
+              rhythmicity: "singular",
+              expansion: "neutral",
+              spread: "neutral",
+              smoothness: "smooth",
+              roundness: "unknown",
+            },
+          },
+          sensoryClassProposals: ["smooth-flow"],
+          sensoryExpressions: ["繧峨↑繧√ｉ縺九↑蜍輔″"],
+          candidateTermIds: ["nameraka"],
+          unmappedFeatures: [],
+          reason: "隕ｳ貂ｬ縺励◆蜍輔″縺ｮ迚ｹ蠕ｴ",
+          authorization: [
+            { termId: "nameraka", sensoryClass: "smooth-flow", level: "strong", supportCount: 2 },
+          ],
+          authorizationConflicts: [],
+        };
+      },
+    });
+
+    expect(received).toEqual({
+      modality: "gesture",
+      input: {
+        durationMs: 1200,
+        pointCount: 12,
+        pathLength: 18.25,
+        averageSpeed: 0.015,
+        spread: 4.5,
+        horizontalDirectionChanges: 2,
+        endingSpeedRatio: 0.4,
+        abruptEnding: false,
+      },
+      allowedTermIds: expect.arrayContaining(["nameraka"]),
+    });
+    expect(JSON.stringify(received)).not.toContain('"x"');
+    expect(JSON.stringify(received)).not.toContain('"y"');
+    expect(JSON.stringify(received)).not.toContain('"t"');
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.inputSource).toBe("gesture");
+    expect(result.sensoryBridge).toMatchObject({ modality: "gesture", provider: "ai" });
+    expect(result.candidates.map((candidate) => candidate.entry.id)).toEqual(["nameraka"]);
+    expect(result.sakeProducts.length).toBeGreaterThan(0);
+    expect(result.sakeProducts.every((match) => match.matchedTermIds.includes("nameraka"))).toBe(
+      true,
+    );
+  });
+
+  it("uses the Gesture fixture path and fails safely for malformed or unavailable providers", async () => {
+    const fixture = await runGestureSemanticExperiment(gestureFeatures);
+    expect("error" in fixture).toBe(false);
+    if ("error" in fixture) return;
+    expect(fixture.inputSource).toBe("gesture");
+    expect(fixture.sensoryBridge?.modality).toBe("gesture");
+    expect(fixture.sensoryBridge?.provider).toBe("fixture");
+    expect(fixture.candidates.map((candidate) => candidate.entry.id)).toEqual(["nameraka"]);
+
+    const malformed = await runGestureSemanticExperiment(gestureFeatures, {
+      kind: "ai",
+      interpret: async () => ({
+        sensoryExpressions: [],
+        candidateTermIds: ["not-reviewed"],
+        unmappedFeatures: [],
+        reason: "蛟呵｣懊〒縺・",
+      }),
+    });
+    const failed = await runGestureSemanticExperiment(gestureFeatures, {
+      kind: "ai",
+      interpret: async () => {
+        throw new Error("provider unavailable");
+      },
+    });
+    for (const result of [malformed, failed]) {
+      expect("error" in result).toBe(false);
+      if ("error" in result) continue;
+      expect(result.inputSource).toBe("gesture");
+      expect(result.sensoryBridge?.provider).toBe("fallback");
+      expect(result.candidates).toEqual([]);
+      expect(result.sakeProducts).toEqual([]);
+    }
   });
 });

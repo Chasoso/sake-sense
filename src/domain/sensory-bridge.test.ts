@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyReviewedSemanticGrounding,
+  buildGestureSensoryBridgeRequest,
   buildSensoryBridgeInput,
   buildSensoryBridgeInstruction,
   createFallbackSensoryBridgeResponse,
@@ -14,6 +15,7 @@ import {
   validateSensoryBridgeResponse,
 } from "./sensory-bridge";
 import type { BodyMovementFeatures } from "./body";
+import type { GestureFeatures } from "./gesture";
 
 const baseFeatures: BodyMovementFeatures = {
   frameCount: 10,
@@ -34,6 +36,16 @@ const baseFeatures: BodyMovementFeatures = {
     repetition: "repeated",
     participation: "broad",
   },
+};
+const gestureFeatures: GestureFeatures = {
+  pointCount: 4,
+  durationMs: 900,
+  pathLength: 12.345,
+  averageSpeed: 0.0137,
+  spread: 2.345,
+  horizontalDirectionChanges: 1,
+  endingSpeedRatio: 0.6,
+  abruptEnding: false,
 };
 
 describe("MVP sensory bridge vocabulary boundary", () => {
@@ -154,6 +166,36 @@ describe("MVP sensory bridge vocabulary boundary", () => {
       expect(serializeSensoryBridgeRequest(request)).not.toContain("definitionSummary");
       const response = await createHttpSensoryBridgeProvider(
         "https://example.test/semantic-bridge",
+      ).interpret(request);
+      expect(validateSensoryBridgeResponse(response).ok).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends GestureFeatures, not raw strokes, through the HTTP provider", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input, init) => {
+      const body = String(init?.body);
+      expect(body).toContain('"modality":"gesture"');
+      expect(body).toContain('"pointCount":4');
+      expect(body).not.toContain('"x"');
+      expect(body).not.toContain('"y"');
+      expect(body).not.toContain('"t"');
+      return new Response(
+        JSON.stringify({
+          sensoryExpressions: [],
+          candidateTermIds: [],
+          unmappedFeatures: [],
+          reason: "繝ｩ繧ｹ繝医ｒ騾∫ｿ｡縺励※縺・∪縺帙ｓ",
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    try {
+      const request = buildGestureSensoryBridgeRequest(gestureFeatures);
+      const response = await createHttpSensoryBridgeProvider(
+        "https://example.test/gesture",
       ).interpret(request);
       expect(validateSensoryBridgeResponse(response).ok).toBe(true);
     } finally {
