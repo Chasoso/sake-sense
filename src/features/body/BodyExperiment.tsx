@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Camera, Pause, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Camera, Pause, Play, RotateCcw, SwitchCamera } from "lucide-react";
 import { runBodySemanticExperiment, type ExperimentResult } from "../../domain/experiment";
 import {
   extractBodyMovementFeatures,
@@ -26,7 +26,15 @@ import {
   type MotionExperimentDiagnostic,
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
-import { BODY_CAMERA_PRESENTATION_MIRRORED } from "./body-camera-presentation";
+import {
+  BODY_CAMERA_DEFAULT_FACING_MODE,
+  BODY_CAMERA_PRESENTATION_MIRRORED,
+  isCameraSwitchAccepted,
+  isConfirmedCameraSwitchAvailable,
+  isSameCameraDevice,
+  shouldMirrorBodyCameraPresentation,
+  type CameraFacingMode,
+} from "./body-camera-presentation";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 import {
   clampReplayPosition,
@@ -126,6 +134,13 @@ export function BodyExperiment({
   const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
   const [replayStatus, setReplayStatus] = useState<ReplayStatus>("initial");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<CameraFacingMode>(
+    BODY_CAMERA_DEFAULT_FACING_MODE,
+  );
+  const [cameraPresentationMirrored, setCameraPresentationMirrored] = useState(
+    BODY_CAMERA_PRESENTATION_MIRRORED,
+  );
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const segmentationCameraRef = useRef<HTMLCanvasElement>(null);
@@ -151,6 +166,9 @@ export function BodyExperiment({
   const segmentationFrameCountRef = useRef(0);
   const segmentationStartedAtRef = useRef(0);
   const contourResetCountRef = useRef(0);
+  const cameraRequestIdRef = useRef(0);
+  const activeCameraDeviceIdRef = useRef<string | undefined>(undefined);
+  const activeCameraFacingModeRef = useRef<CameraFacingMode | undefined>(undefined);
   const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
     null,
   );
@@ -167,14 +185,22 @@ export function BodyExperiment({
     drawPose(canvas, null);
   };
 
-  const stopCapture = () => {
-    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
-    animationRef.current = null;
+  const stopCameraStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const closePoseLandmarker = () => {
     landmarkerRef.current?.close();
     landmarkerRef.current = null;
+  };
+
+  const stopCapture = () => {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+    animationRef.current = null;
+    stopCameraStream();
+    closePoseLandmarker();
     resetDisplayedContour();
   };
 
@@ -243,6 +269,7 @@ export function BodyExperiment({
 
   useEffect(
     () => () => {
+      cameraRequestIdRef.current += 1;
       stopCapture();
       stopReplay();
       framesRef.current = [];
@@ -250,32 +277,119 @@ export function BodyExperiment({
     [],
   );
 
-  const prepareCamera = async () => {
+  const resetCaptureStateForCameraSwitch = () => {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+    animationRef.current = null;
+    stopReplay();
+    clearPoseCanvas();
+    framesRef.current = [];
+    setCapturedFrames([]);
+    setMotionDiagnostic(null);
+    setSegmentationMetrics(null);
+    replayElapsedRef.current = 0;
+    setReplayStatus("initial");
+    setFeatures(null);
+    setResult(null);
+    setIsAnalyzing(false);
+    setError("");
+    resetDisplayedContour();
+  };
+
+  const getVideoInputCount = async (): Promise<number> => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter((device) => device.kind === "videoinput").length;
+    } catch {
+      return 0;
+    }
+  };
+
+  const prepareCamera = async (requestedFacingMode: CameraFacingMode = cameraFacingMode) => {
     if (!isCameraSupported()) {
       setStatus("unavailable");
       return;
     }
+    const requestId = ++cameraRequestIdRef.current;
+    const previousFacingMode = cameraFacingMode;
+    const previousPresentationMirrored = cameraPresentationMirrored;
+    const previousDeviceId = activeCameraDeviceIdRef.current;
+    const previousActualFacingMode = activeCameraFacingModeRef.current;
+    setCameraFacingMode(requestedFacingMode);
     setStatus("loading");
-    setError("");
-    resetDisplayedContour();
+    resetCaptureStateForCameraSwitch();
+    stopCameraStream();
+    closePoseLandmarker();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: { facingMode: { ideal: requestedFacingMode } },
         audio: false,
       });
+      if (requestId !== cameraRequestIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       if (!videoRef.current) throw new Error("Video element is unavailable");
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
-      landmarkerRef.current = await (segmentationSpike
+      const track = stream.getVideoTracks()[0];
+      let actualFacingMode: string | undefined;
+      let deviceId: string | undefined;
+      try {
+        const settings = track?.getSettings?.();
+        actualFacingMode = settings?.facingMode;
+        deviceId = settings?.deviceId;
+      } catch {
+        actualFacingMode = undefined;
+        deviceId = undefined;
+      }
+      const sameCameraDevice = isSameCameraDevice(previousDeviceId, deviceId);
+      const switchAccepted = isCameraSwitchAccepted(
+        previousFacingMode,
+        requestedFacingMode,
+        previousActualFacingMode,
+        actualFacingMode,
+        sameCameraDevice,
+      );
+      setCameraPresentationMirrored(
+        switchAccepted
+          ? shouldMirrorBodyCameraPresentation(actualFacingMode)
+          : cameraPresentationMirrored,
+      );
+      const videoInputCount = await getVideoInputCount();
+      setHasMultipleCameras(
+        switchAccepted && isConfirmedCameraSwitchAvailable(videoInputCount, actualFacingMode),
+      );
+      if (!switchAccepted) setCameraFacingMode(previousFacingMode);
+      activeCameraDeviceIdRef.current = deviceId;
+      activeCameraFacingModeRef.current =
+        actualFacingMode === "user" || actualFacingMode === "environment"
+          ? actualFacingMode
+          : undefined;
+      const landmarker = await (segmentationSpike
         ? createBodySegmentationSpikeLandmarker()
         : createBodyPoseLandmarker());
+      if (requestId !== cameraRequestIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        landmarker.close();
+        return;
+      }
+      landmarkerRef.current = landmarker;
       setStatus("ready");
     } catch {
+      if (requestId !== cameraRequestIdRef.current) return;
       stopCapture();
+      setCameraFacingMode(previousFacingMode);
+      setCameraPresentationMirrored(previousPresentationMirrored);
       setStatus("denied");
       setError("カメラを利用できませんでした。既存のEXP-002入力を使えます。");
     }
+  };
+
+  const switchCamera = () => {
+    if (status === "capturing" || status === "loading") return;
+    const nextFacingMode: CameraFacingMode = cameraFacingMode === "user" ? "environment" : "user";
+    void prepareCamera(nextFacingMode);
   };
 
   const sample = (timestamp: number) => {
@@ -686,7 +800,8 @@ export function BodyExperiment({
         <div
           className="body-camera"
           data-status={status}
-          data-presentation-mirrored={BODY_CAMERA_PRESENTATION_MIRRORED}
+          data-presentation-mirrored={cameraPresentationMirrored}
+          data-camera-facing={cameraFacingMode}
           aria-live="polite"
         >
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
@@ -698,6 +813,18 @@ export function BodyExperiment({
               <span>戻る</span>
             </button>
           </nav>
+          {hasMultipleCameras && (status === "ready" || status === "captured") && (
+            <button
+              className="body-camera__switch"
+              type="button"
+              onClick={switchCamera}
+              aria-label={
+                cameraFacingMode === "user" ? "背面カメラに切り替え" : "前面カメラに切り替え"
+              }
+            >
+              <SwitchCamera size={19} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          )}
           {status === "ready" && (
             <div className="body-camera__guide">
               <span>動きで表してみてください</span>
@@ -736,7 +863,11 @@ export function BodyExperiment({
               )}
               <div className="body-capture-card__actions">
                 {status === "idle" && (
-                  <button className="button button--primary" type="button" onClick={prepareCamera}>
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    onClick={() => void prepareCamera()}
+                  >
                     <Camera size={19} strokeWidth={1.8} aria-hidden="true" />
                     カメラを準備する
                   </button>
