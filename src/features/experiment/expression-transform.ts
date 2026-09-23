@@ -14,18 +14,14 @@ export type BodyVisualModel = {
   softOffset: { x: number; y: number };
 };
 
-export type BodyTrailGeometry = {
+export type BodySkeletonGeometry = {
   skeletonPath: string;
+  skeletonSegments: Array<{
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  }>;
   skeletonPoints: Array<{ x: number; y: number }>;
   skeletonFrameIndex: number;
-  leftWristSegments: WristTraceSegment[];
-  rightWristSegments: WristTraceSegment[];
-};
-
-export type WristTraceSegment = {
-  path: string;
-  length: number;
-  start: { x: number; y: number };
 };
 
 export const BODY_TRANSFORM_VISIBILITY_THRESHOLD = 0.35;
@@ -43,31 +39,6 @@ function pointForLandmark(frame: BodyPoseFrame, index: number): { x: number; y: 
   const landmark = frame.landmarks[index];
   if (!landmark || (landmark.visibility ?? 1) < BODY_TRANSFORM_VISIBILITY_THRESHOLD) return null;
   return { x: landmark.x * 320, y: landmark.y * 160 };
-}
-
-function smoothPath(points: Array<{ x: number; y: number }>): string {
-  if (points.length === 0) return "M 160 80";
-  if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  if (points.length === 2) {
-    return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)} L ${points[1].x.toFixed(1)} ${points[1].y.toFixed(1)}`;
-  }
-  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const point = points[index];
-    const next = points[index + 1];
-    const midpoint = { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
-    path += ` Q ${point.x.toFixed(1)} ${point.y.toFixed(1)} ${midpoint.x.toFixed(1)} ${midpoint.y.toFixed(1)}`;
-  }
-  const last = points.at(-1)!;
-  path += ` Q ${last.x.toFixed(1)} ${last.y.toFixed(1)} ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
-  return path;
-}
-
-function pathLength(points: Array<{ x: number; y: number }>): number {
-  return points.slice(1).reduce((total, point, index) => {
-    const previous = points[index];
-    return total + Math.hypot(point.x - previous.x, point.y - previous.y);
-  }, 0);
 }
 
 function frameVisibilityScore(frame: BodyPoseFrame): {
@@ -123,33 +94,10 @@ export function selectSkeletonFrameIndex(frames: BodyPoseFrame[]): number {
   );
 }
 
-function buildWristTraceSegments(
-  frames: BodyPoseFrame[],
-  startIndex: number,
-  landmarkIndex: number,
-): WristTraceSegment[] {
-  const segments: WristTraceSegment[] = [];
-  let points: Array<{ x: number; y: number }> = [];
-  const flush = () => {
-    const length = pathLength(points);
-    if (points.length >= 2 && length > 2) {
-      segments.push({ path: smoothPath(points), length, start: points[0] });
-    }
-    points = [];
-  };
-
-  frames.slice(startIndex).forEach((frame) => {
-    const point = pointForLandmark(frame, landmarkIndex);
-    if (point) points.push(point);
-    else flush();
-  });
-  flush();
-  return segments;
-}
-
-export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry {
+export function getBodySkeletonGeometry(frames: BodyPoseFrame[]): BodySkeletonGeometry {
   const skeletonPoints: Array<{ x: number; y: number }> = [];
   const skeletonSegments: string[] = [];
+  const segmentPoints: BodySkeletonGeometry["skeletonSegments"] = [];
 
   const skeletonFrameIndex = selectSkeletonFrameIndex(frames);
   const skeletonFrame = frames[skeletonFrameIndex];
@@ -162,10 +110,12 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
     const connect = (from: number, to: number) => {
       const start = point(from);
       const end = point(to);
-      if (start && end)
+      if (start && end) {
+        segmentPoints.push({ start, end });
         skeletonSegments.push(
           `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`,
         );
+      }
     };
     connect(11, 12);
     connect(11, 13);
@@ -176,10 +126,15 @@ export function getBodyTrailGeometry(frames: BodyPoseFrame[]): BodyTrailGeometry
 
   return {
     skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
+    skeletonSegments:
+      segmentPoints.length > 0
+        ? segmentPoints
+        : [
+            { start: { x: 120, y: 48 }, end: { x: 200, y: 48 } },
+            { start: { x: 160, y: 48 }, end: { x: 160, y: 116 } },
+          ],
     skeletonPoints,
     skeletonFrameIndex,
-    leftWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 15),
-    rightWristSegments: buildWristTraceSegments(frames, skeletonFrameIndex, 16),
   };
 }
 
@@ -199,6 +154,37 @@ export const BODY_TRANSFORM_DURATION_MS = 2000;
 export function getBodyTransformProgress(elapsedMs: number): number {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
   return Math.min(elapsedMs / BODY_TRANSFORM_DURATION_MS, 1);
+}
+
+export function getBodyDissolveProgress(progress: number): number {
+  return windowProgress(progress, 0.12, 0.9);
+}
+
+export function getBodyLightProgress(progress: number): number {
+  return windowProgress(progress, 0.05, 0.72);
+}
+
+export function getBodyDissolveOpacity(progress: number): number {
+  return 1 - getBodyDissolveProgress(progress);
+}
+
+export function getBodyAbsorbedPoint(
+  point: { x: number; y: number },
+  progress: number,
+): { x: number; y: number } {
+  const absorption = getBodyDissolveProgress(progress);
+  const centerX = 160;
+  const centerY = 80;
+  const deltaX = point.x - centerX;
+  const deltaY = point.y - centerY;
+  const radius = Math.hypot(deltaX, deltaY);
+  const radialFactor = Math.min(radius / 150, 1);
+  const angle = Math.atan2(deltaY, deltaX) + absorption * (0.04 + radialFactor * 0.12);
+  const radiusScale = 1 - absorption * (0.68 + radialFactor * 0.22);
+  return {
+    x: centerX + Math.cos(angle) * radius * radiusScale,
+    y: centerY + Math.sin(angle) * radius * radiusScale,
+  };
 }
 
 export function getTransformStage(elapsedMs: number): TransformStage {
