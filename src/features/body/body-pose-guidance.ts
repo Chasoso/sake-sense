@@ -175,6 +175,12 @@ export type BodyHybridDisplaySnapshot = {
   poseCurves: PoseGuidanceCurveSegment[];
 };
 
+export type BodyHybridReplayFrame = {
+  t: number;
+  outerContour: Array<{ x: number; y: number }>;
+  innerContours: Array<Array<{ x: number; y: number }>>;
+};
+
 function scaleContourPoint(
   point: { x: number; y: number },
   width: number,
@@ -210,6 +216,35 @@ export function createBodyHybridDisplaySnapshot(
     ),
     poseCurves,
   };
+}
+
+/** Creates one local, presentation-only contour frame for Body replay. */
+export function createBodyHybridReplayFrame(
+  t: number,
+  outerContour: readonly { x: number; y: number }[],
+  innerContours: readonly (readonly { x: number; y: number }[])[],
+  maskWidth: number,
+  maskHeight: number,
+): BodyHybridReplayFrame {
+  return {
+    t,
+    outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    innerContours: innerContours.map((contour) =>
+      contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    ),
+  };
+}
+
+export function getBodyHybridReplayFrame(
+  frames: readonly BodyHybridReplayFrame[],
+  elapsedMs: number,
+): BodyHybridReplayFrame | null {
+  if (!frames.length || !Number.isFinite(elapsedMs)) return null;
+  if (elapsedMs <= frames[0].t) return frames[0];
+  for (let index = frames.length - 1; index >= 0; index -= 1) {
+    if (elapsedMs >= frames[index].t) return frames[index];
+  }
+  return frames[0];
 }
 
 export function getPoseGuidanceCurveSegments(

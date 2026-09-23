@@ -67,10 +67,13 @@ import {
 } from "./segmentation-mask-spike";
 import {
   createBodyHybridDisplaySnapshot,
+  createBodyHybridReplayFrame,
   drawPoseGuidance,
+  getBodyHybridReplayFrame,
   BODY_HYBRID_CONTOUR_COLOR,
   POSE_GUIDANCE_STYLES,
   type BodyHybridDisplaySnapshot,
+  type BodyHybridReplayFrame,
 } from "./body-pose-guidance";
 import { BODY_POSE_CONNECTIONS } from "./body-pose-connections";
 
@@ -109,14 +112,14 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
   });
 }
 
-function drawHybridSnapshotCanvas(
+function drawHybridGeometryCanvas(
   canvas: HTMLCanvasElement,
-  snapshot: BodyHybridDisplaySnapshot | null,
+  geometry: Pick<BodyHybridDisplaySnapshot, "outerContour" | "innerContours"> | null,
 ): void {
   const context = canvas.getContext("2d");
   if (!context) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
-  if (!snapshot) return;
+  if (!geometry) return;
   const drawContour = (points: readonly { x: number; y: number }[], opacity: number) => {
     if (points.length < 2) return;
     context.globalAlpha = opacity;
@@ -135,9 +138,9 @@ function drawHybridSnapshotCanvas(
   context.lineWidth = Math.max(1, (canvas.width / 320) * 1.4);
   context.lineCap = "round";
   context.lineJoin = "round";
-  drawContour(snapshot.outerContour, 1);
+  drawContour(geometry.outerContour, 1);
   context.lineWidth = Math.max(1, (canvas.width / 320) * 1);
-  snapshot.innerContours.forEach((contour) => drawContour(contour, INNER_CONTOUR_OPACITY));
+  geometry.innerContours.forEach((contour) => drawContour(contour, INNER_CONTOUR_OPACITY));
   context.restore();
 }
 
@@ -153,6 +156,7 @@ export function BodyExperiment({
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
+  const [hybridReplayFrames, setHybridReplayFrames] = useState<BodyHybridReplayFrame[]>([]);
   const [hybridSnapshot, setHybridSnapshot] = useState<BodyHybridDisplaySnapshot | null>(null);
   const [motionDiagnostic, setMotionDiagnostic] = useState<MotionExperimentDiagnostic | null>(null);
   const [replayStatus, setReplayStatus] = useState<ReplayStatus>("initial");
@@ -189,6 +193,7 @@ export function BodyExperiment({
   const startedAtRef = useRef(0);
   const framesRef = useRef<BodyPoseFrame[]>([]);
   const hybridSnapshotRef = useRef<BodyHybridDisplaySnapshot | null>(null);
+  const hybridReplayFramesRef = useRef<BodyHybridReplayFrame[]>([]);
   const sampleAttemptsRef = useRef(0);
   const invalidFrameCountRef = useRef(0);
   const segmentationFrameCountRef = useRef(0);
@@ -255,7 +260,10 @@ export function BodyExperiment({
       replayElapsedRef.current = elapsed;
       const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
       if (frameIndex >= 0) {
-        drawHybridSnapshotCanvas(canvas, hybridSnapshot);
+        drawHybridGeometryCanvas(
+          canvas,
+          getBodyHybridReplayFrame(hybridReplayFrames, elapsed) ?? hybridSnapshot,
+        );
         drawPoseGuidance(
           canvas.getContext("2d")!,
           capturedFrames[frameIndex].landmarks,
@@ -267,7 +275,10 @@ export function BodyExperiment({
       if (elapsed >= durationMs) {
         const finalFrame = capturedFrames.at(-1);
         if (finalFrame) {
-          drawHybridSnapshotCanvas(canvas, hybridSnapshot);
+          drawHybridGeometryCanvas(
+            canvas,
+            getBodyHybridReplayFrame(hybridReplayFrames, durationMs) ?? hybridSnapshot,
+          );
           drawPoseGuidance(
             canvas.getContext("2d")!,
             finalFrame.landmarks,
@@ -329,7 +340,9 @@ export function BodyExperiment({
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
+    hybridReplayFramesRef.current = [];
     setCapturedFrames([]);
+    setHybridReplayFrames([]);
     hybridSnapshotRef.current = null;
     setHybridSnapshot(null);
     setMotionDiagnostic(null);
@@ -650,6 +663,15 @@ export function BodyExperiment({
           mask.width,
           mask.height,
         );
+        hybridReplayFramesRef.current.push(
+          createBodyHybridReplayFrame(
+            elapsed,
+            stabilization.contour ?? [],
+            innerContours,
+            mask.width,
+            mask.height,
+          ),
+        );
         const drawComparisonVariant = (
           ref: typeof contourRef,
           poseVariant?: "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face",
@@ -800,6 +822,7 @@ export function BodyExperiment({
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
       setCapturedFrames(capturedFrames);
+      setHybridReplayFrames([...hybridReplayFramesRef.current]);
       setHybridSnapshot(hybridSnapshotRef.current);
       if (import.meta.env.DEV) {
         setMotionDiagnostic(
@@ -826,7 +849,9 @@ export function BodyExperiment({
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
+    hybridReplayFramesRef.current = [];
     setCapturedFrames([]);
+    setHybridReplayFrames([]);
     hybridSnapshotRef.current = null;
     setHybridSnapshot(null);
     setMotionDiagnostic(null);
@@ -852,7 +877,9 @@ export function BodyExperiment({
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
+    hybridReplayFramesRef.current = [];
     setCapturedFrames([]);
+    setHybridReplayFrames([]);
     hybridSnapshotRef.current = null;
     setHybridSnapshot(null);
     setMotionDiagnostic(null);

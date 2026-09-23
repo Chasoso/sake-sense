@@ -3,6 +3,8 @@ import type { BodyLandmark } from "../../domain/body";
 import { BODY_POSE_UPPER_BODY_CONNECTIONS } from "./body-pose-connections";
 import {
   createBodyHybridDisplaySnapshot,
+  createBodyHybridReplayFrame,
+  getBodyHybridReplayFrame,
   getPoseGuidanceCurveSegments,
   getPoseGuidancePaths,
   getPoseGuidanceSegments,
@@ -66,6 +68,18 @@ describe("body pose guidance", () => {
     ]);
     expect(snapshot.poseCurves.every(({ kind }) => kind === "body" || kind === "face")).toBe(true);
     expect(snapshot).not.toHaveProperty("landmarks");
+  });
+
+  it("selects time-aligned replay contour geometry without retaining raw frames", () => {
+    const first = createBodyHybridReplayFrame(0, [{ x: 0, y: 0 }], [], 100, 100);
+    const second = createBodyHybridReplayFrame(100, [{ x: 50, y: 50 }], [], 100, 100);
+    const frames = [first, second];
+    expect(getBodyHybridReplayFrame(frames, 0)).toEqual(first);
+    expect(getBodyHybridReplayFrame(frames, 50)).toEqual(first);
+    expect(getBodyHybridReplayFrame(frames, 100)).toEqual(second);
+    expect(getBodyHybridReplayFrame(frames, 150)).toEqual(second);
+    expect(first.outerContour).not.toEqual(second.outerContour);
+    expect(first).not.toHaveProperty("landmarks");
   });
 
   it("keeps upper-body torso guidance when hips are unavailable", () => {
