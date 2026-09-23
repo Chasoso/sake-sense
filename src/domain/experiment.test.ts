@@ -48,6 +48,16 @@ describe("experiment integration boundaries", () => {
     expect(result.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
   });
 
+  it("keeps the local Gesture result path independent from Voice input", () => {
+    const result = runLocalExperiment("gesture", stroke);
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.voiceFeatures).toBeNull();
+    expect(result.bodyFeatures).toBeNull();
+    expect(result.gesture.pointCount).toBe(3);
+    expect(result.inputSource).toBe("text");
+  });
+
   it("does not make gesture or voice observations direct term candidates", () => {
     const result = runLocalExperiment("未知", stroke, voiceFeatures, bodyFeatures);
     expect("error" in result).toBe(false);

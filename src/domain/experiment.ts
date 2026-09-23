@@ -63,7 +63,7 @@ function hasDurationConflict(
 
 export type ExperimentResult = {
   expression: string;
-  inputSource: "text" | "voice" | "body";
+  inputSource: "text" | "voice" | "gesture" | "body";
   voiceFeatures: VoiceFeatures | null;
   bodyFeatures: BodyMovementFeatures | null;
   gesture: GestureFeatures;

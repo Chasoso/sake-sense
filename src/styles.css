@@ -1528,6 +1528,18 @@ input {
   stroke-width: 4;
 }
 
+.gesture-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.gesture-actions .button {
+  margin-left: auto;
+}
+
 .optional-input {
   max-width: 760px;
   margin-top: 18px;
@@ -1780,8 +1792,14 @@ input {
 
   .start-screen__actions .button,
   .body-capture-card__actions .button,
-  .experiment__actions .button {
+  .experiment__actions .button,
+  .gesture-actions .button {
     width: 100%;
+  }
+
+  .gesture-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 
   .experience-screen__nav {
