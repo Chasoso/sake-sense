@@ -77,6 +77,19 @@ import {
   generateSeparatorCandidates,
 } from "./segmentation-separators";
 
+function summarizeConcavities(
+  candidates: Array<{ point: { x: number; y: number }; strength: number; deviation: number }>,
+): string {
+  return (
+    candidates
+      .map(
+        ({ point, strength, deviation }) =>
+          `(${point.x.toFixed(1)},${point.y.toFixed(1)}) s=${strength.toFixed(2)} d=${deviation.toFixed(1)}`,
+      )
+      .join(" ") || "none"
+  );
+}
+
 function isSegmentationSpikeEnabled(): boolean {
   return (
     import.meta.env.DEV &&
@@ -158,6 +171,9 @@ export function BodyExperiment({
   const temporalOnlyContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
   const concavityRef = useRef<HTMLCanvasElement>(null);
+  const rawConcavityRef = useRef<HTMLCanvasElement>(null);
+  const spatialConcavityRef = useRef<HTMLCanvasElement>(null);
+  const temporalConcavityRef = useRef<HTMLCanvasElement>(null);
   const separatorRef = useRef<HTMLCanvasElement>(null);
   const hybridRef = useRef<HTMLCanvasElement>(null);
   const contourStabilizerRef = useRef(new ContourStabilizer());
@@ -490,7 +506,17 @@ export function BodyExperiment({
         const stabilization = contourStabilizerRef.current.update(preparedContour);
         if (stabilization.reset) contourResetCountRef.current += 1;
         const separatorStartedAt = readSegmentationSpikeClock();
-        const analysisContour = stabilization.contour ?? preparedContour;
+        const rawConcavities = primaryContour ? findConcavityCandidates(primaryContour) : [];
+        const spatialConcavities = findConcavityCandidates(spatialAveragedContour);
+        const temporalConcavities = temporalOnlyContour.contour
+          ? findConcavityCandidates(temporalOnlyContour.contour)
+          : [];
+        const finalConcavities = stabilization.contour
+          ? findConcavityCandidates(stabilization.contour)
+          : [];
+        // The simplified pre-smoothing contour preserves local notches while
+        // avoiding the frame-to-frame movement of the raw contour.
+        const analysisContour = simplifiedContour ?? primaryContour ?? preparedContour;
         const concavityCandidates = analysisContour ? findConcavityCandidates(analysisContour) : [];
         const separatorCandidates = analysisContour
           ? generateSeparatorCandidates(analysisContour, primaryForegroundMask, concavityCandidates)
@@ -590,6 +616,23 @@ export function BodyExperiment({
               mask.height,
             );
         }
+        const concavityStages = [
+          [rawConcavityRef, rawConcavities],
+          [spatialConcavityRef, spatialConcavities],
+          [temporalConcavityRef, temporalConcavities],
+        ] as const;
+        concavityStages.forEach(([ref, candidates]) => {
+          const context = ref.current?.getContext("2d");
+          if (context && ref.current)
+            drawConcavityCandidates(
+              context,
+              candidates,
+              ref.current.width,
+              ref.current.height,
+              mask.width,
+              mask.height,
+            );
+        });
         if (separatorRef.current) {
           const context = separatorRef.current.getContext("2d");
           if (context)
@@ -663,6 +706,12 @@ export function BodyExperiment({
           concavityCandidateCount: concavityCandidates.length,
           separatorCandidateCount: separatorCandidates.length,
           separatorMs,
+          rawConcavityCandidateCount: rawConcavities.length,
+          spatialConcavityCandidateCount: spatialConcavities.length,
+          temporalConcavityCandidateCount: temporalConcavities.length,
+          finalConcavityCandidateCount: finalConcavities.length,
+          rawConcavityDetails: summarizeConcavities(rawConcavities),
+          selectedConcavityDetails: summarizeConcavities(concavityCandidates),
         });
       } else {
         const temporalOnlyContour = temporalOnlyStabilizerRef.current.update(null);
@@ -714,7 +763,14 @@ export function BodyExperiment({
             );
         }
       }
-      [concavityRef, separatorRef, hybridRef].forEach((ref) => {
+      [
+        concavityRef,
+        rawConcavityRef,
+        spatialConcavityRef,
+        temporalConcavityRef,
+        separatorRef,
+        hybridRef,
+      ].forEach((ref) => {
         const context = ref.current?.getContext("2d");
         if (context && ref.current) context.clearRect(0, 0, ref.current.width, ref.current.height);
       });
@@ -1024,7 +1080,19 @@ export function BodyExperiment({
               </figure>
               <figure>
                 <canvas ref={concavityRef} width="320" height="180" />
-                <figcaption>Concavity candidates / diagnostic</figcaption>
+                <figcaption>Selected analysis concavity</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={rawConcavityRef} width="320" height="180" />
+                <figcaption>Raw concavity candidates</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={spatialConcavityRef} width="320" height="180" />
+                <figcaption>Spatial concavity candidates</figcaption>
+              </figure>
+              <figure>
+                <canvas ref={temporalConcavityRef} width="320" height="180" />
+                <figcaption>Temporal/final concavity candidates</figcaption>
               </figure>
               <figure>
                 <canvas ref={separatorRef} width="320" height="180" />
@@ -1037,7 +1105,7 @@ export function BodyExperiment({
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">
-                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nForeground components: ${segmentationMetrics.foregroundComponentMs.toFixed(1)} ms (${segmentationMetrics.foregroundComponentCount})\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nSeparator analysis: ${segmentationMetrics.separatorMs.toFixed(1)} ms\nCandidates: ${segmentationMetrics.concavityCandidateCount} concavity / ${segmentationMetrics.separatorCandidateCount} accepted\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
+                {`Pose+mask: ${segmentationMetrics.poseMaskMs.toFixed(1)} ms\nThreshold: ${segmentationMetrics.thresholdMs.toFixed(1)} ms\nForeground components: ${segmentationMetrics.foregroundComponentMs.toFixed(1)} ms (${segmentationMetrics.foregroundComponentCount})\nHoles: ${segmentationMetrics.holeDetectionMs.toFixed(1)} ms + ${segmentationMetrics.holeFilteringMs.toFixed(1)} ms\nInner contours: ${segmentationMetrics.innerContourMs.toFixed(1)} ms (${segmentationMetrics.innerContourCount}, area ${segmentationMetrics.acceptedHoleArea})\nPreprocess: ${segmentationMetrics.preprocessingMs.toFixed(1)} ms\nContour: ${segmentationMetrics.contourMs.toFixed(1)} ms\nSelect: ${segmentationMetrics.selectionMs.toFixed(1)} ms\nSimplify: ${segmentationMetrics.simplificationMs.toFixed(1)} ms\nSpatial smooth: ${segmentationMetrics.smoothingMs.toFixed(1)} ms\nResample: ${segmentationMetrics.resamplingMs.toFixed(1)} ms\nAverage: ${segmentationMetrics.spatialAveragingMs.toFixed(1)} ms\nWinding: ${segmentationMetrics.windingMs.toFixed(1)} ms\nAlign: ${segmentationMetrics.alignmentMs.toFixed(1)} ms\nTemporal: ${segmentationMetrics.temporalSmoothingMs.toFixed(1)} ms\nConcavity stages: raw ${segmentationMetrics.rawConcavityCandidateCount} / spatial ${segmentationMetrics.spatialConcavityCandidateCount} / temporal ${segmentationMetrics.temporalConcavityCandidateCount} / final ${segmentationMetrics.finalConcavityCandidateCount}\nRaw details: ${segmentationMetrics.rawConcavityDetails}\nSelected details: ${segmentationMetrics.selectedConcavityDetails}\nSelected candidates: ${segmentationMetrics.concavityCandidateCount} concavity / ${segmentationMetrics.separatorCandidateCount} accepted\nSeparator analysis: ${segmentationMetrics.separatorMs.toFixed(1)} ms\nPoints: ${segmentationMetrics.rawContourPointCount} -> ${segmentationMetrics.finalContourPointCount} -> ${segmentationMetrics.stabilizedContourPointCount}\nOffset: ${segmentationMetrics.alignmentOffset}\nCorrection: ${segmentationMetrics.averageTemporalCorrectionDistance.toFixed(2)}\nResets: ${segmentationMetrics.resetCount}\nApprox FPS: ${segmentationMetrics.approximateFps.toFixed(1)}\nFrames: ${segmentationMetrics.frameCount}`}
               </pre>
             )}
             <p className="body-segmentation-spike__poses">

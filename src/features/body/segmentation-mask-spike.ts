@@ -853,4 +853,10 @@ export type SegmentationSpikeMetrics = {
   concavityCandidateCount: number;
   separatorCandidateCount: number;
   separatorMs: number;
+  rawConcavityCandidateCount: number;
+  spatialConcavityCandidateCount: number;
+  temporalConcavityCandidateCount: number;
+  finalConcavityCandidateCount: number;
+  rawConcavityDetails: string;
+  selectedConcavityDetails: string;
 };

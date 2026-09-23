@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BinaryMask, Contour } from "./segmentation-mask-spike";
+import { simplifyContour, type BinaryMask, type Contour } from "./segmentation-mask-spike";
 import {
   findConcavityCandidates,
   generateSeparatorCandidates,
@@ -46,6 +46,15 @@ describe("segmentation-derived separator spike", () => {
     const reversed = findConcavityCandidates([...concave].reverse()).map(({ point }) => point);
     expect(reversed).toEqual(expect.arrayContaining(forward));
     expect(reversed).toHaveLength(forward.length);
+  });
+
+  it("keeps the synthetic notch available at the selected pre-smoothing stage", () => {
+    const simplified = simplifyContour(concave);
+    const snapshot = structuredClone(simplified);
+    const first = findConcavityCandidates(simplified);
+    expect(first.length).toBeGreaterThan(0);
+    expect(findConcavityCandidates(simplified)).toEqual(first);
+    expect(simplified).toEqual(snapshot);
   });
 
   it("ignores a shallow deviation below the named noise threshold", () => {
