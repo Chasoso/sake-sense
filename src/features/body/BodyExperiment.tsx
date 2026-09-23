@@ -39,6 +39,7 @@ import {
   shouldMirrorBodyCameraPresentation,
   type CameraFacingMode,
 } from "./body-camera-presentation";
+import { applyAndroidExposurePreferences } from "./body-camera-exposure";
 import { ExpressionTransform } from "../experiment/ExpressionTransform";
 import {
   clampReplayPosition,
@@ -644,8 +645,9 @@ export function BodyExperiment({
       streamRef.current = stream;
       if (!videoRef.current) throw new Error("Video element is unavailable");
       videoRef.current.srcObject = stream;
-      await videoRef.current.play();
       const track = stream.getVideoTracks()[0];
+      await applyAndroidExposurePreferences(track, navigator.userAgent);
+      await videoRef.current.play();
       let actualFacingMode: string | undefined;
       let deviceId: string | undefined;
       try {
