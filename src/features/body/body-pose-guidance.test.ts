@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { BodyLandmark } from "../../domain/body";
-import { getPoseGuidanceSegments, POSE_GUIDANCE_STYLES } from "./body-pose-guidance";
+import {
+  getPoseGuidanceCurveSegments,
+  getPoseGuidancePaths,
+  getPoseGuidanceSegments,
+  POSE_GUIDANCE_STYLES,
+  POSE_GUIDANCE_VISIBILITY_THRESHOLD,
+} from "./body-pose-guidance";
 
 function landmarks(): BodyLandmark[] {
   return Array.from({ length: 33 }, (_, index) => ({
@@ -30,6 +36,20 @@ describe("body pose guidance", () => {
     expect(getPoseGuidanceSegments([], "subtle-arms-torso")).toEqual([]);
   });
 
+  it("uses only nose and mouth landmarks for the face direction cue", () => {
+    const paths = getPoseGuidancePaths(landmarks(), "subtle-arms-torso-face");
+    expect(paths).toHaveLength(6);
+    const facePaths = paths.filter(({ kind }) => kind === "face");
+    expect(facePaths).toHaveLength(2);
+    expect(facePaths.flatMap(({ points }) => points).every(({ x }) => x <= 0.1)).toBe(true);
+  });
+
+  it("omits face guidance when a required face landmark is low confidence", () => {
+    const source = landmarks();
+    source[10].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.01;
+    expect(getPoseGuidancePaths(source, "subtle-arms-torso-face")).toHaveLength(4);
+  });
+
   it("does not add joint markers, head geometry, or mutate input", () => {
     const source = landmarks();
     const snapshot = structuredClone(source);
@@ -45,5 +65,28 @@ describe("body pose guidance", () => {
     expect(POSE_GUIDANCE_STYLES["subtle-arms-torso"].opacity).toBeLessThan(
       POSE_GUIDANCE_STYLES["subtle-arms"].opacity,
     );
+    expect(POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceOpacity).toBeLessThan(
+      POSE_GUIDANCE_STYLES["subtle-arms-torso"].opacity,
+    );
+    expect(POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceStrokeWidth).toBeLessThan(
+      POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth,
+    );
+  });
+
+  it("creates deterministic curved paths without mutating landmarks", () => {
+    const source = landmarks();
+    const snapshot = structuredClone(source);
+    const first = getPoseGuidancePaths(source, "subtle-arms-torso-face");
+    expect(getPoseGuidancePaths(source, "subtle-arms-torso-face")).toEqual(first);
+    expect(source).toEqual(snapshot);
+    expect(first.every(({ points }) => points.length >= 2)).toBe(true);
+    const curves = getPoseGuidanceCurveSegments(source, "subtle-arms-torso-face");
+    expect(curves).toHaveLength(8);
+    expect(
+      curves.some(
+        ({ from, control, to }) =>
+          control.x !== (from.x + to.x) / 2 || control.y !== (from.y + to.y) / 2,
+      ),
+    ).toBe(true);
   });
 });

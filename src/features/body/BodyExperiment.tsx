@@ -155,6 +155,7 @@ export function BodyExperiment({
   const outerOnlyRef = useRef<HTMLCanvasElement>(null);
   const subtleArmsRef = useRef<HTMLCanvasElement>(null);
   const subtleTorsoRef = useRef<HTMLCanvasElement>(null);
+  const subtleFaceRef = useRef<HTMLCanvasElement>(null);
   const contourStabilizerRef = useRef(new ContourStabilizer());
   const temporalOnlyStabilizerRef = useRef(new ContourStabilizer());
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -569,7 +570,7 @@ export function BodyExperiment({
         }
         const drawComparisonVariant = (
           ref: typeof contourRef,
-          poseVariant?: "subtle-arms" | "subtle-arms-torso",
+          poseVariant?: "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face",
         ) => {
           const canvas = ref.current;
           const context = canvas?.getContext("2d");
@@ -613,6 +614,7 @@ export function BodyExperiment({
         }
         drawComparisonVariant(subtleArmsRef, "subtle-arms");
         drawComparisonVariant(subtleTorsoRef, "subtle-arms-torso");
+        drawComparisonVariant(subtleFaceRef, "subtle-arms-torso-face");
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
         setSegmentationMetrics({
@@ -695,7 +697,7 @@ export function BodyExperiment({
               contourRef.current.height,
             );
         }
-        [outerOnlyRef, subtleArmsRef, subtleTorsoRef].forEach((ref) => {
+        [outerOnlyRef, subtleArmsRef, subtleTorsoRef, subtleFaceRef].forEach((ref) => {
           const context = ref.current?.getContext("2d");
           if (context && ref.current)
             context.clearRect(0, 0, ref.current.width, ref.current.height);
@@ -1021,6 +1023,15 @@ export function BodyExperiment({
                   Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms-torso"].label} · opacity{" "}
                   {POSE_GUIDANCE_STYLES["subtle-arms-torso"].opacity} · width{" "}
                   {POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth}
+                </figcaption>
+              </figure>
+              <figure>
+                <canvas ref={subtleFaceRef} width="320" height="180" />
+                <figcaption>
+                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].label} · opacity{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].opacity} · face opacity{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceOpacity} · width{" "}
+                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceStrokeWidth}
                 </figcaption>
               </figure>
             </div>
