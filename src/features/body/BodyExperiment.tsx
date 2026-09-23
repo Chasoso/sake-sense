@@ -29,6 +29,8 @@ import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-lay
 import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
+  isConfirmedCameraSwitchAvailable,
+  isSameEffectiveCamera,
   shouldMirrorBodyCameraPresentation,
   type CameraFacingMode,
 } from "./body-camera-presentation";
@@ -164,6 +166,8 @@ export function BodyExperiment({
   const segmentationStartedAtRef = useRef(0);
   const contourResetCountRef = useRef(0);
   const cameraRequestIdRef = useRef(0);
+  const activeCameraDeviceIdRef = useRef<string | undefined>(undefined);
+  const activeCameraFacingModeRef = useRef<CameraFacingMode | undefined>(undefined);
   const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
     null,
   );
@@ -290,12 +294,12 @@ export function BodyExperiment({
     resetDisplayedContour();
   };
 
-  const hasMultipleVideoInputs = async (): Promise<boolean> => {
+  const getVideoInputCount = async (): Promise<number> => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter((device) => device.kind === "videoinput").length > 1;
+      return devices.filter((device) => device.kind === "videoinput").length;
     } catch {
-      return false;
+      return 0;
     }
   };
 
@@ -306,6 +310,8 @@ export function BodyExperiment({
     }
     const requestId = ++cameraRequestIdRef.current;
     const previousFacingMode = cameraFacingMode;
+    const previousDeviceId = activeCameraDeviceIdRef.current;
+    const previousActualFacingMode = activeCameraFacingModeRef.current;
     setCameraFacingMode(requestedFacingMode);
     setStatus("loading");
     resetCaptureStateForCameraSwitch();
@@ -324,16 +330,42 @@ export function BodyExperiment({
       if (!videoRef.current) throw new Error("Video element is unavailable");
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
+      const track = stream.getVideoTracks()[0];
       let actualFacingMode: string | undefined;
+      let deviceId: string | undefined;
       try {
-        actualFacingMode = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
+        const settings = track?.getSettings?.();
+        actualFacingMode = settings?.facingMode;
+        deviceId = settings?.deviceId;
       } catch {
         actualFacingMode = undefined;
+        deviceId = undefined;
       }
+      const effectiveFacingMode =
+        actualFacingMode === "user" || actualFacingMode === "environment"
+          ? actualFacingMode
+          : previousFacingMode;
+      const sameEffectiveCamera =
+        requestedFacingMode !== previousFacingMode &&
+        (isSameEffectiveCamera(previousDeviceId, deviceId, previousFacingMode, actualFacingMode) ||
+          (Boolean(previousActualFacingMode) &&
+            Boolean(actualFacingMode) &&
+            previousActualFacingMode === actualFacingMode));
+      const presentationFacingMode = sameEffectiveCamera ? previousFacingMode : effectiveFacingMode;
       setCameraPresentationMirrored(
-        shouldMirrorBodyCameraPresentation(actualFacingMode, requestedFacingMode),
+        shouldMirrorBodyCameraPresentation(presentationFacingMode, requestedFacingMode),
       );
-      setHasMultipleCameras(await hasMultipleVideoInputs());
+      const videoInputCount = await getVideoInputCount();
+      setHasMultipleCameras(
+        !sameEffectiveCamera && isConfirmedCameraSwitchAvailable(videoInputCount, actualFacingMode),
+      );
+      if (sameEffectiveCamera) setCameraFacingMode(previousFacingMode);
+      activeCameraDeviceIdRef.current = deviceId;
+      activeCameraFacingModeRef.current = sameEffectiveCamera
+        ? previousActualFacingMode
+        : actualFacingMode === "user" || actualFacingMode === "environment"
+          ? actualFacingMode
+          : previousFacingMode;
       const landmarker = await (segmentationSpike
         ? createBodySegmentationSpikeLandmarker()
         : createBodyPoseLandmarker());
@@ -789,7 +821,7 @@ export function BodyExperiment({
               type="button"
               onClick={switchCamera}
               aria-label={
-                cameraFacingMode === "user" ? "Switch to rear camera" : "Switch to front camera"
+                cameraFacingMode === "user" ? "背面カメラに切り替え" : "前面カメラに切り替え"
               }
             >
               <SwitchCamera size={19} strokeWidth={1.8} aria-hidden="true" />
