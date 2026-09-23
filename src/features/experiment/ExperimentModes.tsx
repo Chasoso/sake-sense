@@ -1,12 +1,13 @@
-import { Mic, PersonStanding } from "lucide-react";
+import { Mic, PenLine, PersonStanding } from "lucide-react";
 import { useState } from "react";
 import { BodyExperiment } from "../body/BodyExperiment";
-import { Experiment } from "./Experiment";
+import { GestureExperiment } from "./GestureExperiment";
+import { VoiceExperiment } from "./VoiceExperiment";
 import logoHorizontal from "../../assets/brand/logo-horizontal.png";
 import heroSakeCup from "../../assets/brand/hero-sake-cup.png";
 
 export function ExperimentModes() {
-  const [mode, setMode] = useState<"start" | "body" | "voice">("start");
+  const [mode, setMode] = useState<"start" | "body" | "voice" | "gesture">("start");
 
   if (mode === "start") {
     return (
@@ -26,7 +27,7 @@ export function ExperimentModes() {
               感じましたか？
             </h1>
             <p className="start-screen__lead">
-              言葉にしなくても大丈夫です。感じたことを、身体や声で自由に表現してみましょう。
+              言葉にしなくても大丈夫です。感じたことを、身体や声、指の動きで自由に表現してみましょう。
             </p>
             <div className="start-screen__actions" aria-label="表現方法を選ぶ">
               <button
@@ -45,6 +46,14 @@ export function ExperimentModes() {
                 <Mic size={20} strokeWidth={1.8} aria-hidden="true" />
                 <span>声で表現する</span>
               </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setMode("gesture")}
+              >
+                <PenLine size={20} strokeWidth={1.8} aria-hidden="true" />
+                <span>指で表現する</span>
+              </button>
             </div>
           </div>
           <div className="start-screen__visual" aria-hidden="true">
@@ -56,9 +65,11 @@ export function ExperimentModes() {
     );
   }
 
-  return mode === "body" ? (
-    <BodyExperiment onFallback={() => setMode("voice")} onBack={() => setMode("start")} />
-  ) : (
-    <Experiment onBack={() => setMode("start")} />
-  );
+  if (mode === "body") {
+    return <BodyExperiment onFallback={() => setMode("voice")} onBack={() => setMode("start")} />;
+  }
+  if (mode === "voice") {
+    return <VoiceExperiment onBack={() => setMode("start")} />;
+  }
+  return <GestureExperiment onBack={() => setMode("start")} />;
 }
