@@ -5,6 +5,45 @@ export const CONTOUR_SMOOTHING_PASSES = 1;
 export const CONTOUR_RESAMPLE_POINT_COUNT = 96;
 export const CONTOUR_SPATIAL_AVERAGING_RADIUS = 0;
 export const CONTOUR_TEMPORAL_ALPHA = 0.75;
+
+export type ContourPresentationVariant = {
+  id: "current" | "detail-plus" | "detail-plus-plus" | "responsive";
+  label: string;
+  simplifyTolerance: number;
+  smoothingPasses: number;
+  temporalAlpha: number;
+};
+
+export const CONTOUR_PRESENTATION_VARIANTS: readonly ContourPresentationVariant[] = [
+  {
+    id: "current",
+    label: "Current",
+    simplifyTolerance: 0.8,
+    smoothingPasses: 1,
+    temporalAlpha: 0.75,
+  },
+  {
+    id: "detail-plus",
+    label: "Detail+",
+    simplifyTolerance: 0.6,
+    smoothingPasses: 1,
+    temporalAlpha: 0.75,
+  },
+  {
+    id: "detail-plus-plus",
+    label: "Detail++",
+    simplifyTolerance: 0.4,
+    smoothingPasses: 1,
+    temporalAlpha: 0.75,
+  },
+  {
+    id: "responsive",
+    label: "Responsive",
+    simplifyTolerance: 0.6,
+    smoothingPasses: 1,
+    temporalAlpha: 0.6,
+  },
+];
 export const CONTOUR_REACQUIRE_RESET_FRAME_COUNT = 3;
 export const CONTOUR_DISCONTINUITY_DISTANCE = 48;
 export const INNER_CONTOUR_MIN_AREA = 24;
@@ -421,6 +460,15 @@ export function simplifyContour(contour: Contour, tolerance = CONTOUR_SIMPLIFY_T
   const simplified = simplifyOpenContour([...contour, contour[0]], tolerance);
   simplified.pop();
   return simplified.length >= 3 ? simplified : contour.slice();
+}
+
+export function prepareContourForPresentationVariant(
+  contour: Contour,
+  variant: ContourPresentationVariant,
+): Contour {
+  const simplified = simplifyContour(contour, variant.simplifyTolerance);
+  const smoothed = smoothContour(simplified, variant.smoothingPasses);
+  return ensureContourWinding(resampleClosedContour(smoothed), "clockwise");
 }
 
 export function smoothContour(contour: Contour, passes = CONTOUR_SMOOTHING_PASSES): Contour {

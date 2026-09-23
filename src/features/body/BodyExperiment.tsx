@@ -64,6 +64,8 @@ import {
   thresholdSegmentationMask,
   RAW_MASK_ISO_LEVEL,
   type SegmentationSpikeMetrics,
+  CONTOUR_PRESENTATION_VARIANTS,
+  prepareContourForPresentationVariant,
 } from "./segmentation-mask-spike";
 import {
   createBodyHybridDisplaySnapshot,
@@ -72,11 +74,15 @@ import {
   getBodyHybridReplayFrame,
   BODY_HYBRID_CONTOUR_COLOR,
   BODY_HYBRID_CONTOUR_STYLE,
-  POSE_GUIDANCE_STYLES,
+  BODY_HYBRID_HALO_VARIANTS,
   type BodyHybridDisplaySnapshot,
   type BodyHybridReplayFrame,
 } from "./body-pose-guidance";
 import { BODY_POSE_CONNECTIONS } from "./body-pose-connections";
+import {
+  createBodyHybridComparisonVariants,
+  type BodyHybridComparisonVariant,
+} from "./body-hybrid-comparison";
 import {
   getObjectFitCoverTransform,
   projectNormalizedPointToCoverViewport,
@@ -91,6 +97,7 @@ function isSegmentationSpikeEnabled(): boolean {
 }
 
 const BODY_HYBRID_SEGMENTATION_ENABLED = true;
+const BODY_HYBRID_COMPARISON_VARIANTS = createBodyHybridComparisonVariants();
 
 function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): void {
   const context = canvas.getContext("2d");
@@ -272,6 +279,51 @@ function projectViewportPointsToCanvas(
   }));
 }
 
+function drawDevelopmentComparisonVariant(
+  canvas: HTMLCanvasElement | null,
+  contour: readonly { x: number; y: number }[] | null,
+  innerContours: readonly (readonly { x: number; y: number }[])[],
+  landmarks: readonly BodyLandmark[] | null,
+  maskWidth: number,
+  maskHeight: number,
+  variant: BodyHybridComparisonVariant,
+): void {
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  const scaleContour = (points: readonly { x: number; y: number }[]) =>
+    points.map((point) => ({
+      x: (point.x / maskWidth) * canvas.width,
+      y: (point.y / maskHeight) * canvas.height,
+    }));
+  const outer = scaleContour(contour ?? []);
+  const inner = innerContours.map(scaleContour);
+  drawOuterOnlyHalo(
+    context,
+    outer,
+    BODY_HYBRID_CONTOUR_COLOR,
+    (canvas.width / 180) * variant.halo.outerGlowWidthScale,
+    variant.halo.outerGlowOpacity,
+    variant.halo.glowBlurPx,
+  );
+  drawContourStrokes(
+    context,
+    [outer],
+    BODY_HYBRID_CONTOUR_COLOR,
+    (canvas.width / 180) * variant.halo.outerCoreWidthScale,
+    variant.halo.outerCoreOpacity,
+  );
+  drawContourStrokes(
+    context,
+    inner,
+    BODY_HYBRID_CONTOUR_COLOR,
+    (canvas.width / 180) * BODY_HYBRID_CONTOUR_STYLE.innerWidthScale,
+    BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
+  );
+  drawPoseGuidance(context, landmarks, "subtle-arms-torso-face", canvas.width, canvas.height);
+}
+
 export function BodyExperiment({
   onFallback,
   onBack,
@@ -307,11 +359,14 @@ export function BodyExperiment({
   const temporalOnlyContourRef = useRef<HTMLCanvasElement>(null);
   const contourRef = useRef<HTMLCanvasElement>(null);
   const outerOnlyRef = useRef<HTMLCanvasElement>(null);
-  const subtleArmsRef = useRef<HTMLCanvasElement>(null);
-  const subtleTorsoRef = useRef<HTMLCanvasElement>(null);
-  const subtleFaceRef = useRef<HTMLCanvasElement>(null);
+  const comparisonCanvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
   const contourStabilizerRef = useRef(new ContourStabilizer());
   const temporalOnlyStabilizerRef = useRef(new ContourStabilizer());
+  const comparisonStabilizersRef = useRef(
+    CONTOUR_PRESENTATION_VARIANTS.map(
+      (variant) => new ContourStabilizer({ temporalAlpha: variant.temporalAlpha }),
+    ),
+  );
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -338,6 +393,7 @@ export function BodyExperiment({
   const resetDisplayedContour = () => {
     contourStabilizerRef.current.reset();
     temporalOnlyStabilizerRef.current.reset();
+    comparisonStabilizersRef.current.forEach((stabilizer) => stabilizer.reset());
   };
 
   const clearPoseCanvas = () => {
@@ -823,37 +879,6 @@ export function BodyExperiment({
             mask.height,
           ),
         );
-        const drawComparisonVariant = (
-          ref: typeof contourRef,
-          poseVariant?: "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face",
-        ) => {
-          const canvas = ref.current;
-          const context = canvas?.getContext("2d");
-          if (!canvas || !context) return;
-          drawContours(
-            context,
-            stabilization.contour ? [stabilization.contour] : [],
-            canvas.width,
-            canvas.height,
-            BODY_HYBRID_CONTOUR_COLOR,
-            mask.width,
-            mask.height,
-          );
-          drawContours(
-            context,
-            innerContours,
-            canvas.width,
-            canvas.height,
-            `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
-            mask.width,
-            mask.height,
-            INNER_CONTOUR_LINE_WIDTH_SCALE,
-            false,
-          );
-          if (poseVariant) {
-            drawPoseGuidance(context, bodyLandmarks, poseVariant, canvas.width, canvas.height);
-          }
-        };
         if (outerOnlyRef.current) {
           const context = outerOnlyRef.current.getContext("2d");
           if (context)
@@ -867,9 +892,24 @@ export function BodyExperiment({
               mask.height,
             );
         }
-        drawComparisonVariant(subtleArmsRef, "subtle-arms");
-        drawComparisonVariant(subtleTorsoRef, "subtle-arms-torso");
-        drawComparisonVariant(subtleFaceRef, "subtle-arms-torso-face");
+        if (segmentationSpike) {
+          const comparisonContours = CONTOUR_PRESENTATION_VARIANTS.map((variant, index) => {
+            const prepared = prepareContourForPresentationVariant(primaryContour ?? [], variant);
+            return comparisonStabilizersRef.current[index].update(prepared);
+          });
+          BODY_HYBRID_COMPARISON_VARIANTS.forEach((variant, index) => {
+            const contourIndex = Math.floor(index / BODY_HYBRID_HALO_VARIANTS.length);
+            drawDevelopmentComparisonVariant(
+              comparisonCanvasRefs.current[index],
+              comparisonContours[contourIndex].contour,
+              innerContours,
+              bodyLandmarks,
+              mask.width,
+              mask.height,
+              variant,
+            );
+          });
+        }
         segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
         if (segmentationSpike) {
@@ -957,10 +997,15 @@ export function BodyExperiment({
         const liveCanvas = canvasRef.current;
         if (liveCanvas)
           liveCanvas.getContext("2d")?.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-        [outerOnlyRef, subtleArmsRef, subtleTorsoRef, subtleFaceRef].forEach((ref) => {
+        [outerOnlyRef].forEach((ref) => {
           const context = ref.current?.getContext("2d");
           if (context && ref.current)
             context.clearRect(0, 0, ref.current.width, ref.current.height);
+        });
+        comparisonStabilizersRef.current.forEach((stabilizer) => stabilizer.update(null));
+        comparisonCanvasRefs.current.forEach((canvas) => {
+          const context = canvas?.getContext("2d");
+          if (context && canvas) context.clearRect(0, 0, canvas.width, canvas.height);
         });
       }
     }
@@ -1288,31 +1333,28 @@ export function BodyExperiment({
                 <canvas ref={outerOnlyRef} width="320" height="180" />
                 <figcaption>Outer contour only (reference)</figcaption>
               </figure>
-              <figure>
-                <canvas ref={subtleArmsRef} width="320" height="180" />
-                <figcaption>
-                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms"].label} · opacity{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms"].opacity} · width{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms"].strokeWidth}
-                </figcaption>
-              </figure>
-              <figure>
-                <canvas ref={subtleTorsoRef} width="320" height="180" />
-                <figcaption>
-                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms-torso"].label} · opacity{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms-torso"].opacity} · width{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth}
-                </figcaption>
-              </figure>
-              <figure>
-                <canvas ref={subtleFaceRef} width="320" height="180" />
-                <figcaption>
-                  Outer + inner + {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].label} · opacity{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].opacity} · face opacity{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceOpacity} · width{" "}
-                  {POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceStrokeWidth}
-                </figcaption>
-              </figure>
+              {BODY_HYBRID_COMPARISON_VARIANTS.map((variant, index) => (
+                <figure key={variant.id}>
+                  <canvas
+                    ref={(canvas) => {
+                      comparisonCanvasRefs.current[index] = canvas;
+                    }}
+                    width="320"
+                    height="180"
+                  />
+                  <figcaption>
+                    {variant.halo.label} × {variant.contour.label}
+                    <br />
+                    halo {variant.halo.outerGlowOpacity} / width {variant.halo.outerGlowWidthScale}{" "}
+                    / blur {variant.halo.glowBlurPx}
+                    <br />
+                    core {variant.halo.outerCoreOpacity} / width {variant.halo.outerCoreWidthScale}
+                    <br />
+                    simplify {variant.contour.simplifyTolerance} / smooth{" "}
+                    {variant.contour.smoothingPasses} / temporal {variant.contour.temporalAlpha}
+                  </figcaption>
+                </figure>
+              ))}
             </div>
             {segmentationMetrics && (
               <pre className="body-segmentation-spike__metrics">

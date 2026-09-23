@@ -20,6 +20,46 @@ export const BODY_HYBRID_CONTOUR_STYLE = {
   glowBlurPx: 3,
 } as const;
 
+export type BodyHybridHaloVariant = {
+  id: "subtle" | "balanced" | "luminous";
+  label: string;
+  outerGlowOpacity: number;
+  outerGlowWidthScale: number;
+  glowBlurPx: number;
+  outerCoreOpacity: number;
+  outerCoreWidthScale: number;
+};
+
+export const BODY_HYBRID_HALO_VARIANTS: readonly BodyHybridHaloVariant[] = [
+  {
+    id: "subtle",
+    label: "Halo A · Subtle",
+    outerGlowOpacity: 0.24,
+    outerGlowWidthScale: 2.8,
+    glowBlurPx: 6,
+    outerCoreOpacity: 0.76,
+    outerCoreWidthScale: 0.9,
+  },
+  {
+    id: "balanced",
+    label: "Halo B · Balanced",
+    outerGlowOpacity: 0.32,
+    outerGlowWidthScale: 3.2,
+    glowBlurPx: 10,
+    outerCoreOpacity: 0.7,
+    outerCoreWidthScale: 0.8,
+  },
+  {
+    id: "luminous",
+    label: "Halo C · Luminous",
+    outerGlowOpacity: 0.42,
+    outerGlowWidthScale: 4,
+    glowBlurPx: 14,
+    outerCoreOpacity: 0.62,
+    outerCoreWidthScale: 0.7,
+  },
+];
+
 export type PoseGuidanceVariantId = "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face";
 
 export type PoseGuidanceStyle = {
