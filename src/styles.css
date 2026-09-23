@@ -271,13 +271,19 @@ h4 {
 
 .start-screen__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  gap: 0;
   margin-top: 32px;
 }
 
-.start-screen__support-action {
-  margin-left: 12px;
+.start-screen__primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.start-screen__secondary-actions {
+  margin-top: 20px;
 }
 
 .start-screen__visual {
@@ -1976,6 +1982,7 @@ input {
   }
 
   .start-screen__actions,
+  .start-screen__primary-actions,
   .body-capture-card__actions,
   .experiment__actions {
     align-items: stretch;
@@ -1987,11 +1994,6 @@ input {
   .experiment__actions .button,
   .gesture-actions .button {
     width: 100%;
-  }
-
-  .start-screen__support-action {
-    margin-top: 8px;
-    margin-left: 0;
   }
 
   .gesture-actions {

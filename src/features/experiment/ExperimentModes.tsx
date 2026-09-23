@@ -35,42 +35,46 @@ export function ExperimentModes() {
               言葉にしなくても大丈夫です。感じたことを、身体や声、指の動きで自由に表現してみましょう。
             </p>
             <div className="start-screen__actions" aria-label="表現方法を選ぶ">
-              <button
-                className="button button--primary"
-                type="button"
-                data-mode="body"
-                onClick={() => setMode("body")}
-              >
-                <PersonStanding size={20} strokeWidth={1.8} aria-hidden="true" />
-                <span>体で表現する</span>
-              </button>
-              <button
-                className="button button--secondary"
-                type="button"
-                data-mode="voice"
-                onClick={() => setMode("voice")}
-              >
-                <Mic size={20} strokeWidth={1.8} aria-hidden="true" />
-                <span>声で表現する</span>
-              </button>
-              <button
-                className="button button--secondary"
-                type="button"
-                data-mode="gesture"
-                onClick={() => setMode("gesture")}
-              >
-                <PenLine size={20} strokeWidth={1.8} aria-hidden="true" />
-                <span>指で表現する</span>
-              </button>
-              <button
-                className="button button--secondary start-screen__support-action"
-                type="button"
-                data-mode="sources"
-                onClick={() => setMode("sources")}
-              >
-                <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
-                <span>出典・情報源</span>
-              </button>
+              <div className="start-screen__primary-actions">
+                <button
+                  className="button button--primary"
+                  type="button"
+                  data-mode="body"
+                  onClick={() => setMode("body")}
+                >
+                  <PersonStanding size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <span>体で表現する</span>
+                </button>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  data-mode="voice"
+                  onClick={() => setMode("voice")}
+                >
+                  <Mic size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <span>声で表現する</span>
+                </button>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  data-mode="gesture"
+                  onClick={() => setMode("gesture")}
+                >
+                  <PenLine size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <span>指で表現する</span>
+                </button>
+              </div>
+              <div className="start-screen__secondary-actions">
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  data-mode="sources"
+                  onClick={() => setMode("sources")}
+                >
+                  <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <span>出典・情報源</span>
+                </button>
+              </div>
             </div>
           </div>
           <div className="start-screen__visual" aria-hidden="true">
