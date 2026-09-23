@@ -68,6 +68,7 @@ import {
 import {
   createBodyHybridDisplaySnapshot,
   drawPoseGuidance,
+  BODY_HYBRID_CONTOUR_COLOR,
   POSE_GUIDANCE_STYLES,
   type BodyHybridDisplaySnapshot,
 } from "./body-pose-guidance";
@@ -130,7 +131,7 @@ function drawHybridSnapshotCanvas(
     context.stroke();
   };
   context.save();
-  context.strokeStyle = "#ead7a0";
+  context.strokeStyle = BODY_HYBRID_CONTOUR_COLOR;
   context.lineWidth = Math.max(1, (canvas.width / 320) * 1.4);
   context.lineCap = "round";
   context.lineJoin = "round";
@@ -591,7 +592,7 @@ export function BodyExperiment({
               stabilization.contour ? [stabilization.contour] : [],
               contourCanvas.width,
               contourCanvas.height,
-              "#ead7a0",
+              BODY_HYBRID_CONTOUR_COLOR,
               mask.width,
               mask.height,
             );
@@ -618,7 +619,7 @@ export function BodyExperiment({
               stabilization.contour ? [stabilization.contour] : [],
               liveCanvas.width,
               liveCanvas.height,
-              "#ead7a0",
+              BODY_HYBRID_CONTOUR_COLOR,
               mask.width,
               mask.height,
             );
@@ -661,7 +662,7 @@ export function BodyExperiment({
             stabilization.contour ? [stabilization.contour] : [],
             canvas.width,
             canvas.height,
-            "#ead7a0",
+            BODY_HYBRID_CONTOUR_COLOR,
             mask.width,
             mask.height,
           );
@@ -688,7 +689,7 @@ export function BodyExperiment({
               stabilization.contour ? [stabilization.contour] : [],
               outerOnlyRef.current.width,
               outerOnlyRef.current.height,
-              "#ead7a0",
+              BODY_HYBRID_CONTOUR_COLOR,
               mask.width,
               mask.height,
             );

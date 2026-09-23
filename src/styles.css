@@ -1178,31 +1178,31 @@ input {
 
 .expression-transform__body-hybrid-outer {
   fill: none;
-  stroke: var(--gold);
+  stroke: var(--body-hybrid-contour-color);
   stroke-width: 1.4;
 }
 
 .expression-transform__body-hybrid-inner {
   fill: none;
-  stroke: var(--gold);
+  stroke: var(--body-hybrid-contour-color);
   stroke-width: 1;
   opacity: 0.7;
 }
 
 .expression-transform__body-hybrid-body {
   fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.1;
-  opacity: 0.78;
+  stroke: var(--body-hybrid-guidance-color);
+  stroke-width: var(--body-hybrid-body-stroke-width);
+  opacity: var(--body-hybrid-body-opacity);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .expression-transform__body-hybrid-face {
   fill: none;
-  stroke: var(--gold);
-  stroke-width: 0.75;
-  opacity: 0.55;
+  stroke: var(--body-hybrid-guidance-color);
+  stroke-width: var(--body-hybrid-face-stroke-width);
+  opacity: var(--body-hybrid-face-opacity);
   stroke-linecap: round;
   stroke-linejoin: round;
 }

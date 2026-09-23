@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
-import type { BodyHybridDisplaySnapshot } from "../body/body-pose-guidance";
+import {
+  BODY_HYBRID_CONTOUR_COLOR,
+  POSE_GUIDANCE_COLOR,
+  POSE_GUIDANCE_STYLES,
+  type BodyHybridDisplaySnapshot,
+} from "../body/body-pose-guidance";
 import {
   createSyntheticWavePath,
   type SyntheticWavePoint,
@@ -80,6 +85,15 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     [props.mode, props.features],
   );
   const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
+  const bodyHybridStyle = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
+  const bodyHybridStyleVariables = {
+    "--body-hybrid-contour-color": BODY_HYBRID_CONTOUR_COLOR,
+    "--body-hybrid-guidance-color": POSE_GUIDANCE_COLOR,
+    "--body-hybrid-body-opacity": bodyHybridStyle.opacity,
+    "--body-hybrid-body-stroke-width": bodyHybridStyle.strokeWidth,
+    "--body-hybrid-face-opacity": bodyHybridStyle.faceOpacity,
+    "--body-hybrid-face-stroke-width": bodyHybridStyle.faceStrokeWidth,
+  } as CSSProperties;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);
   const bodyOpacity = getBodyDissolveOpacity(progress);
@@ -93,6 +107,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       aria-busy="true"
       aria-hidden={props.decorative}
       aria-labelledby={`${props.mode}-transform-title`}
+      style={props.mode === "body" ? bodyHybridStyleVariables : undefined}
     >
       <div className="expression-transform__heading">
         {bodyScreen && (

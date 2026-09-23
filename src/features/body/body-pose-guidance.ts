@@ -7,6 +7,7 @@ import {
 
 export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
+export const BODY_HYBRID_CONTOUR_COLOR = "#ead7a0";
 
 export type PoseGuidanceVariantId = "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face";
 
