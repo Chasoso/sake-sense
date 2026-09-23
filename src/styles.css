@@ -276,6 +276,10 @@ h4 {
   margin-top: 32px;
 }
 
+.start-screen__support-action {
+  margin-left: 12px;
+}
+
 .start-screen__visual {
   position: relative;
   display: grid;
@@ -1983,6 +1987,11 @@ input {
   .experiment__actions .button,
   .gesture-actions .button {
     width: 100%;
+  }
+
+  .start-screen__support-action {
+    margin-top: 8px;
+    margin-left: 0;
   }
 
   .gesture-actions {

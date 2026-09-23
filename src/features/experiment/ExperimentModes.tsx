@@ -47,15 +47,6 @@ export function ExperimentModes() {
               <button
                 className="button button--secondary"
                 type="button"
-                data-mode="sources"
-                onClick={() => setMode("sources")}
-              >
-                <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
-                <span>出典・情報源</span>
-              </button>
-              <button
-                className="button button--secondary"
-                type="button"
                 data-mode="voice"
                 onClick={() => setMode("voice")}
               >
@@ -70,6 +61,15 @@ export function ExperimentModes() {
               >
                 <PenLine size={20} strokeWidth={1.8} aria-hidden="true" />
                 <span>指で表現する</span>
+              </button>
+              <button
+                className="button button--secondary start-screen__support-action"
+                type="button"
+                data-mode="sources"
+                onClick={() => setMode("sources")}
+              >
+                <BookOpen size={20} strokeWidth={1.8} aria-hidden="true" />
+                <span>出典・情報源</span>
               </button>
             </div>
           </div>
