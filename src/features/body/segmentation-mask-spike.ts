@@ -850,4 +850,7 @@ export type SegmentationSpikeMetrics = {
   averageTemporalCorrectionDistance: number;
   resetCount: number;
   finalContourPointCount: number;
+  concavityCandidateCount: number;
+  separatorCandidateCount: number;
+  separatorMs: number;
 };
