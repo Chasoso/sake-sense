@@ -1,4 +1,9 @@
 import type { BodyLandmark } from "../../domain/body";
+import {
+  BODY_POSE_ARM_CONNECTIONS,
+  BODY_POSE_UPPER_BODY_CONNECTIONS,
+  type BodyPoseConnection,
+} from "./body-pose-connections";
 
 export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
@@ -10,7 +15,6 @@ export type PoseGuidanceStyle = {
   label: string;
   opacity: number;
   strokeWidth: number;
-  includesShoulderHip: boolean;
   includesUpperBodyTorso: boolean;
   includesFace: boolean;
   faceOpacity: number;
@@ -23,7 +27,6 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
     label: "subtle arms",
     opacity: 0.28,
     strokeWidth: 1.2,
-    includesShoulderHip: false,
     includesUpperBodyTorso: false,
     includesFace: false,
     faceOpacity: 0,
@@ -31,10 +34,9 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
   },
   "subtle-arms-torso": {
     id: "subtle-arms-torso",
-    label: "subtle arms + limited torso",
+    label: "subtle arms + upper-body topology",
     opacity: 0.22,
     strokeWidth: 1.1,
-    includesShoulderHip: true,
     includesUpperBodyTorso: true,
     includesFace: false,
     faceOpacity: 0,
@@ -45,29 +47,12 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
     label: "subtle arms + torso + face direction",
     opacity: 0.22,
     strokeWidth: 1.1,
-    includesShoulderHip: true,
     includesUpperBodyTorso: true,
     includesFace: true,
     faceOpacity: 0.12,
     faceStrokeWidth: 0.75,
   },
 };
-
-type LandmarkPair = readonly [number, number];
-
-const ARM_CHAINS: readonly (readonly [number, number, number])[] = [
-  [11, 13, 15],
-  [12, 14, 16],
-];
-
-const SHOULDER_HIP_PAIRS: readonly LandmarkPair[] = [
-  [11, 23],
-  [12, 24],
-];
-
-const SHOULDER_LINE_PAIR: LandmarkPair = [11, 12];
-const UPPER_BODY_CENTER_CUE_RATIO = 0.28;
-const UPPER_BODY_CENTER_CUE_MAX_LENGTH = 0.12;
 
 export type PoseGuidanceSegment = {
   from: { x: number; y: number };
@@ -132,35 +117,6 @@ function getFacePaths(landmarks: readonly BodyLandmark[]): PoseGuidancePath[] {
   ];
 }
 
-function getUpperBodyTorsoPaths(landmarks: readonly BodyLandmark[]): PoseGuidancePath[] {
-  const leftShoulder = landmarks[SHOULDER_LINE_PAIR[0]];
-  const rightShoulder = landmarks[SHOULDER_LINE_PAIR[1]];
-  if (!isRenderableLandmark(leftShoulder) || !isRenderableLandmark(rightShoulder)) return [];
-  const shoulderLine = getPath(landmarks, SHOULDER_LINE_PAIR, "body");
-  const shoulderMidpoint = {
-    x: (leftShoulder.x + rightShoulder.x) / 2,
-    y: (leftShoulder.y + rightShoulder.y) / 2,
-  };
-  const shoulderWidth = Math.hypot(
-    rightShoulder.x - leftShoulder.x,
-    rightShoulder.y - leftShoulder.y,
-  );
-  const centerCueLength = Math.min(
-    shoulderWidth * UPPER_BODY_CENTER_CUE_RATIO,
-    UPPER_BODY_CENTER_CUE_MAX_LENGTH,
-  );
-  return [
-    ...(shoulderLine ? [shoulderLine] : []),
-    {
-      points: [
-        shoulderMidpoint,
-        { x: shoulderMidpoint.x, y: shoulderMidpoint.y + centerCueLength },
-      ],
-      kind: "body",
-    },
-  ];
-}
-
 /** Returns only reviewed, display-only pose paths; it never adds markers or head geometry. */
 export function getPoseGuidancePaths(
   landmarks: readonly BodyLandmark[] | null | undefined,
@@ -168,17 +124,13 @@ export function getPoseGuidancePaths(
 ): PoseGuidancePath[] {
   if (!landmarks) return [];
   const style = POSE_GUIDANCE_STYLES[variant];
-  const paths = ARM_CHAINS.flatMap((chain) => {
-    const path = getPath(landmarks, chain, "body");
+  const connectionSet = style.includesUpperBodyTorso
+    ? BODY_POSE_UPPER_BODY_CONNECTIONS
+    : BODY_POSE_ARM_CONNECTIONS;
+  const paths = connectionSet.flatMap((connection: BodyPoseConnection) => {
+    const path = getPath(landmarks, connection, "body");
     return path ? [path] : [];
   });
-  if (style.includesUpperBodyTorso) paths.push(...getUpperBodyTorsoPaths(landmarks));
-  if (style.includesShoulderHip) {
-    SHOULDER_HIP_PAIRS.forEach((pair) => {
-      const path = getPath(landmarks, pair, "body");
-      if (path) paths.push(path);
-    });
-  }
   return style.includesFace ? [...paths, ...getFacePaths(landmarks)] : paths;
 }
 

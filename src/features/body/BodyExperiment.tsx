@@ -71,6 +71,7 @@ import {
   type SegmentationSpikeMetrics,
 } from "./segmentation-mask-spike";
 import { drawPoseGuidance, POSE_GUIDANCE_STYLES } from "./body-pose-guidance";
+import { BODY_POSE_CONNECTIONS } from "./body-pose-connections";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -80,21 +81,6 @@ function isSegmentationSpikeEnabled(): boolean {
   );
 }
 
-const connections: Array<[number, number]> = [
-  [11, 12],
-  [11, 13],
-  [13, 15],
-  [12, 14],
-  [14, 16],
-  [11, 23],
-  [12, 24],
-  [23, 24],
-  [23, 25],
-  [25, 27],
-  [24, 26],
-  [26, 28],
-];
-
 function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): void {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -103,7 +89,7 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
   context.strokeStyle = "#e2b96c";
   context.fillStyle = "#f1cb84";
   context.lineWidth = 3;
-  connections.forEach(([fromIndex, toIndex]) => {
+  BODY_POSE_CONNECTIONS.forEach(([fromIndex, toIndex]) => {
     const from = landmarks[fromIndex];
     const to = landmarks[toIndex];
     if (!from || !to) return;
