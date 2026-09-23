@@ -8,6 +8,17 @@ import {
 export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
 export const BODY_HYBRID_CONTOUR_COLOR = "#ead7a0";
+export const BODY_HYBRID_CONTOUR_STYLE = {
+  outerGlowOpacity: 0.16,
+  outerGlowWidthScale: 2.2,
+  outerCoreOpacity: 0.86,
+  outerCoreWidthScale: 1.1,
+  outerCoreStrokeWidth: 1.4,
+  innerOpacity: 0.58,
+  innerWidthScale: 0.9,
+  innerStrokeWidth: 1,
+  glowBlurPx: 3,
+} as const;
 
 export type PoseGuidanceVariantId = "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face";
 
@@ -46,12 +57,12 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
   "subtle-arms-torso-face": {
     id: "subtle-arms-torso-face",
     label: "subtle arms + torso + face direction",
-    opacity: 0.22,
-    strokeWidth: 1.1,
+    opacity: 0.18,
+    strokeWidth: 1.25,
     includesUpperBodyTorso: true,
     includesFace: true,
-    faceOpacity: 0.12,
-    faceStrokeWidth: 0.75,
+    faceOpacity: 0.09,
+    faceStrokeWidth: 0.85,
   },
 };
 

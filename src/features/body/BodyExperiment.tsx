@@ -71,6 +71,7 @@ import {
   drawPoseGuidance,
   getBodyHybridReplayFrame,
   BODY_HYBRID_CONTOUR_COLOR,
+  BODY_HYBRID_CONTOUR_STYLE,
   POSE_GUIDANCE_STYLES,
   type BodyHybridDisplaySnapshot,
   type BodyHybridReplayFrame,
@@ -139,12 +140,26 @@ function drawHybridGeometryCanvas(
   };
   context.save();
   context.strokeStyle = BODY_HYBRID_CONTOUR_COLOR;
-  context.lineWidth = Math.max(1, (canvas.width / 320) * 1.4);
   context.lineCap = "round";
   context.lineJoin = "round";
-  drawContour(geometry.outerContour, 1);
+  context.shadowColor = `rgba(234, 215, 160, ${BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity})`;
+  context.shadowBlur = BODY_HYBRID_CONTOUR_STYLE.glowBlurPx;
+  context.lineWidth = Math.max(
+    1,
+    (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
+  );
+  drawContour(geometry.outerContour, BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity);
+  context.shadowColor = "transparent";
+  context.shadowBlur = 0;
+  context.lineWidth = Math.max(
+    1,
+    (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale,
+  );
+  drawContour(geometry.outerContour, BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity);
   context.lineWidth = Math.max(1, (canvas.width / 320) * 1);
-  geometry.innerContours.forEach((contour) => drawContour(contour, INNER_CONTOUR_OPACITY));
+  geometry.innerContours.forEach((contour) =>
+    drawContour(contour, BODY_HYBRID_CONTOUR_STYLE.innerOpacity),
+  );
   context.restore();
 }
 
@@ -192,6 +207,7 @@ function drawLiveContours(
   color: string,
   lineWidthScale = 1,
   clear = true,
+  opacity = 1,
 ) {
   const viewport = getLiveOverlayViewport(canvas);
   const transform = getObjectFitCoverTransform(
@@ -203,7 +219,9 @@ function drawLiveContours(
   const projectedContours = contours.map((contour) =>
     projectLiveContour(contour, sourceWidth, sourceHeight, transform),
   );
-  return drawContours(
+  context.save();
+  context.globalAlpha = opacity;
+  const count = drawContours(
     context,
     projectedContours,
     canvas.width,
@@ -214,6 +232,8 @@ function drawLiveContours(
     lineWidthScale,
     clear,
   );
+  context.restore();
+  return count;
 }
 
 export function BodyExperiment({
@@ -715,6 +735,20 @@ export function BodyExperiment({
               mask.height,
               liveCanvas,
               BODY_HYBRID_CONTOUR_COLOR,
+              BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
+              true,
+              BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+            );
+            drawLiveContours(
+              context,
+              stabilization.contour ? [stabilization.contour] : [],
+              mask.width,
+              mask.height,
+              liveCanvas,
+              BODY_HYBRID_CONTOUR_COLOR,
+              BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale,
+              false,
+              BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
             );
             drawLiveContours(
               context,
@@ -723,8 +757,9 @@ export function BodyExperiment({
               mask.height,
               liveCanvas,
               `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
-              INNER_CONTOUR_LINE_WIDTH_SCALE,
+              BODY_HYBRID_CONTOUR_STYLE.innerWidthScale,
               false,
+              BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
             );
             drawPoseGuidance(
               context,

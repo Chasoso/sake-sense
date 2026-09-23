@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import {
   BODY_HYBRID_CONTOUR_COLOR,
+  BODY_HYBRID_CONTOUR_STYLE,
   POSE_GUIDANCE_COLOR,
   POSE_GUIDANCE_STYLES,
   type BodyHybridDisplaySnapshot,
@@ -93,6 +94,12 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     "--body-hybrid-body-stroke-width": bodyHybridStyle.strokeWidth,
     "--body-hybrid-face-opacity": bodyHybridStyle.faceOpacity,
     "--body-hybrid-face-stroke-width": bodyHybridStyle.faceStrokeWidth,
+    "--body-hybrid-outer-core-opacity": BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
+    "--body-hybrid-outer-core-width": BODY_HYBRID_CONTOUR_STYLE.outerCoreStrokeWidth,
+    "--body-hybrid-outer-glow-blur": `${BODY_HYBRID_CONTOUR_STYLE.glowBlurPx}px`,
+    "--body-hybrid-outer-glow-opacity": BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+    "--body-hybrid-inner-opacity": BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
+    "--body-hybrid-inner-width": BODY_HYBRID_CONTOUR_STYLE.innerStrokeWidth,
   } as CSSProperties;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);

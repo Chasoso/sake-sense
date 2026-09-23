@@ -8,6 +8,7 @@ import {
   getPoseGuidanceCurveSegments,
   getPoseGuidancePaths,
   getPoseGuidanceSegments,
+  BODY_HYBRID_CONTOUR_STYLE,
   POSE_GUIDANCE_STYLES,
   POSE_GUIDANCE_VISIBILITY_THRESHOLD,
 } from "./body-pose-guidance";
@@ -153,6 +154,20 @@ describe("body pose guidance", () => {
     );
     expect(POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceStrokeWidth).toBeLessThan(
       POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth,
+    );
+  });
+
+  it("keeps the polished hybrid hierarchy in shared style tokens", () => {
+    const hybrid = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
+    expect(hybrid.strokeWidth).toBe(1.25);
+    expect(hybrid.opacity).toBe(0.18);
+    expect(hybrid.faceStrokeWidth).toBe(0.85);
+    expect(hybrid.faceOpacity).toBe(0.09);
+    expect(BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity).toBeLessThan(
+      BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
+    );
+    expect(BODY_HYBRID_CONTOUR_STYLE.innerOpacity).toBeLessThan(
+      BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
     );
   });
 
