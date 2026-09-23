@@ -82,14 +82,17 @@ export const sensorySupportCases = sensorySupportCaseDataset.cases;
  * never symbolic shapes or the user's drawing intent.
  */
 export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
+  // These reviewed combinations describe movement quality from multiple observed
+  // features; neither ending classification nor a fixture-specific shape is a
+  // semantic requirement for rounded or smooth movement.
   {
     id: "gesture-short-fast-abrupt-clean-fade",
     resultKind: "expression",
     featurePattern: {
       durationMs: { maximum: 700 },
-      averageSpeed: { minimum: 0.1 },
-      spread: { maximum: 100 },
-      endingSpeedRatio: { minimum: 0.75 },
+      averageSpeed: { minimum: 0.4 },
+      spread: { maximum: 260 },
+      endingSpeedRatio: { minimum: 1.0 },
       abruptEnding: true,
     },
     expressionIds: ["clean-fade"],
@@ -102,8 +105,6 @@ export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
       averageSpeed: { maximum: 0.1 },
       spread: { maximum: 180 },
       horizontalDirectionChanges: { maximum: 1 },
-      endingSpeedRatio: { maximum: 0.74 },
-      abruptEnding: false,
     },
     expressionIds: ["lingering-after-feel"],
   },
@@ -111,9 +112,9 @@ export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
     id: "gesture-broad-spreading-rounded-enveloping",
     resultKind: "expression",
     featurePattern: {
-      durationMs: { minimum: 700 },
-      pathLength: { minimum: 120 },
-      spread: { minimum: 120 },
+      durationMs: { minimum: 700, maximum: 1_300 },
+      pathLength: { minimum: 200 },
+      spread: { minimum: 180 },
       horizontalDirectionChanges: { maximum: 2 },
     },
     expressionIds: ["rounded-enveloping"],
@@ -131,12 +132,10 @@ export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
     id: "gesture-smooth-continuous-flow",
     resultKind: "expression",
     featurePattern: {
-      durationMs: { minimum: 700 },
+      durationMs: { minimum: 700, maximum: 1_400 },
       pathLength: { minimum: 80 },
-      averageSpeed: { minimum: 0.02, maximum: 0.25 },
+      averageSpeed: { minimum: 0.02, maximum: 0.2 },
       horizontalDirectionChanges: { maximum: 1 },
-      endingSpeedRatio: { maximum: 0.74 },
-      abruptEnding: false,
     },
     expressionIds: ["smooth-flow"],
   },

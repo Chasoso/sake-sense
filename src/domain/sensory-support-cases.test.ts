@@ -53,18 +53,19 @@ const shortFastAbruptInput: GestureFeatures = {
   pointCount: 6,
   durationMs: 500,
   pathLength: 150,
-  averageSpeed: 0.3,
+  averageSpeed: 0.6,
   spread: 50,
-  endingSpeedRatio: 0.9,
+  endingSpeedRatio: 1.3,
   abruptEnding: true,
 };
 const broadInput: GestureFeatures = {
   ...gestureInput,
   durationMs: 900,
-  pathLength: 150,
+  pathLength: 220,
   averageSpeed: 0.3,
-  spread: 150,
+  spread: 190,
   endingSpeedRatio: 0.8,
+  abruptEnding: false,
 };
 const compactInput: GestureFeatures = {
   ...gestureInput,
@@ -228,12 +229,13 @@ describe("observable sensory support cases", () => {
   });
 
   it("evaluates Gesture movement with deterministic multi-feature reviewed cases", () => {
-    const slow = evaluateGestureSensorySupport(gestureInput);
-    expect(slow).toMatchObject({
+    const smooth = evaluateGestureSensorySupport(gestureInput);
+    expect(smooth).toMatchObject({
       matchedCaseIds: ["gesture-smooth-continuous-flow"],
       resultKind: "expression",
       expressionIds: ["smooth-flow"],
     });
+    expect(getApprovedCandidateTermIdsForSupport(smooth)).toEqual(["nameraka"]);
     expect(evaluateGestureSensorySupport(slowInput)).toEqual(
       evaluateGestureSensorySupport({ ...slowInput }),
     );
@@ -241,11 +243,17 @@ describe("observable sensory support cases", () => {
       resultKind: "expression",
       expressionIds: ["clean-fade"],
     });
-    expect(evaluateGestureSensorySupport(shortFastAbruptInput)).not.toEqual(slow);
+    expect(
+      getApprovedCandidateTermIdsForSupport(evaluateGestureSensorySupport(shortFastAbruptInput)),
+    ).toEqual(["kire"]);
+    expect(evaluateGestureSensorySupport(shortFastAbruptInput)).not.toEqual(smooth);
     expect(evaluateGestureSensorySupport(broadInput)).toMatchObject({
       resultKind: "expression",
       expressionIds: ["rounded-enveloping"],
     });
+    expect(evaluateGestureSensorySupport(broadInput).matchedCaseIds).not.toContain(
+      "gesture-smooth-continuous-flow",
+    );
     expect(evaluateGestureSensorySupport(compactInput).resultKind).toBe("unmapped");
     expect(evaluateGestureSensorySupport(repeatedTurnsInput).resultKind).toBe("unmapped");
   });
