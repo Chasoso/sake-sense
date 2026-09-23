@@ -1682,20 +1682,13 @@ input {
   background: var(--surface);
 }
 
-.candidate__match {
-  display: inline-block;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
 .candidate h3,
 .sake-product h4 {
   margin: 7px 0;
   font-size: 1.18rem;
 }
 
-.candidate__why,
-.sake-product__why,
+.candidate__uncertainty,
 .sake-product__producer,
 .sake-product__source {
   color: var(--muted);
@@ -1736,6 +1729,18 @@ input {
 .sake-product__evidence p {
   margin: 5px 0 0;
   font-size: 0.88rem;
+}
+
+.sake-product__evidence-compact {
+  margin: 0;
+  color: var(--deep-green);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.sake-product__evidence-compact span {
+  display: inline;
+  margin: 0;
 }
 
 .sake-product__source a {
