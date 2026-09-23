@@ -699,6 +699,11 @@ h4 {
   background: rgb(20 30 25 / 64%);
 }
 
+.body-camera__switch:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
 .body-camera__switch:focus-visible {
   outline: 2px solid var(--body-overlay-text);
   outline-offset: 3px;
@@ -715,6 +720,29 @@ h4 {
   gap: 10px;
   padding: 46px 20px max(18px, env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to bottom, transparent, rgb(26 38 32 / 74%) 48%, rgb(26 38 32 / 88%));
+}
+
+.body-camera__countdown {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: clamp(7rem, 24vw, 10rem);
+  height: clamp(7rem, 24vw, 10rem);
+  color: var(--body-overlay-text);
+  background: rgb(20 30 25 / 42%);
+  border: 1px solid rgb(255 253 249 / 70%);
+  border-radius: 50%;
+  box-shadow: 0 12px 28px rgb(20 30 25 / 28%);
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: clamp(4rem, 15vw, 7rem);
+  font-weight: 500;
+  line-height: 1;
+  text-shadow: 0 2px 16px rgb(20 30 25 / 75%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .body-camera__bottom-overlay .body-capture-card__actions {

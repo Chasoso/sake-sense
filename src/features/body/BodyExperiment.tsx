@@ -22,6 +22,15 @@ import {
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 import {
+  getBodyFrameElapsedMs,
+  shouldCollectBodyFrame,
+  type BodyFrameLoopMode,
+} from "./body-frame-loop";
+import {
+  createBodyCaptureCountdownScheduler,
+  type BodyCaptureCountdown,
+} from "./body-capture-countdown";
+import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
   isCameraSwitchAccepted,
@@ -391,6 +400,7 @@ export function BodyExperiment({
   onBack: () => void;
 }) {
   const [status, setStatus] = useState<BodyCaptureStatus>("idle");
+  const [countdown, setCountdown] = useState<BodyCaptureCountdown>(null);
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
@@ -444,6 +454,11 @@ export function BodyExperiment({
   const cameraRequestIdRef = useRef(0);
   const activeCameraDeviceIdRef = useRef<string | undefined>(undefined);
   const activeCameraFacingModeRef = useRef<CameraFacingMode | undefined>(undefined);
+  const frameLoopModeRef = useRef<BodyFrameLoopMode>("idle");
+  const countdownSchedulerRef = useRef<ReturnType<
+    typeof createBodyCaptureCountdownScheduler
+  > | null>(null);
+  const startActualCaptureRef = useRef<() => void>(() => undefined);
   const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
     null,
   );
@@ -475,9 +490,11 @@ export function BodyExperiment({
   const stopCapture = () => {
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
+    frameLoopModeRef.current = "idle";
     stopCameraStream();
     closePoseLandmarker();
     resetDisplayedContour();
+    countdownSchedulerRef.current?.cancel();
   };
 
   const stopReplay = () => {
@@ -570,6 +587,7 @@ export function BodyExperiment({
   const resetCaptureStateForCameraSwitch = () => {
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
+    frameLoopModeRef.current = "idle";
     stopReplay();
     clearPoseCanvas();
     framesRef.current = [];
@@ -587,6 +605,7 @@ export function BodyExperiment({
     setIsAnalyzing(false);
     setError("");
     resetDisplayedContour();
+    countdownSchedulerRef.current?.cancel();
   };
 
   const getVideoInputCount = async (): Promise<number> => {
@@ -679,17 +698,24 @@ export function BodyExperiment({
   };
 
   const switchCamera = () => {
-    if (status === "capturing" || status === "loading") return;
+    if (status === "capturing" || status === "loading" || countdown !== null) return;
     const nextFacingMode: CameraFacingMode = cameraFacingMode === "user" ? "environment" : "user";
     void prepareCamera(nextFacingMode);
   };
 
   const sample = (timestamp: number) => {
+    const frameLoopMode = frameLoopModeRef.current;
+    if (frameLoopMode === "idle") {
+      animationRef.current = null;
+      return;
+    }
+    animationRef.current = null;
+    const isRecording = shouldCollectBodyFrame(frameLoopMode);
     const video = videoRef.current;
     const landmarker = landmarkerRef.current;
     if (!video || !landmarker) return;
-    const elapsed = timestamp - startedAtRef.current;
-    sampleAttemptsRef.current += 1;
+    const elapsed = getBodyFrameElapsedMs(frameLoopMode, timestamp, startedAtRef.current);
+    if (isRecording) sampleAttemptsRef.current += 1;
     const poseStartedAt = readSegmentationSpikeClock();
     const detection = landmarker.detectForVideo(video, timestamp);
     const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
@@ -912,22 +938,24 @@ export function BodyExperiment({
             );
           }
         }
-        hybridSnapshotRef.current = createBodyHybridDisplaySnapshot(
-          stabilization.contour ?? [],
-          innerContours,
-          bodyLandmarks,
-          mask.width,
-          mask.height,
-        );
-        hybridReplayFramesRef.current.push(
-          createBodyHybridReplayFrame(
-            elapsed,
+        if (isRecording) {
+          hybridSnapshotRef.current = createBodyHybridDisplaySnapshot(
             stabilization.contour ?? [],
             innerContours,
+            bodyLandmarks,
             mask.width,
             mask.height,
-          ),
-        );
+          );
+          hybridReplayFramesRef.current.push(
+            createBodyHybridReplayFrame(
+              elapsed,
+              stabilization.contour ?? [],
+              innerContours,
+              mask.width,
+              mask.height,
+            ),
+          );
+        }
         if (outerOnlyRef.current) {
           const context = outerOnlyRef.current.getContext("2d");
           if (context)
@@ -959,9 +987,9 @@ export function BodyExperiment({
             );
           });
         }
-        segmentationFrameCountRef.current += 1;
+        if (isRecording) segmentationFrameCountRef.current += 1;
         const elapsedMs = readSegmentationSpikeClock() - segmentationStartedAtRef.current;
-        if (segmentationSpike) {
+        if (isRecording && segmentationSpike) {
           setSegmentationMetrics({
             frameCount: segmentationFrameCountRef.current,
             elapsedMs,
@@ -1058,12 +1086,14 @@ export function BodyExperiment({
         });
       }
     }
-    if (bodyLandmarks) {
+    if (bodyLandmarks && !BODY_HYBRID_SEGMENTATION_ENABLED) {
+      drawPose(canvasRef.current!, bodyLandmarks);
+    }
+    if (isRecording && bodyLandmarks) {
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
-      if (!BODY_HYBRID_SEGMENTATION_ENABLED) drawPose(canvasRef.current!, bodyLandmarks);
-    } else invalidFrameCountRef.current += 1;
+    } else if (isRecording) invalidFrameCountRef.current += 1;
     detection.close();
-    if (elapsed >= 3000) {
+    if (isRecording && elapsed >= 3000) {
       const capturedFrames = [...framesRef.current];
       const captured = extractBodyMovementFeatures(framesRef.current);
       setCapturedFrames(capturedFrames);
@@ -1085,10 +1115,10 @@ export function BodyExperiment({
       stopCapture();
       return;
     }
-    animationRef.current = requestAnimationFrame(sample);
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
   };
 
-  const startCapture = () => {
+  const startActualCapture = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
     resetDisplayedContour();
     stopReplay();
@@ -1112,9 +1142,34 @@ export function BodyExperiment({
     setResult(null);
     setIsAnalyzing(false);
     setError("");
+    frameLoopModeRef.current = "recording";
     setStatus("capturing");
     startedAtRef.current = performance.now();
-    animationRef.current = requestAnimationFrame(sample);
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
+  };
+
+  useEffect(() => {
+    const scheduler = createBodyCaptureCountdownScheduler(setCountdown, () =>
+      startActualCaptureRef.current(),
+    );
+    countdownSchedulerRef.current = scheduler;
+    return () => {
+      scheduler.cancel();
+      countdownSchedulerRef.current = null;
+    };
+  }, []);
+
+  const beginCountdown = () => {
+    if (status !== "ready" || !landmarkerRef.current) return;
+    startActualCaptureRef.current = startActualCapture;
+    if (!countdownSchedulerRef.current?.begin()) return;
+    frameLoopModeRef.current = "preview";
+    if (animationRef.current === null) animationRef.current = requestAnimationFrame(sample);
+  };
+
+  const handleBack = () => {
+    countdownSchedulerRef.current?.cancel();
+    onBack();
   };
 
   const retry = () => {
@@ -1241,7 +1296,7 @@ export function BodyExperiment({
           />
 
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
-            <button className="body-camera__back" type="button" onClick={onBack}>
+            <button className="body-camera__back" type="button" onClick={handleBack}>
               <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />
               <span>戻る</span>
             </button>
@@ -1251,6 +1306,7 @@ export function BodyExperiment({
               className="body-camera__switch"
               type="button"
               onClick={switchCamera}
+              disabled={countdown !== null}
               aria-label={
                 cameraFacingMode === "user" ? "背面カメラに切り替え" : "前面カメラに切り替え"
               }
@@ -1258,7 +1314,17 @@ export function BodyExperiment({
               <SwitchCamera size={19} strokeWidth={1.8} aria-hidden="true" />
             </button>
           )}
-          {status === "ready" && (
+          {countdown !== null && (
+            <div
+              className="body-camera__countdown"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {countdown}
+            </div>
+          )}
+          {status === "ready" && countdown === null && (
             <div className="body-camera__guide">
               <span>動きで表してみてください</span>
             </div>
@@ -1306,12 +1372,12 @@ export function BodyExperiment({
                   </button>
                 )}
                 {status === "loading" && <span>カメラを準備しています…</span>}
-                {status === "ready" && (
+                {status === "ready" && countdown === null && (
                   <div className="body-record-control">
                     <button
                       className="body-record-control__button"
                       type="button"
-                      onClick={startCapture}
+                      onClick={beginCountdown}
                       aria-label="3秒の動きを始める"
                     >
                       <span aria-hidden="true" />
