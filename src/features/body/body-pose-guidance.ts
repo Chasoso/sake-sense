@@ -7,6 +7,58 @@ import {
 
 export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
+export const BODY_HYBRID_CONTOUR_COLOR = "#ead7a0";
+export const BODY_HYBRID_CONTOUR_STYLE = {
+  outerGlowOpacity: 0.32,
+  outerGlowWidthScale: 3.2,
+  outerCoreOpacity: 0.7,
+  outerCoreWidthScale: 0.8,
+  outerCoreStrokeWidth: 0.8,
+  innerOpacity: 0.58,
+  innerWidthScale: 0.9,
+  innerStrokeWidth: 1,
+  glowBlurPx: 10,
+} as const;
+
+export type BodyHybridHaloVariant = {
+  id: "subtle" | "balanced" | "luminous";
+  label: string;
+  outerGlowOpacity: number;
+  outerGlowWidthScale: number;
+  glowBlurPx: number;
+  outerCoreOpacity: number;
+  outerCoreWidthScale: number;
+};
+
+export const BODY_HYBRID_HALO_VARIANTS: readonly BodyHybridHaloVariant[] = [
+  {
+    id: "subtle",
+    label: "Halo A · Subtle",
+    outerGlowOpacity: 0.24,
+    outerGlowWidthScale: 2.8,
+    glowBlurPx: 6,
+    outerCoreOpacity: 0.76,
+    outerCoreWidthScale: 0.9,
+  },
+  {
+    id: "balanced",
+    label: "Halo B · Balanced",
+    outerGlowOpacity: 0.32,
+    outerGlowWidthScale: 3.2,
+    glowBlurPx: 10,
+    outerCoreOpacity: 0.7,
+    outerCoreWidthScale: 0.8,
+  },
+  {
+    id: "luminous",
+    label: "Halo C · Luminous",
+    outerGlowOpacity: 0.42,
+    outerGlowWidthScale: 4,
+    glowBlurPx: 14,
+    outerCoreOpacity: 0.62,
+    outerCoreWidthScale: 0.7,
+  },
+];
 
 export type PoseGuidanceVariantId = "subtle-arms" | "subtle-arms-torso" | "subtle-arms-torso-face";
 
@@ -45,12 +97,12 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
   "subtle-arms-torso-face": {
     id: "subtle-arms-torso-face",
     label: "subtle arms + torso + face direction",
-    opacity: 0.22,
-    strokeWidth: 1.1,
+    opacity: 0.18,
+    strokeWidth: 1.25,
     includesUpperBodyTorso: true,
     includesFace: true,
-    faceOpacity: 0.12,
-    faceStrokeWidth: 0.75,
+    faceOpacity: 0.09,
+    faceStrokeWidth: 0.85,
   },
 };
 
@@ -167,6 +219,84 @@ export type PoseGuidanceCurveSegment = PoseGuidanceSegment & {
   control: { x: number; y: number };
   kind: "body" | "face";
 };
+
+export type BodyHybridDisplaySnapshot = {
+  outerContour: Array<{ x: number; y: number }>;
+  innerContours: Array<Array<{ x: number; y: number }>>;
+  poseCurves: PoseGuidanceCurveSegment[];
+};
+
+export type BodyHybridReplayFrame = {
+  t: number;
+  outerContour: Array<{ x: number; y: number }>;
+  innerContours: Array<Array<{ x: number; y: number }>>;
+};
+
+function scaleContourPoint(
+  point: { x: number; y: number },
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  return { x: (point.x / width) * 320, y: (point.y / height) * 160 };
+}
+
+function scalePosePoint(point: { x: number; y: number }): { x: number; y: number } {
+  return { x: point.x * 320, y: point.y * 160 };
+}
+
+/** Creates only transient, normalized display geometry for live-to-waiting handoff. */
+export function createBodyHybridDisplaySnapshot(
+  outerContour: readonly { x: number; y: number }[],
+  innerContours: readonly (readonly { x: number; y: number }[])[],
+  landmarks: readonly BodyLandmark[] | null | undefined,
+  maskWidth: number,
+  maskHeight: number,
+): BodyHybridDisplaySnapshot {
+  const poseCurves = getPoseGuidanceCurveSegments(landmarks, "subtle-arms-torso-face").map(
+    ({ from, control, to, kind }) => ({
+      from: scalePosePoint(from),
+      control: scalePosePoint(control),
+      to: scalePosePoint(to),
+      kind,
+    }),
+  );
+  return {
+    outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    innerContours: innerContours.map((contour) =>
+      contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    ),
+    poseCurves,
+  };
+}
+
+/** Creates one local, presentation-only contour frame for Body replay. */
+export function createBodyHybridReplayFrame(
+  t: number,
+  outerContour: readonly { x: number; y: number }[],
+  innerContours: readonly (readonly { x: number; y: number }[])[],
+  maskWidth: number,
+  maskHeight: number,
+): BodyHybridReplayFrame {
+  return {
+    t,
+    outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    innerContours: innerContours.map((contour) =>
+      contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
+    ),
+  };
+}
+
+export function getBodyHybridReplayFrame(
+  frames: readonly BodyHybridReplayFrame[],
+  elapsedMs: number,
+): BodyHybridReplayFrame | null {
+  if (!frames.length || !Number.isFinite(elapsedMs)) return null;
+  if (elapsedMs <= frames[0].t) return frames[0];
+  for (let index = frames.length - 1; index >= 0; index -= 1) {
+    if (elapsedMs >= frames[index].t) return frames[index];
+  }
+  return frames[0];
+}
 
 export function getPoseGuidanceCurveSegments(
   landmarks: readonly BodyLandmark[] | null | undefined,

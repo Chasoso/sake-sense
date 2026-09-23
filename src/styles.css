@@ -430,6 +430,10 @@ h4 {
   inset: 0;
 }
 
+.body-camera > canvas.body-camera__live-overlay {
+  object-fit: fill;
+}
+
 .body-camera > span {
   position: absolute;
   inset: 50% 1rem auto;
@@ -1174,6 +1178,46 @@ input {
 .expression-transform__body-skeleton {
   stroke: var(--gold);
   stroke-width: 1.5;
+}
+
+.expression-transform__body-hybrid-outer {
+  fill: none;
+  stroke: var(--body-hybrid-contour-color);
+  stroke-width: var(--body-hybrid-outer-core-width);
+  opacity: var(--body-hybrid-outer-core-opacity);
+}
+
+.expression-transform__body-hybrid-outer-glow {
+  fill: none;
+  stroke: var(--body-hybrid-contour-color);
+  stroke-width: var(--body-hybrid-outer-glow-width);
+  opacity: var(--body-hybrid-outer-glow-opacity);
+  filter: drop-shadow(0 0 var(--body-hybrid-outer-glow-blur) var(--body-hybrid-contour-color));
+}
+
+.expression-transform__body-hybrid-inner {
+  fill: none;
+  stroke: var(--body-hybrid-contour-color);
+  stroke-width: var(--body-hybrid-inner-width);
+  opacity: var(--body-hybrid-inner-opacity);
+}
+
+.expression-transform__body-hybrid-body {
+  fill: none;
+  stroke: var(--body-hybrid-guidance-color);
+  stroke-width: var(--body-hybrid-body-stroke-width);
+  opacity: var(--body-hybrid-body-opacity);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.expression-transform__body-hybrid-face {
+  fill: none;
+  stroke: var(--body-hybrid-guidance-color);
+  stroke-width: var(--body-hybrid-face-stroke-width);
+  opacity: var(--body-hybrid-face-opacity);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .expression-transform__body-joint {

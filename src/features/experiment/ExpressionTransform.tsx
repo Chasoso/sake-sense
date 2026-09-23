@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
+import {
+  BODY_HYBRID_CONTOUR_COLOR,
+  BODY_HYBRID_CONTOUR_STYLE,
+  POSE_GUIDANCE_COLOR,
+  POSE_GUIDANCE_STYLES,
+  type BodyHybridDisplaySnapshot,
+} from "../body/body-pose-guidance";
 import {
   createSyntheticWavePath,
   type SyntheticWavePoint,
@@ -7,7 +14,6 @@ import {
 } from "../../domain/voice";
 import {
   getBodyDisplayWords,
-  getBodySkeletonGeometry,
   getBodyDissolveOpacity,
   getBodyAbsorbedPoint,
   getBodyLightProgress,
@@ -26,6 +32,7 @@ type ExpressionTransformProps =
       frames: BodyPoseFrame[];
       presentation?: "body-screen";
       decorative?: boolean;
+      hybridSnapshot?: BodyHybridDisplaySnapshot | null;
       waveHistory?: never;
       voiceFeatures?: never;
     }
@@ -45,8 +52,19 @@ function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
   return "ことばの入口へ";
 }
 
+function absorbedContourPath(contour: Array<{ x: number; y: number }>, progress: number): string {
+  return contour
+    .map((point, index) => {
+      const absorbed = getBodyAbsorbedPoint(point, progress);
+      return `${index === 0 ? "M" : "L"} ${absorbed.x.toFixed(1)} ${absorbed.y.toFixed(1)}`;
+    })
+    .concat("Z")
+    .join(" ");
+}
+
 export function ExpressionTransform(props: ExpressionTransformProps) {
   const [elapsed, setElapsed] = useState(0);
+  const bodyHybridMaskId = useId().replace(/:/g, "");
   useEffect(() => {
     const startedAt = performance.now();
     let frame = 0;
@@ -68,7 +86,27 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         : getVoiceIntermediateWords(props.features),
     [props.mode, props.features],
   );
-  const bodySkeleton = props.mode === "body" ? getBodySkeletonGeometry(props.frames) : null;
+  const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
+  const bodyHybridOuterPath =
+    bodyHybrid && bodyHybrid.outerContour.length > 1
+      ? absorbedContourPath(bodyHybrid.outerContour, progress)
+      : "";
+  const bodyHybridStyle = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
+  const bodyHybridStyleVariables = {
+    "--body-hybrid-contour-color": BODY_HYBRID_CONTOUR_COLOR,
+    "--body-hybrid-guidance-color": POSE_GUIDANCE_COLOR,
+    "--body-hybrid-body-opacity": bodyHybridStyle.opacity,
+    "--body-hybrid-body-stroke-width": bodyHybridStyle.strokeWidth,
+    "--body-hybrid-face-opacity": bodyHybridStyle.faceOpacity,
+    "--body-hybrid-face-stroke-width": bodyHybridStyle.faceStrokeWidth,
+    "--body-hybrid-outer-core-opacity": BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
+    "--body-hybrid-outer-core-width": BODY_HYBRID_CONTOUR_STYLE.outerCoreStrokeWidth,
+    "--body-hybrid-outer-glow-width": BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
+    "--body-hybrid-outer-glow-blur": `${BODY_HYBRID_CONTOUR_STYLE.glowBlurPx}px`,
+    "--body-hybrid-outer-glow-opacity": BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+    "--body-hybrid-inner-opacity": BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
+    "--body-hybrid-inner-width": BODY_HYBRID_CONTOUR_STYLE.innerStrokeWidth,
+  } as CSSProperties;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);
   const bodyOpacity = getBodyDissolveOpacity(progress);
@@ -82,6 +120,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
       aria-busy="true"
       aria-hidden={props.decorative}
       aria-labelledby={`${props.mode}-transform-title`}
+      style={props.mode === "body" ? bodyHybridStyleVariables : undefined}
     >
       <div className="expression-transform__heading">
         {bodyScreen && (
@@ -97,6 +136,21 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
             <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="presentation">
+              {bodyHybridOuterPath && (
+                <defs>
+                  <mask
+                    id={bodyHybridMaskId}
+                    maskUnits="userSpaceOnUse"
+                    x="0"
+                    y="0"
+                    width="320"
+                    height="160"
+                  >
+                    <rect width="320" height="160" fill="white" />
+                    <path d={bodyHybridOuterPath} fill="black" />
+                  </mask>
+                </defs>
+              )}
               <circle
                 className="expression-transform__body-light"
                 cx="160"
@@ -108,31 +162,44 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                 }}
               />
               <g className="expression-transform__body-dissolve" style={{ opacity: bodyOpacity }}>
-                {bodySkeleton?.skeletonSegments.map((segment, index) => {
-                  const start = getBodyAbsorbedPoint(segment.start, progress);
-                  const end = getBodyAbsorbedPoint(segment.end, progress);
-                  return (
-                    <path
-                      className="expression-transform__body-skeleton"
-                      d={`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`}
-                      key={`segment-${index}`}
-                    />
-                  );
-                })}
-                {bodySkeleton?.skeletonPoints.map((point, index) =>
-                  (() => {
-                    const absorbedPoint = getBodyAbsorbedPoint(point, progress);
-                    return (
-                      <circle
-                        className="expression-transform__body-joint"
-                        cx={absorbedPoint.x}
-                        cy={absorbedPoint.y}
-                        key={`${point.x}-${point.y}-${index}`}
-                        r="3.5"
+                {bodyHybrid ? (
+                  <>
+                    {bodyHybridOuterPath && (
+                      <path
+                        className="expression-transform__body-hybrid-outer-glow"
+                        d={bodyHybridOuterPath}
+                        mask={`url(#${bodyHybridMaskId})`}
                       />
-                    );
-                  })(),
-                )}
+                    )}
+                    {bodyHybridOuterPath && (
+                      <path
+                        className="expression-transform__body-hybrid-outer"
+                        d={bodyHybridOuterPath}
+                      />
+                    )}
+                    {bodyHybrid.innerContours.map((contour, index) =>
+                      contour.length > 1 ? (
+                        <path
+                          className="expression-transform__body-hybrid-inner"
+                          d={absorbedContourPath(contour, progress)}
+                          key={`inner-${index}`}
+                        />
+                      ) : null,
+                    )}
+                    {bodyHybrid.poseCurves.map(({ from, control, to, kind }, index) => {
+                      const start = getBodyAbsorbedPoint(from, progress);
+                      const bend = getBodyAbsorbedPoint(control, progress);
+                      const end = getBodyAbsorbedPoint(to, progress);
+                      return (
+                        <path
+                          className={`expression-transform__body-hybrid-${kind}`}
+                          d={`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} Q ${bend.x.toFixed(1)} ${bend.y.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`}
+                          key={`pose-${kind}-${index}`}
+                        />
+                      );
+                    })}
+                  </>
+                ) : null}
               </g>
             </svg>
           ) : (

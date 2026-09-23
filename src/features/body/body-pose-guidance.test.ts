@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { BodyLandmark } from "../../domain/body";
 import { BODY_POSE_UPPER_BODY_CONNECTIONS } from "./body-pose-connections";
 import {
+  createBodyHybridDisplaySnapshot,
+  createBodyHybridReplayFrame,
+  getBodyHybridReplayFrame,
   getPoseGuidanceCurveSegments,
   getPoseGuidancePaths,
   getPoseGuidanceSegments,
+  BODY_HYBRID_CONTOUR_STYLE,
   POSE_GUIDANCE_STYLES,
   POSE_GUIDANCE_VISIBILITY_THRESHOLD,
 } from "./body-pose-guidance";
@@ -34,6 +38,49 @@ describe("body pose guidance", () => {
       points.map((point) => indexByPoint.get(`${point.x}:${point.y}`)),
     );
     expect(pairs).toEqual(BODY_POSE_UPPER_BODY_CONNECTIONS);
+  });
+
+  it("creates a derived display snapshot without retaining raw input shape", () => {
+    const source = landmarks();
+    const snapshot = createBodyHybridDisplaySnapshot(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 50 },
+      ],
+      [
+        [
+          { x: 10, y: 20 },
+          { x: 30, y: 40 },
+        ],
+      ],
+      source,
+      100,
+      50,
+    );
+    expect(snapshot.outerContour).toEqual([
+      { x: 0, y: 0 },
+      { x: 320, y: 160 },
+    ]);
+    expect(snapshot.innerContours).toEqual([
+      [
+        { x: 32, y: 64 },
+        { x: 96, y: 128 },
+      ],
+    ]);
+    expect(snapshot.poseCurves.every(({ kind }) => kind === "body" || kind === "face")).toBe(true);
+    expect(snapshot).not.toHaveProperty("landmarks");
+  });
+
+  it("selects time-aligned replay contour geometry without retaining raw frames", () => {
+    const first = createBodyHybridReplayFrame(0, [{ x: 0, y: 0 }], [], 100, 100);
+    const second = createBodyHybridReplayFrame(100, [{ x: 50, y: 50 }], [], 100, 100);
+    const frames = [first, second];
+    expect(getBodyHybridReplayFrame(frames, 0)).toEqual(first);
+    expect(getBodyHybridReplayFrame(frames, 50)).toEqual(first);
+    expect(getBodyHybridReplayFrame(frames, 100)).toEqual(second);
+    expect(getBodyHybridReplayFrame(frames, 150)).toEqual(second);
+    expect(first.outerContour).not.toEqual(second.outerContour);
+    expect(first).not.toHaveProperty("landmarks");
   });
 
   it("keeps upper-body torso guidance when hips are unavailable", () => {
@@ -107,6 +154,20 @@ describe("body pose guidance", () => {
     );
     expect(POSE_GUIDANCE_STYLES["subtle-arms-torso-face"].faceStrokeWidth).toBeLessThan(
       POSE_GUIDANCE_STYLES["subtle-arms-torso"].strokeWidth,
+    );
+  });
+
+  it("keeps the polished hybrid hierarchy in shared style tokens", () => {
+    const hybrid = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
+    expect(hybrid.strokeWidth).toBe(1.25);
+    expect(hybrid.opacity).toBe(0.18);
+    expect(hybrid.faceStrokeWidth).toBe(0.85);
+    expect(hybrid.faceOpacity).toBe(0.09);
+    expect(BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity).toBeLessThan(
+      BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
+    );
+    expect(BODY_HYBRID_CONTOUR_STYLE.innerOpacity).toBeLessThan(
+      BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
     );
   });
 
