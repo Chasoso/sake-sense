@@ -25,8 +25,7 @@ import {
   type VoiceSample,
 } from "../../domain/voice";
 import { clientToViewBoxPoint } from "./coordinate";
-import { presentEvidenceStatus } from "../../domain/sake-product-matching";
-import { humanizeRepresentation, humanizeSignalSource } from "../../domain/translation-trail";
+import { humanizeRepresentation } from "../../domain/translation-trail";
 import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
@@ -34,7 +33,7 @@ import {
 import { ExpressionTransform } from "./ExpressionTransform";
 import {
   getCompactEvidenceLabel,
-  getGestureCandidateSummary,
+  getCandidateDisplaySummary,
   getResultPresentationPolicy,
 } from "./result-presentation";
 
@@ -476,9 +475,7 @@ export function Result({
   const resultTitleRef = useRef<HTMLHeadingElement>(null);
   const isBodyResult = Boolean(result.bodyFeatures);
   const presentation = getResultPresentationPolicy(result, result.candidates.length > 0);
-  const isGestureResultView = presentation.isGesture;
   const sensoryHints = humanizeRepresentation(result.representation);
-  const sensoryExpressions = result.sensoryBridge?.response.sensoryExpressions ?? [];
   const bodyObservations = result.bodyFeatures
     ? humanizeBodyFeatures(result.bodyFeatures).slice(0, 4)
     : [];
@@ -496,7 +493,7 @@ export function Result({
         <p>{presentation.introduction}</p>
       </div>
       <div className="translation-trail" aria-label="表現から日本酒の言葉への流れ">
-        {!isBodyResult && !isGestureResultView && (
+        {!isBodyResult && presentation.modality !== "gesture" && (
           <section className="translation-step translation-step--expression">
             <span className="translation-step__label">あなたの表現</span>
             <strong>
@@ -530,24 +527,6 @@ export function Result({
             )}
           </section>
         )}
-        {result.sensoryBridge && (
-          <>
-            {sensoryExpressions.length > 0 && !isGestureResultView && (
-              <section className="translation-step translation-step--bridge">
-                <span className="translation-step__label">
-                  {isBodyResult ? "この動きから見えた感覚" : "あなたの表現から見えた感覚"}
-                </span>
-                <ul className="translation-hints">
-                  {sensoryExpressions.map((expression) => (
-                    <li key={expression}>
-                      <strong>{expression}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </>
-        )}
         {result.candidates.length > 0 && (
           <>
             <section className="translation-step translation-step--candidate">
@@ -556,38 +535,20 @@ export function Result({
                 {result.candidates.map((candidate) => (
                   <article className="candidate" key={candidate.entry.id}>
                     <div>
-                      {!isGestureResultView && (
-                        <span className="candidate__match">
-                          {candidate.matchedBy === "voice"
-                            ? "この表現とつながった言葉"
-                            : humanizeSignalSource(candidate.matchedBy)}
-                        </span>
-                      )}
                       <h3>{candidate.entry.displayTerm}</h3>
                     </div>
                     <p>
-                      {isGestureResultView
-                        ? getGestureCandidateSummary(
-                            candidate.entry.id,
-                            candidate.entry.definitionSummary,
-                          )
-                        : candidate.entry.definitionSummary}
+                      {getCandidateDisplaySummary(
+                        candidate.entry.id,
+                        candidate.entry.definitionSummary,
+                      )}
                     </p>
-                    {!isGestureResultView && (
-                      <p className="candidate__why">
-                        {candidate.matchedBy === "voice"
-                          ? "声の特徴から、この言葉と実験的につながりました。"
-                          : candidate.explanation}
-                      </p>
-                    )}
                   </article>
                 ))}
               </div>
-              {isGestureResultView && (
-                <p className="candidate__uncertainty">
-                  ※候補となる言葉であり、味わいを確定するものではありません。
-                </p>
-              )}
+              <p className="candidate__uncertainty">
+                ※候補となる言葉であり、味わいを確定するものではありません。
+              </p>
             </section>
           </>
         )}
@@ -604,32 +565,17 @@ export function Result({
                 <h4>{match.product.name}</h4>
                 <p className="sake-product__producer">{match.product.breweryName}</p>
                 <p>{match.product.descriptionSummary}</p>
-                {!isGestureResultView && (
-                  <p className="sake-product__why">
-                    この商品は、候補語とterm参照が重なるため表示しています。
-                  </p>
-                )}
                 <ul className="sake-product__evidence">
                   {match.matchedReferences.map((reference) => {
                     const term = result.candidates.find(
                       (candidate) => candidate.entry.id === reference.termId,
                     )?.entry.displayTerm;
-                    const evidence = presentEvidenceStatus(reference.evidenceStatus);
                     return (
                       <li key={reference.termId}>
-                        {isGestureResultView ? (
-                          <p className="sake-product__evidence-compact">
-                            <strong>{term ?? "対応する日本酒の言葉"}</strong>
-                            <span> ｜ {getCompactEvidenceLabel(reference.evidenceStatus)}</span>
-                          </p>
-                        ) : (
-                          <>
-                            <strong>{term ?? "対応する日本酒の言葉"}</strong>
-                            <span>{evidence.label}</span>
-                            <p>{evidence.explanation}</p>
-                            <p>{reference.rationale}</p>
-                          </>
-                        )}
+                        <p className="sake-product__evidence-compact">
+                          <strong>{term ?? "対応する日本酒の言葉"}</strong>
+                          <span> ｜ {getCompactEvidenceLabel(reference.evidenceStatus)}</span>
+                        </p>
                       </li>
                     );
                   })}
@@ -638,7 +584,6 @@ export function Result({
                   <a href={match.product.sourceUrl} target="_blank" rel="noreferrer">
                     商品情報（公式）
                   </a>
-                  {!isGestureResultView && <span>{` (${match.product.sourceName})`}</span>}
                 </p>
               </article>
             ))}
@@ -668,6 +613,7 @@ export function Result({
               body: result.bodyFeatures,
               gesture: result.gesture,
               representation: result.representation,
+              candidates: result.candidates,
               sensoryBridge: result.sensoryBridge,
               sakeProducts: result.sakeProducts,
             },

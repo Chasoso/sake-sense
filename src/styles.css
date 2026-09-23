@@ -1682,21 +1682,13 @@ input {
   background: var(--surface);
 }
 
-.candidate__match {
-  display: inline-block;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
 .candidate h3,
 .sake-product h4 {
   margin: 7px 0;
   font-size: 1.18rem;
 }
 
-.candidate__why,
 .candidate__uncertainty,
-.sake-product__why,
 .sake-product__producer,
 .sake-product__source {
   color: var(--muted);

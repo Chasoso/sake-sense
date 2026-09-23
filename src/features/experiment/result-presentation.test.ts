@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getCompactEvidenceLabel,
-  getGestureCandidateSummary,
+  getCandidateDisplaySummary,
   getResultPresentationPolicy,
   isGestureResult,
 } from "./result-presentation";
@@ -24,16 +24,16 @@ describe("result presentation policy", () => {
   });
 
   it("keeps concise user-facing summaries for reviewed Gesture terms", () => {
-    expect(getGestureCandidateSummary("atoaji", "internal fallback")).toBe(
+    expect(getCandidateDisplaySummary("atoaji", "internal fallback")).toBe(
       "飲み込んだ後に残る味わいを表す言葉。",
     );
-    expect(getGestureCandidateSummary("nameraka", "internal fallback")).toBe(
+    expect(getCandidateDisplaySummary("nameraka", "internal fallback")).toBe(
       "口当たりや舌触りが滑らかなことを表す言葉。",
     );
-    expect(getGestureCandidateSummary("marui", "internal fallback")).toBe(
+    expect(getCandidateDisplaySummary("marui", "internal fallback")).toBe(
       "刺激が少なく、丸みのある口当たりを表す言葉。",
     );
-    expect(getGestureCandidateSummary("tanrei", "internal fallback")).toBe(
+    expect(getCandidateDisplaySummary("tanrei", "internal fallback")).toBe(
       "軽快で雑味が少ない味わいを表す言葉。",
     );
   });
@@ -61,8 +61,12 @@ describe("result presentation policy", () => {
     expect(gesture.observedLabel).toBe("感じられた特徴");
     expect(gesture.candidateHeading).toBe("動きから連想される日本酒の言葉");
     expect(body.introduction).not.toContain("指の動きから");
-    expect(body.candidateHeading).toBe("日本酒の言葉で言うと");
+    expect(body.introduction).toBe("身体の動きから、日本酒の言葉への入口を探しました。");
+    expect(body.observedLabel).toBe("感じられた特徴");
+    expect(body.candidateHeading).toBe("動きから連想される日本酒の言葉");
     expect(voice.introduction).not.toContain("指の動きから");
-    expect(voice.observedLabel).toBe("こんな表現でした");
+    expect(voice.introduction).toBe("声の特徴から、日本酒の言葉への入口を探しました。");
+    expect(voice.observedLabel).toBe("感じられた特徴");
+    expect(voice.candidateHeading).toBe("声から連想される日本酒の言葉");
   });
 });
