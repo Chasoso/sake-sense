@@ -64,7 +64,11 @@ export type PoseGuidancePath = {
   kind: "body" | "face";
 };
 
-function isRenderableLandmark(landmark: BodyLandmark | undefined): boolean {
+function isRenderableBodyLandmark(landmark: BodyLandmark | undefined): boolean {
+  return Boolean(landmark && Number.isFinite(landmark.x) && Number.isFinite(landmark.y));
+}
+
+function isRenderableFaceLandmark(landmark: BodyLandmark | undefined): boolean {
   return Boolean(
     landmark &&
       Number.isFinite(landmark.x) &&
@@ -79,7 +83,8 @@ function getPath(
   kind: "body" | "face",
 ): PoseGuidancePath | null {
   const points = indexes.map((index) => landmarks[index]);
-  if (points.some((landmark) => !isRenderableLandmark(landmark))) return null;
+  const isRenderable = kind === "face" ? isRenderableFaceLandmark : isRenderableBodyLandmark;
+  if (points.some((landmark) => !isRenderable(landmark))) return null;
   return {
     points: points.map((landmark) => ({ x: landmark!.x, y: landmark!.y })),
     kind,
@@ -91,9 +96,9 @@ function getFacePaths(landmarks: readonly BodyLandmark[]): PoseGuidancePath[] {
   const mouthLeft = landmarks[9];
   const mouthRight = landmarks[10];
   if (
-    !isRenderableLandmark(nose) ||
-    !isRenderableLandmark(mouthLeft) ||
-    !isRenderableLandmark(mouthRight)
+    !isRenderableFaceLandmark(nose) ||
+    !isRenderableFaceLandmark(mouthLeft) ||
+    !isRenderableFaceLandmark(mouthRight)
   ) {
     return [];
   }

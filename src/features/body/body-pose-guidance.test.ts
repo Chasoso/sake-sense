@@ -45,6 +45,23 @@ describe("body pose guidance", () => {
     expect(getPoseGuidanceSegments(source, "subtle-arms-torso")).toHaveLength(5);
   });
 
+  it("keeps finite body connections when visibility is below the face threshold", () => {
+    const source = landmarks();
+    source[11].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.01;
+    source[12].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.02;
+    source[23].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.03;
+    source[24].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.04;
+    const paths = getPoseGuidancePaths(source, "subtle-arms-torso");
+    expect(paths).toHaveLength(BODY_POSE_UPPER_BODY_CONNECTIONS.length);
+  });
+
+  it("omits only body connections with non-finite coordinates", () => {
+    const source = landmarks();
+    source[23].x = Number.NaN;
+    source[24].y = Number.POSITIVE_INFINITY;
+    expect(getPoseGuidancePaths(source, "subtle-arms-torso")).toHaveLength(5);
+  });
+
   it("omits a segment when either endpoint is missing or below confidence", () => {
     const source = landmarks();
     source[13] = undefined as unknown as BodyLandmark;
