@@ -212,8 +212,8 @@ test("calibrates deterministic Gesture families through the real pointer path", 
   expect(candidateDistribution.get("nameraka") ?? 0).toBeGreaterThan(0);
 
   const dominantCandidateCount = Math.max(...candidateDistribution.values());
-  // The recalibrated screen-coordinate suite produced 18 unmapped, 6 kire,
-  // 5 marui, 4 atoaji, and 3 nameraka results. A 75% ceiling remains a
+  // The recalibrated screen-coordinate suite produced 17 unmapped, 6 kire,
+  // 5 marui, 4 atoaji, and 4 nameraka results. A 75% ceiling remains a
   // deliberately broad pathological-collapse guard, not a class-balance target.
   expect(dominantCandidateCount / results.length).toBeLessThan(0.75);
   expect((candidateDistribution.get("unmapped") ?? 0) / results.length).toBeLessThan(0.75);

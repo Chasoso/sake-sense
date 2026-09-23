@@ -387,7 +387,7 @@ describe("MVP sensory bridge vocabulary boundary", () => {
           pointCount: 12,
           pathLength: 90,
           averageSpeed: 0.1,
-          spread: 170,
+          spread: 80,
           horizontalDirectionChanges: 0,
           endingSpeedRatio: 0.4,
           abruptEnding: false,

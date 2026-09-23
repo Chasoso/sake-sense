@@ -82,8 +82,9 @@ export const sensorySupportCases = sensorySupportCaseDataset.cases;
  * never symbolic shapes or the user's drawing intent.
  */
 export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
-  // These calibrated combinations deliberately separate speed, duration, spread,
-  // and ending observations; no single feature is sufficient for a match.
+  // These reviewed combinations describe movement quality from multiple observed
+  // features; neither ending classification nor a fixture-specific shape is a
+  // semantic requirement for rounded or smooth movement.
   {
     id: "gesture-short-fast-abrupt-clean-fade",
     resultKind: "expression",
@@ -112,11 +113,9 @@ export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
     resultKind: "expression",
     featurePattern: {
       durationMs: { minimum: 700, maximum: 1_300 },
-      pathLength: { minimum: 120 },
-      spread: { minimum: 120 },
-      averageSpeed: { minimum: 0.2 },
+      pathLength: { minimum: 200 },
+      spread: { minimum: 180 },
       horizontalDirectionChanges: { maximum: 2 },
-      abruptEnding: true,
     },
     expressionIds: ["rounded-enveloping"],
   },
@@ -136,7 +135,6 @@ export const gestureSensorySupportCases: readonly GestureSupportCase[] = [
       durationMs: { minimum: 700, maximum: 1_400 },
       pathLength: { minimum: 80 },
       averageSpeed: { minimum: 0.02, maximum: 0.2 },
-      spread: { minimum: 165 },
       horizontalDirectionChanges: { maximum: 1 },
     },
     expressionIds: ["smooth-flow"],

@@ -37,7 +37,7 @@ const gestureInput: GestureFeatures = {
   durationMs: 900,
   pathLength: 90,
   averageSpeed: 0.075,
-  spread: 170,
+  spread: 80,
   horizontalDirectionChanges: 0,
   endingSpeedRatio: 0.5,
   abruptEnding: false,
@@ -61,11 +61,11 @@ const shortFastAbruptInput: GestureFeatures = {
 const broadInput: GestureFeatures = {
   ...gestureInput,
   durationMs: 900,
-  pathLength: 150,
+  pathLength: 220,
   averageSpeed: 0.3,
-  spread: 150,
+  spread: 190,
   endingSpeedRatio: 0.8,
-  abruptEnding: true,
+  abruptEnding: false,
 };
 const compactInput: GestureFeatures = {
   ...gestureInput,
