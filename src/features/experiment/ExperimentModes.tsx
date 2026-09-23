@@ -27,7 +27,7 @@ export function ExperimentModes() {
               感じましたか？
             </h1>
             <p className="start-screen__lead">
-              言葉にしなくても大丈夫です。感じたことを、身体や声で自由に表現してみましょう。
+              言葉にしなくても大丈夫です。感じたことを、身体や声、指の動きで自由に表現してみましょう。
             </p>
             <div className="start-screen__actions" aria-label="表現方法を選ぶ">
               <button
