@@ -29,8 +29,9 @@ import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-lay
 import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
+  isCameraSwitchAccepted,
   isConfirmedCameraSwitchAvailable,
-  isSameEffectiveCamera,
+  isSameCameraDevice,
   shouldMirrorBodyCameraPresentation,
   type CameraFacingMode,
 } from "./body-camera-presentation";
@@ -310,6 +311,7 @@ export function BodyExperiment({
     }
     const requestId = ++cameraRequestIdRef.current;
     const previousFacingMode = cameraFacingMode;
+    const previousPresentationMirrored = cameraPresentationMirrored;
     const previousDeviceId = activeCameraDeviceIdRef.current;
     const previousActualFacingMode = activeCameraFacingModeRef.current;
     setCameraFacingMode(requestedFacingMode);
@@ -341,31 +343,29 @@ export function BodyExperiment({
         actualFacingMode = undefined;
         deviceId = undefined;
       }
-      const effectiveFacingMode =
-        actualFacingMode === "user" || actualFacingMode === "environment"
-          ? actualFacingMode
-          : previousFacingMode;
-      const sameEffectiveCamera =
-        requestedFacingMode !== previousFacingMode &&
-        (isSameEffectiveCamera(previousDeviceId, deviceId, previousFacingMode, actualFacingMode) ||
-          (Boolean(previousActualFacingMode) &&
-            Boolean(actualFacingMode) &&
-            previousActualFacingMode === actualFacingMode));
-      const presentationFacingMode = sameEffectiveCamera ? previousFacingMode : effectiveFacingMode;
+      const sameCameraDevice = isSameCameraDevice(previousDeviceId, deviceId);
+      const switchAccepted = isCameraSwitchAccepted(
+        previousFacingMode,
+        requestedFacingMode,
+        previousActualFacingMode,
+        actualFacingMode,
+        sameCameraDevice,
+      );
       setCameraPresentationMirrored(
-        shouldMirrorBodyCameraPresentation(presentationFacingMode, requestedFacingMode),
+        switchAccepted
+          ? shouldMirrorBodyCameraPresentation(actualFacingMode)
+          : cameraPresentationMirrored,
       );
       const videoInputCount = await getVideoInputCount();
       setHasMultipleCameras(
-        !sameEffectiveCamera && isConfirmedCameraSwitchAvailable(videoInputCount, actualFacingMode),
+        switchAccepted && isConfirmedCameraSwitchAvailable(videoInputCount, actualFacingMode),
       );
-      if (sameEffectiveCamera) setCameraFacingMode(previousFacingMode);
+      if (!switchAccepted) setCameraFacingMode(previousFacingMode);
       activeCameraDeviceIdRef.current = deviceId;
-      activeCameraFacingModeRef.current = sameEffectiveCamera
-        ? previousActualFacingMode
-        : actualFacingMode === "user" || actualFacingMode === "environment"
+      activeCameraFacingModeRef.current =
+        actualFacingMode === "user" || actualFacingMode === "environment"
           ? actualFacingMode
-          : previousFacingMode;
+          : undefined;
       const landmarker = await (segmentationSpike
         ? createBodySegmentationSpikeLandmarker()
         : createBodyPoseLandmarker());
@@ -380,9 +380,7 @@ export function BodyExperiment({
       if (requestId !== cameraRequestIdRef.current) return;
       stopCapture();
       setCameraFacingMode(previousFacingMode);
-      setCameraPresentationMirrored(
-        shouldMirrorBodyCameraPresentation(undefined, previousFacingMode),
-      );
+      setCameraPresentationMirrored(previousPresentationMirrored);
       setStatus("denied");
       setError("カメラを利用できませんでした。既存のEXP-002入力を使えます。");
     }

@@ -3,8 +3,9 @@ import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
   getBodyCameraPresentationTransform,
+  isCameraSwitchAccepted,
   isConfirmedCameraSwitchAvailable,
-  isSameEffectiveCamera,
+  isSameCameraDevice,
   shouldMirrorBodyCameraPresentation,
 } from "./body-camera-presentation";
 
@@ -21,10 +22,9 @@ describe("body camera presentation coordinates", () => {
   });
 
   it("mirrors user cameras and desktop fallbacks, but not environment cameras", () => {
-    expect(shouldMirrorBodyCameraPresentation("user", "environment")).toBe(true);
-    expect(shouldMirrorBodyCameraPresentation("environment", "user")).toBe(false);
-    expect(shouldMirrorBodyCameraPresentation(undefined, "user")).toBe(true);
-    expect(shouldMirrorBodyCameraPresentation(undefined, "environment")).toBe(false);
+    expect(shouldMirrorBodyCameraPresentation("user")).toBe(true);
+    expect(shouldMirrorBodyCameraPresentation("environment")).toBe(false);
+    expect(shouldMirrorBodyCameraPresentation(undefined)).toBe(true);
   });
 
   it("does not expose switching for an unclassified single desktop webcam", () => {
@@ -34,8 +34,15 @@ describe("body camera presentation coordinates", () => {
   });
 
   it("recognizes an ineffective switch when the effective camera is unchanged", () => {
-    expect(isSameEffectiveCamera("camera-1", "camera-1", "user", "user")).toBe(true);
-    expect(isSameEffectiveCamera(undefined, undefined, "user", undefined)).toBe(false);
-    expect(isSameEffectiveCamera("camera-1", "camera-2", "user", "environment")).toBe(false);
+    expect(isSameCameraDevice("camera-1", "camera-1")).toBe(true);
+    expect(isSameCameraDevice(undefined, undefined)).toBe(false);
+    expect(isSameCameraDevice("camera-1", "camera-2")).toBe(false);
+  });
+
+  it("accepts only a verified change to the requested facing role", () => {
+    expect(isCameraSwitchAccepted("user", "environment", "user", "user", false)).toBe(false);
+    expect(isCameraSwitchAccepted("user", "environment", "user", undefined, false)).toBe(false);
+    expect(isCameraSwitchAccepted("user", "environment", "user", "environment", true)).toBe(false);
+    expect(isCameraSwitchAccepted("user", "environment", "user", "environment", false)).toBe(true);
   });
 });
