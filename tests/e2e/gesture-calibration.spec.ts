@@ -101,10 +101,11 @@ async function drawSample(page: import("@playwright/test").Page, sample: Synthet
     await pointerEvent("pointermove", point);
   }
   const lastPoint = sample.points.at(-1) ?? first;
-  await pointerEvent("pointerup", {
+  const finishPoint = {
     x: lastPoint.x + (sample.finishOffset?.x ?? 0),
     y: lastPoint.y + (sample.finishOffset?.y ?? 0),
-  });
+  };
+  await pointerEvent("pointerup", toScreen(finishPoint));
   await expect(page.locator(".gesture-actions .button--primary")).toBeEnabled();
   await page.locator(".gesture-actions .button--primary").click();
   const diagnostics = page.getByTestId("gesture-calibration-diagnostics");
@@ -204,8 +205,8 @@ test("calibrates deterministic Gesture families through the real pointer path", 
   expect(supportCaseCoverage.get("gesture-smooth-continuous-flow")).toBeGreaterThan(0);
 
   const dominantCandidateCount = Math.max(...candidateDistribution.values());
-  // The measured pre-guard suite produced 18 unmapped and 17 marui results. A
-  // 75% ceiling preserves that observed variation while catching a future
+  // The corrected screen-coordinate suite produced 23 unmapped and 11 marui
+  // results. A 75% ceiling preserves that observed variation while catching a future
   // single-result or near-single-result collapse across distinct families.
   expect(dominantCandidateCount / results.length).toBeLessThan(0.75);
   expect((candidateDistribution.get("unmapped") ?? 0) / results.length).toBeLessThan(0.75);
