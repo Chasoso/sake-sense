@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import type { BodyMovementFeatures, BodyPoseFrame } from "../../domain/body";
 import {
   BODY_HYBRID_CONTOUR_COLOR,
@@ -64,6 +64,7 @@ function absorbedContourPath(contour: Array<{ x: number; y: number }>, progress:
 
 export function ExpressionTransform(props: ExpressionTransformProps) {
   const [elapsed, setElapsed] = useState(0);
+  const bodyHybridMaskId = useId().replace(/:/g, "");
   useEffect(() => {
     const startedAt = performance.now();
     let frame = 0;
@@ -86,6 +87,10 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     [props.mode, props.features],
   );
   const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
+  const bodyHybridOuterPath =
+    bodyHybrid && bodyHybrid.outerContour.length > 1
+      ? absorbedContourPath(bodyHybrid.outerContour, progress)
+      : "";
   const bodyHybridStyle = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
   const bodyHybridStyleVariables = {
     "--body-hybrid-contour-color": BODY_HYBRID_CONTOUR_COLOR,
@@ -96,6 +101,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     "--body-hybrid-face-stroke-width": bodyHybridStyle.faceStrokeWidth,
     "--body-hybrid-outer-core-opacity": BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
     "--body-hybrid-outer-core-width": BODY_HYBRID_CONTOUR_STYLE.outerCoreStrokeWidth,
+    "--body-hybrid-outer-glow-width": BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
     "--body-hybrid-outer-glow-blur": `${BODY_HYBRID_CONTOUR_STYLE.glowBlurPx}px`,
     "--body-hybrid-outer-glow-opacity": BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
     "--body-hybrid-inner-opacity": BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
@@ -130,6 +136,21 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
             <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="presentation">
+              {bodyHybridOuterPath && (
+                <defs>
+                  <mask
+                    id={bodyHybridMaskId}
+                    maskUnits="userSpaceOnUse"
+                    x="0"
+                    y="0"
+                    width="320"
+                    height="160"
+                  >
+                    <rect width="320" height="160" fill="white" />
+                    <path d={bodyHybridOuterPath} fill="black" />
+                  </mask>
+                </defs>
+              )}
               <circle
                 className="expression-transform__body-light"
                 cx="160"
@@ -143,10 +164,17 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
               <g className="expression-transform__body-dissolve" style={{ opacity: bodyOpacity }}>
                 {bodyHybrid ? (
                   <>
-                    {bodyHybrid.outerContour.length > 1 && (
+                    {bodyHybridOuterPath && (
+                      <path
+                        className="expression-transform__body-hybrid-outer-glow"
+                        d={bodyHybridOuterPath}
+                        mask={`url(#${bodyHybridMaskId})`}
+                      />
+                    )}
+                    {bodyHybridOuterPath && (
                       <path
                         className="expression-transform__body-hybrid-outer"
-                        d={absorbedContourPath(bodyHybrid.outerContour, progress)}
+                        d={bodyHybridOuterPath}
                       />
                     )}
                     {bodyHybrid.innerContours.map((contour, index) =>

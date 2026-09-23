@@ -1185,9 +1185,14 @@ input {
   stroke: var(--body-hybrid-contour-color);
   stroke-width: var(--body-hybrid-outer-core-width);
   opacity: var(--body-hybrid-outer-core-opacity);
-  filter: drop-shadow(
-    0 0 var(--body-hybrid-outer-glow-blur) rgb(234 215 160 / var(--body-hybrid-outer-glow-opacity))
-  );
+}
+
+.expression-transform__body-hybrid-outer-glow {
+  fill: none;
+  stroke: var(--body-hybrid-contour-color);
+  stroke-width: var(--body-hybrid-outer-glow-width);
+  opacity: var(--body-hybrid-outer-glow-opacity);
+  filter: drop-shadow(0 0 var(--body-hybrid-outer-glow-blur) var(--body-hybrid-contour-color));
 }
 
 .expression-transform__body-hybrid-inner {

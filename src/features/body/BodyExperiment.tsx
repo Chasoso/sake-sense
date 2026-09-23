@@ -125,41 +125,104 @@ function drawHybridGeometryCanvas(
   if (!context) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (!geometry) return;
-  const drawContour = (points: readonly { x: number; y: number }[], opacity: number) => {
-    if (points.length < 2) return;
-    context.globalAlpha = opacity;
-    context.beginPath();
-    points.forEach((point, index) => {
-      const x = (point.x / 320) * canvas.width;
-      const y = (point.y / 160) * canvas.height;
-      if (index === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    });
-    context.closePath();
-    context.stroke();
-  };
+  const toCanvasPoints = (points: readonly { x: number; y: number }[]) =>
+    points.map((point) => ({
+      x: (point.x / 320) * canvas.width,
+      y: (point.y / 160) * canvas.height,
+    }));
   context.save();
   context.strokeStyle = BODY_HYBRID_CONTOUR_COLOR;
   context.lineCap = "round";
   context.lineJoin = "round";
-  context.shadowColor = `rgba(234, 215, 160, ${BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity})`;
-  context.shadowBlur = BODY_HYBRID_CONTOUR_STYLE.glowBlurPx;
-  context.lineWidth = Math.max(
-    1,
-    (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
+  const outer = toCanvasPoints(geometry.outerContour);
+  const inner = geometry.innerContours.map(toCanvasPoints);
+  drawOuterOnlyHalo(
+    context,
+    outer,
+    BODY_HYBRID_CONTOUR_COLOR,
+    Math.max(1, (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale),
+    BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+    BODY_HYBRID_CONTOUR_STYLE.glowBlurPx,
   );
-  drawContour(geometry.outerContour, BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity);
-  context.shadowColor = "transparent";
+  drawContourStrokes(
+    context,
+    [outer],
+    BODY_HYBRID_CONTOUR_COLOR,
+    Math.max(1, (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale),
+    BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
+  );
+  drawContourStrokes(
+    context,
+    inner,
+    BODY_HYBRID_CONTOUR_COLOR,
+    Math.max(1, (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.innerStrokeWidth),
+    BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
+  );
+  context.restore();
+}
+
+type CanvasContourPoint = { x: number; y: number };
+
+function drawContourStrokes(
+  context: CanvasRenderingContext2D,
+  contours: readonly (readonly CanvasContourPoint[])[],
+  color: string,
+  lineWidth: number,
+  opacity: number,
+): void {
+  context.save();
+  context.globalAlpha = opacity;
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  contours.forEach((contour) => {
+    if (contour.length < 2) return;
+    context.beginPath();
+    contour.forEach((point, index) => {
+      if (index === 0) context.moveTo(point.x, point.y);
+      else context.lineTo(point.x, point.y);
+    });
+    context.closePath();
+    context.stroke();
+  });
+  context.restore();
+}
+
+function drawOuterOnlyHalo(
+  context: CanvasRenderingContext2D,
+  contour: readonly CanvasContourPoint[],
+  color: string,
+  lineWidth: number,
+  opacity: number,
+  blur: number,
+): void {
+  if (contour.length < 2) return;
+  context.save();
+  context.globalAlpha = opacity;
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.shadowColor = color;
+  context.shadowBlur = blur;
+  context.beginPath();
+  contour.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
+  context.closePath();
+  context.stroke();
+  context.globalCompositeOperation = "destination-out";
+  context.globalAlpha = 1;
   context.shadowBlur = 0;
-  context.lineWidth = Math.max(
-    1,
-    (canvas.width / 320) * BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale,
-  );
-  drawContour(geometry.outerContour, BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity);
-  context.lineWidth = Math.max(1, (canvas.width / 320) * 1);
-  geometry.innerContours.forEach((contour) =>
-    drawContour(contour, BODY_HYBRID_CONTOUR_STYLE.innerOpacity),
-  );
+  context.beginPath();
+  contour.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
+  context.closePath();
+  context.fill();
   context.restore();
 }
 
@@ -198,42 +261,15 @@ function projectLiveLandmarks(
   });
 }
 
-function drawLiveContours(
-  context: CanvasRenderingContext2D,
-  contours: readonly (readonly { x: number; y: number }[])[],
-  sourceWidth: number,
-  sourceHeight: number,
+function projectViewportPointsToCanvas(
+  points: readonly { x: number; y: number }[],
   canvas: HTMLCanvasElement,
-  color: string,
-  lineWidthScale = 1,
-  clear = true,
-  opacity = 1,
+  viewport: { width: number; height: number },
 ) {
-  const viewport = getLiveOverlayViewport(canvas);
-  const transform = getObjectFitCoverTransform(
-    sourceWidth,
-    sourceHeight,
-    viewport.width,
-    viewport.height,
-  );
-  const projectedContours = contours.map((contour) =>
-    projectLiveContour(contour, sourceWidth, sourceHeight, transform),
-  );
-  context.save();
-  context.globalAlpha = opacity;
-  const count = drawContours(
-    context,
-    projectedContours,
-    canvas.width,
-    canvas.height,
-    color,
-    viewport.width,
-    viewport.height,
-    lineWidthScale,
-    clear,
-  );
-  context.restore();
-  return count;
+  return points.map((point) => ({
+    x: (point.x / viewport.width) * canvas.width,
+    y: (point.y / viewport.height) * canvas.height,
+  }));
 }
 
 export function BodyExperiment({
@@ -728,37 +764,38 @@ export function BodyExperiment({
               viewport.height,
             );
             context.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-            drawLiveContours(
-              context,
-              stabilization.contour ? [stabilization.contour] : [],
-              mask.width,
-              mask.height,
+            const outer = projectViewportPointsToCanvas(
+              projectLiveContour(stabilization.contour ?? [], mask.width, mask.height, transform),
               liveCanvas,
-              BODY_HYBRID_CONTOUR_COLOR,
-              BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
-              true,
-              BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+              viewport,
             );
-            drawLiveContours(
+            const inner = innerContours.map((contour) =>
+              projectViewportPointsToCanvas(
+                projectLiveContour(contour, mask.width, mask.height, transform),
+                liveCanvas,
+                viewport,
+              ),
+            );
+            drawOuterOnlyHalo(
               context,
-              stabilization.contour ? [stabilization.contour] : [],
-              mask.width,
-              mask.height,
-              liveCanvas,
+              outer,
               BODY_HYBRID_CONTOUR_COLOR,
-              BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale,
-              false,
+              (liveCanvas.width / 180) * BODY_HYBRID_CONTOUR_STYLE.outerGlowWidthScale,
+              BODY_HYBRID_CONTOUR_STYLE.outerGlowOpacity,
+              BODY_HYBRID_CONTOUR_STYLE.glowBlurPx,
+            );
+            drawContourStrokes(
+              context,
+              [outer],
+              BODY_HYBRID_CONTOUR_COLOR,
+              (liveCanvas.width / 180) * BODY_HYBRID_CONTOUR_STYLE.outerCoreWidthScale,
               BODY_HYBRID_CONTOUR_STYLE.outerCoreOpacity,
             );
-            drawLiveContours(
+            drawContourStrokes(
               context,
-              innerContours,
-              mask.width,
-              mask.height,
-              liveCanvas,
-              `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
-              BODY_HYBRID_CONTOUR_STYLE.innerWidthScale,
-              false,
+              inner,
+              BODY_HYBRID_CONTOUR_COLOR,
+              (liveCanvas.width / 180) * BODY_HYBRID_CONTOUR_STYLE.innerWidthScale,
               BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
             );
             drawPoseGuidance(
