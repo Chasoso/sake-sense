@@ -22,6 +22,10 @@ import {
 } from "../../experiments/motion-representation/real-capture-diagnostics";
 import { getBodyCaptureLayout, type BodyCaptureStatus } from "./body-capture-layout";
 import {
+  createBodyCaptureCountdownScheduler,
+  type BodyCaptureCountdown,
+} from "./body-capture-countdown";
+import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
   isCameraSwitchAccepted,
@@ -391,6 +395,7 @@ export function BodyExperiment({
   onBack: () => void;
 }) {
   const [status, setStatus] = useState<BodyCaptureStatus>("idle");
+  const [countdown, setCountdown] = useState<BodyCaptureCountdown>(null);
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [error, setError] = useState("");
@@ -444,6 +449,10 @@ export function BodyExperiment({
   const cameraRequestIdRef = useRef(0);
   const activeCameraDeviceIdRef = useRef<string | undefined>(undefined);
   const activeCameraFacingModeRef = useRef<CameraFacingMode | undefined>(undefined);
+  const countdownSchedulerRef = useRef<ReturnType<
+    typeof createBodyCaptureCountdownScheduler
+  > | null>(null);
+  const startActualCaptureRef = useRef<() => void>(() => undefined);
   const [segmentationMetrics, setSegmentationMetrics] = useState<SegmentationSpikeMetrics | null>(
     null,
   );
@@ -478,6 +487,7 @@ export function BodyExperiment({
     stopCameraStream();
     closePoseLandmarker();
     resetDisplayedContour();
+    countdownSchedulerRef.current?.cancel();
   };
 
   const stopReplay = () => {
@@ -587,6 +597,7 @@ export function BodyExperiment({
     setIsAnalyzing(false);
     setError("");
     resetDisplayedContour();
+    countdownSchedulerRef.current?.cancel();
   };
 
   const getVideoInputCount = async (): Promise<number> => {
@@ -679,7 +690,7 @@ export function BodyExperiment({
   };
 
   const switchCamera = () => {
-    if (status === "capturing" || status === "loading") return;
+    if (status === "capturing" || status === "loading" || countdown !== null) return;
     const nextFacingMode: CameraFacingMode = cameraFacingMode === "user" ? "environment" : "user";
     void prepareCamera(nextFacingMode);
   };
@@ -1088,7 +1099,7 @@ export function BodyExperiment({
     animationRef.current = requestAnimationFrame(sample);
   };
 
-  const startCapture = () => {
+  const startActualCapture = () => {
     if (status !== "ready" || !landmarkerRef.current) return;
     resetDisplayedContour();
     stopReplay();
@@ -1115,6 +1126,28 @@ export function BodyExperiment({
     setStatus("capturing");
     startedAtRef.current = performance.now();
     animationRef.current = requestAnimationFrame(sample);
+  };
+
+  useEffect(() => {
+    const scheduler = createBodyCaptureCountdownScheduler(setCountdown, () =>
+      startActualCaptureRef.current(),
+    );
+    countdownSchedulerRef.current = scheduler;
+    return () => {
+      scheduler.cancel();
+      countdownSchedulerRef.current = null;
+    };
+  }, []);
+
+  const beginCountdown = () => {
+    if (status !== "ready" || !landmarkerRef.current) return;
+    startActualCaptureRef.current = startActualCapture;
+    countdownSchedulerRef.current?.begin();
+  };
+
+  const handleBack = () => {
+    countdownSchedulerRef.current?.cancel();
+    onBack();
   };
 
   const retry = () => {
@@ -1241,7 +1274,7 @@ export function BodyExperiment({
           />
 
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
-            <button className="body-camera__back" type="button" onClick={onBack}>
+            <button className="body-camera__back" type="button" onClick={handleBack}>
               <ArrowLeft size={17} strokeWidth={1.8} aria-hidden="true" />
               <span>戻る</span>
             </button>
@@ -1251,6 +1284,7 @@ export function BodyExperiment({
               className="body-camera__switch"
               type="button"
               onClick={switchCamera}
+              disabled={countdown !== null}
               aria-label={
                 cameraFacingMode === "user" ? "背面カメラに切り替え" : "前面カメラに切り替え"
               }
@@ -1258,7 +1292,17 @@ export function BodyExperiment({
               <SwitchCamera size={19} strokeWidth={1.8} aria-hidden="true" />
             </button>
           )}
-          {status === "ready" && (
+          {countdown !== null && (
+            <div
+              className="body-camera__countdown"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {countdown}
+            </div>
+          )}
+          {status === "ready" && countdown === null && (
             <div className="body-camera__guide">
               <span>動きで表してみてください</span>
             </div>
@@ -1306,12 +1350,12 @@ export function BodyExperiment({
                   </button>
                 )}
                 {status === "loading" && <span>カメラを準備しています…</span>}
-                {status === "ready" && (
+                {status === "ready" && countdown === null && (
                   <div className="body-record-control">
                     <button
                       className="body-record-control__button"
                       type="button"
-                      onClick={startCapture}
+                      onClick={beginCountdown}
                       aria-label="3秒の動きを始める"
                     >
                       <span aria-hidden="true" />
