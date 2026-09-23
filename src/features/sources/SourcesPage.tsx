@@ -1,13 +1,11 @@
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
-  DEFAULT_IMAGE_SOURCES,
   DEFAULT_PRODUCT_SOURCES,
   DEFAULT_TERMINOLOGY_SOURCES,
   type DisplaySource,
 } from "./source-aggregation";
 
 function sourceTypeLabel(source: DisplaySource): string {
-  if (source.sourceType === "image-provenance") return "画像出典";
   if (source.sourceType === "official-product-page") return "公式商品情報";
   if (source.sourceType === "association") return "公的・業界団体の公開情報";
   if (source.sourceType === "term-reference") return "関連する公開資料";
@@ -32,16 +30,6 @@ function SourceList({ sources }: { sources: ReadonlyArray<DisplaySource> }) {
               <div>
                 <dt>確認日</dt>
                 <dd>{source.reviewedAt}</dd>
-              </div>
-            )}
-            {source.imageUsageStatus && (
-              <div>
-                <dt>画像の扱い</dt>
-                <dd>
-                  再利用可否は未確認（
-                  {source.imageUsageStatus === "needs-review" ? "確認中" : source.imageUsageStatus}
-                  ）
-                </dd>
               </div>
             )}
           </dl>
@@ -104,16 +92,6 @@ export function SourcesPage({ onBack }: { onBack: () => void }) {
         </p>
         <SourceList sources={DEFAULT_PRODUCT_SOURCES} />
       </section>
-
-      {DEFAULT_IMAGE_SOURCES.length > 0 && (
-        <section className="sources-page__section" aria-labelledby="image-sources-title">
-          <h2 id="image-sources-title">画像出典</h2>
-          <p className="sources-page__section-copy">
-            商品情報の出典とは別に、画像の出典ページを示しています。掲載されている画像の再利用可否を意味するものではありません。
-          </p>
-          <SourceList sources={DEFAULT_IMAGE_SOURCES} />
-        </section>
-      )}
 
       <footer className="experience-screen__footer">
         出典は確認時点の情報です。外部ページの内容は変更される場合があります。

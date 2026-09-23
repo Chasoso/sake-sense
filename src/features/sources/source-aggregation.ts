@@ -8,12 +8,9 @@ export type DisplaySource = {
   url: string;
   sourceType?: string;
   reviewedAt?: string;
-  imageUsageStatus?: string;
 };
 
-type SakeProduct = (typeof sakeData.products)[number] & {
-  imageSourceUrl?: string;
-};
+type SakeProduct = (typeof sakeData.products)[number];
 
 const INTERNAL_HOSTS = new Set([
   "github.com",
@@ -117,26 +114,5 @@ export function collectProductSources(
   return [...sources.values()];
 }
 
-export function collectImageSources(
-  products: ReadonlyArray<SakeProduct> = sakeData.products,
-): DisplaySource[] {
-  const sources = new Map<string, DisplaySource>();
-  for (const product of products) {
-    for (const url of [product.imageSourcePageUrl, product.imageSourceUrl]) {
-      if (!url) continue;
-      addSource(sources, {
-        sourceName: "画像出典ページ",
-        title: "商品画像の出典ページ",
-        url,
-        sourceType: "image-provenance",
-        reviewedAt: product.sourceReviewedAt,
-        imageUsageStatus: product.imageUsageStatus,
-      });
-    }
-  }
-  return [...sources.values()];
-}
-
 export const DEFAULT_TERMINOLOGY_SOURCES = collectTerminologySources();
 export const DEFAULT_PRODUCT_SOURCES = collectProductSources();
-export const DEFAULT_IMAGE_SOURCES = collectImageSources();

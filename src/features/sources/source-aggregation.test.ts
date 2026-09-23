@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectImageSources,
   collectProductSources,
   collectTerminologySources,
   isPublicEvidenceUrl,
@@ -80,22 +79,6 @@ describe("source aggregation", () => {
       "https://example.com/product",
       "https://example.com/terms",
     ]);
-  });
-
-  it("keeps image provenance separate and exposes reuse status", () => {
-    const products = [
-      {
-        sourceUrl: "https://example.com/product",
-        imageSourcePageUrl: "https://example.com/images",
-        imageUsageStatus: "needs-review",
-        sourceReviewedAt: "2026-01-01",
-      },
-    ] as never;
-
-    const imageSources = collectImageSources(products);
-    expect(imageSources).toHaveLength(1);
-    expect(imageSources[0].sourceType).toBe("image-provenance");
-    expect(imageSources[0].imageUsageStatus).toBe("needs-review");
   });
 
   it("excludes internal research URLs and tolerates malformed URLs", () => {
