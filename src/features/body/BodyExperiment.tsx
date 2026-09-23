@@ -8,7 +8,7 @@ import {
   type BodyMovementFeatures,
   type BodyPoseFrame,
 } from "../../domain/body";
-import { getReplayDurationMs, getReplayFrameIndex } from "../../domain/body-replay";
+import { getReplayDurationMs } from "../../domain/body-replay";
 import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import {
@@ -71,7 +71,6 @@ import {
   createBodyHybridDisplaySnapshot,
   createBodyHybridReplayFrame,
   drawPoseGuidance,
-  getBodyHybridReplayFrame,
   BODY_HYBRID_CONTOUR_COLOR,
   BODY_HYBRID_CONTOUR_STYLE,
   BODY_HYBRID_HALO_VARIANTS,
@@ -88,6 +87,7 @@ import {
   projectNormalizedPointToViewport,
   projectNormalizedPointToCoverViewport,
 } from "./body-camera-cover";
+import { getBodyReplayPresentationFrame } from "./replay-presentation";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -201,6 +201,30 @@ function projectReplayLandmarks(
       y: projected.y / viewport.height,
     };
   });
+}
+
+function renderReplayFrameAt(
+  canvas: HTMLCanvasElement,
+  elapsedMs: number,
+  capturedFrames: BodyPoseFrame[],
+  hybridReplayFrames: readonly BodyHybridReplayFrame[],
+  hybridSnapshot: BodyHybridDisplaySnapshot | null,
+): void {
+  const selected = getBodyReplayPresentationFrame(
+    elapsedMs,
+    capturedFrames,
+    hybridReplayFrames,
+    hybridSnapshot,
+  );
+  if (!selected) return;
+  drawHybridGeometryCanvas(canvas, selected.geometry);
+  drawPoseGuidance(
+    canvas.getContext("2d")!,
+    projectReplayLandmarks(selected.poseFrame.landmarks, selected.geometry, canvas),
+    "subtle-arms-torso-face",
+    canvas.width,
+    canvas.height,
+  );
 }
 
 type CanvasContourPoint = { x: number; y: number };
@@ -477,33 +501,9 @@ export function BodyExperiment({
       }
       const elapsed = Math.min(Math.max(timestamp - replayStartedAtRef.current, 0), durationMs);
       replayElapsedRef.current = elapsed;
-      const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
-      if (frameIndex >= 0) {
-        const replayGeometry =
-          getBodyHybridReplayFrame(hybridReplayFrames, elapsed) ?? hybridSnapshot;
-        drawHybridGeometryCanvas(canvas, replayGeometry);
-        drawPoseGuidance(
-          canvas.getContext("2d")!,
-          projectReplayLandmarks(capturedFrames[frameIndex].landmarks, replayGeometry, canvas),
-          "subtle-arms-torso-face",
-          canvas.width,
-          canvas.height,
-        );
-      }
+      renderReplayFrameAt(canvas, elapsed, capturedFrames, hybridReplayFrames, hybridSnapshot);
       if (elapsed >= durationMs) {
-        const finalFrame = capturedFrames.at(-1);
-        if (finalFrame) {
-          const replayGeometry =
-            getBodyHybridReplayFrame(hybridReplayFrames, durationMs) ?? hybridSnapshot;
-          drawHybridGeometryCanvas(canvas, replayGeometry);
-          drawPoseGuidance(
-            canvas.getContext("2d")!,
-            projectReplayLandmarks(finalFrame.landmarks, replayGeometry, canvas),
-            "subtle-arms-torso-face",
-            canvas.width,
-            canvas.height,
-          );
-        }
+        renderReplayFrameAt(canvas, durationMs, capturedFrames, hybridReplayFrames, hybridSnapshot);
         replayAnimationRef.current = null;
         replayElapsedRef.current = durationMs;
         setReplayStatus((current) => transitionReplayStatus(current, "complete"));
@@ -513,6 +513,22 @@ export function BodyExperiment({
     };
     replayAnimationRef.current = requestAnimationFrame(renderReplay);
   };
+
+  useEffect(() => {
+    if (status !== "captured" || replayStatus !== "initial" || !capturedFrames.length) return;
+    const frame = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      renderReplayFrameAt(
+        canvas,
+        getReplayDurationMs(capturedFrames),
+        capturedFrames,
+        hybridReplayFrames,
+        hybridSnapshot,
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [status, replayStatus, capturedFrames, hybridReplayFrames, hybridSnapshot]);
 
   const pauseReplay = () => {
     if (replayStatus !== "playing") return;
