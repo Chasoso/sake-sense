@@ -139,12 +139,17 @@ test("calibrates deterministic Gesture families through the real pointer path", 
 
   const candidateDistribution = new Map<string, number>();
   const expressionDistribution = new Map<string, number>();
+  const resultKindDistribution = new Map<string, number>();
   const supportCaseCoverage = new Map<string, number>();
   for (const { diagnostics } of results) {
     const candidate = diagnostics.candidateTermIds.join(",") || "unmapped";
     candidateDistribution.set(candidate, (candidateDistribution.get(candidate) ?? 0) + 1);
     const expression = diagnostics.expressionIds.join(",") || "unmapped";
     expressionDistribution.set(expression, (expressionDistribution.get(expression) ?? 0) + 1);
+    resultKindDistribution.set(
+      diagnostics.resultKind,
+      (resultKindDistribution.get(diagnostics.resultKind) ?? 0) + 1,
+    );
     for (const caseId of diagnostics.matchedCaseIds) {
       supportCaseCoverage.set(caseId, (supportCaseCoverage.get(caseId) ?? 0) + 1);
     }
@@ -178,6 +183,7 @@ test("calibrates deterministic Gesture families through the real pointer path", 
         })),
         candidateDistribution: Object.fromEntries(candidateDistribution),
         expressionDistribution: Object.fromEntries(expressionDistribution),
+        resultKindDistribution: Object.fromEntries(resultKindDistribution),
         supportCaseCoverage: Object.fromEntries(supportCaseCoverage),
       },
       null,
@@ -203,11 +209,12 @@ test("calibrates deterministic Gesture families through the real pointer path", 
     supportCaseCoverage.get("gesture-repeated-direction-changes-wavering") ?? 0,
   ).toBeGreaterThan(0);
   expect(supportCaseCoverage.get("gesture-smooth-continuous-flow")).toBeGreaterThan(0);
+  expect(candidateDistribution.get("nameraka") ?? 0).toBeGreaterThan(0);
 
   const dominantCandidateCount = Math.max(...candidateDistribution.values());
-  // The corrected screen-coordinate suite produced 23 unmapped and 11 marui
-  // results. A 75% ceiling preserves that observed variation while catching a future
-  // single-result or near-single-result collapse across distinct families.
+  // The recalibrated screen-coordinate suite produced 18 unmapped, 6 kire,
+  // 5 marui, 4 atoaji, and 3 nameraka results. A 75% ceiling remains a
+  // deliberately broad pathological-collapse guard, not a class-balance target.
   expect(dominantCandidateCount / results.length).toBeLessThan(0.75);
   expect((candidateDistribution.get("unmapped") ?? 0) / results.length).toBeLessThan(0.75);
 });
