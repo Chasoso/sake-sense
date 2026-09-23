@@ -430,6 +430,10 @@ h4 {
   inset: 0;
 }
 
+.body-camera > canvas.body-camera__live-overlay {
+  object-fit: fill;
+}
+
 .body-camera > span {
   position: absolute;
   inset: 50% 1rem auto;

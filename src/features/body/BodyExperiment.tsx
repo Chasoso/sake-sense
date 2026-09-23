@@ -76,6 +76,10 @@ import {
   type BodyHybridReplayFrame,
 } from "./body-pose-guidance";
 import { BODY_POSE_CONNECTIONS } from "./body-pose-connections";
+import {
+  getObjectFitCoverTransform,
+  projectNormalizedPointToCoverViewport,
+} from "./body-camera-cover";
 
 function isSegmentationSpikeEnabled(): boolean {
   return (
@@ -142,6 +146,74 @@ function drawHybridGeometryCanvas(
   context.lineWidth = Math.max(1, (canvas.width / 320) * 1);
   geometry.innerContours.forEach((contour) => drawContour(contour, INNER_CONTOUR_OPACITY));
   context.restore();
+}
+
+function getLiveOverlayViewport(canvas: HTMLCanvasElement) {
+  return {
+    width: canvas.clientWidth || canvas.width,
+    height: canvas.clientHeight || canvas.height,
+  };
+}
+
+function projectLiveContour(
+  contour: readonly { x: number; y: number }[],
+  sourceWidth: number,
+  sourceHeight: number,
+  transform: ReturnType<typeof getObjectFitCoverTransform>,
+) {
+  return contour.map((point) =>
+    projectNormalizedPointToCoverViewport(
+      { x: point.x / sourceWidth, y: point.y / sourceHeight },
+      transform,
+    ),
+  );
+}
+
+function projectLiveLandmarks(
+  landmarks: readonly BodyLandmark[] | null,
+  transform: ReturnType<typeof getObjectFitCoverTransform>,
+) {
+  return landmarks?.map((landmark) => {
+    const projected = projectNormalizedPointToCoverViewport(landmark, transform);
+    return {
+      ...landmark,
+      x: projected.x / transform.viewportWidth,
+      y: projected.y / transform.viewportHeight,
+    };
+  });
+}
+
+function drawLiveContours(
+  context: CanvasRenderingContext2D,
+  contours: readonly (readonly { x: number; y: number }[])[],
+  sourceWidth: number,
+  sourceHeight: number,
+  canvas: HTMLCanvasElement,
+  color: string,
+  lineWidthScale = 1,
+  clear = true,
+) {
+  const viewport = getLiveOverlayViewport(canvas);
+  const transform = getObjectFitCoverTransform(
+    sourceWidth,
+    sourceHeight,
+    viewport.width,
+    viewport.height,
+  );
+  const projectedContours = contours.map((contour) =>
+    projectLiveContour(contour, sourceWidth, sourceHeight, transform),
+  );
+  return drawContours(
+    context,
+    projectedContours,
+    canvas.width,
+    canvas.height,
+    color,
+    viewport.width,
+    viewport.height,
+    lineWidthScale,
+    clear,
+  );
 }
 
 export function BodyExperiment({
@@ -626,30 +698,37 @@ export function BodyExperiment({
         if (liveCanvas) {
           const context = liveCanvas.getContext("2d");
           if (context) {
+            const viewport = getLiveOverlayViewport(liveCanvas);
+            const sourceWidth = video.videoWidth || mask.width;
+            const sourceHeight = video.videoHeight || mask.height;
+            const transform = getObjectFitCoverTransform(
+              sourceWidth,
+              sourceHeight,
+              viewport.width,
+              viewport.height,
+            );
             context.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-            drawContours(
+            drawLiveContours(
               context,
               stabilization.contour ? [stabilization.contour] : [],
-              liveCanvas.width,
-              liveCanvas.height,
-              BODY_HYBRID_CONTOUR_COLOR,
               mask.width,
               mask.height,
+              liveCanvas,
+              BODY_HYBRID_CONTOUR_COLOR,
             );
-            drawContours(
+            drawLiveContours(
               context,
               innerContours,
-              liveCanvas.width,
-              liveCanvas.height,
-              `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
               mask.width,
               mask.height,
+              liveCanvas,
+              `rgba(234, 215, 160, ${INNER_CONTOUR_OPACITY})`,
               INNER_CONTOUR_LINE_WIDTH_SCALE,
               false,
             );
             drawPoseGuidance(
               context,
-              bodyLandmarks,
+              projectLiveLandmarks(bodyLandmarks, transform) ?? null,
               "subtle-arms-torso-face",
               liveCanvas.width,
               liveCanvas.height,
@@ -981,7 +1060,15 @@ export function BodyExperiment({
           aria-live="polite"
         >
           <video ref={videoRef} muted playsInline aria-label="身体表現のカメラプレビュー" />
-          <canvas ref={canvasRef} width="640" height="360" aria-hidden="true" />
+          <canvas
+            ref={canvasRef}
+            className={
+              status === "capturing" || status === "ready" ? "body-camera__live-overlay" : undefined
+            }
+            width="640"
+            height="360"
+            aria-hidden="true"
+          />
 
           <nav className="body-camera__top-overlay" aria-label="画面の移動">
             <button className="body-camera__back" type="button" onClick={onBack}>
