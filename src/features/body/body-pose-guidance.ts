@@ -4,6 +4,7 @@ import {
   BODY_POSE_UPPER_BODY_CONNECTIONS,
   type BodyPoseConnection,
 } from "./body-pose-connections";
+import type { NormalizedPoint } from "./body-camera-cover";
 
 export const POSE_GUIDANCE_VISIBILITY_THRESHOLD = 0.35;
 export const POSE_GUIDANCE_COLOR = "#c9a96a";
@@ -221,15 +222,19 @@ export type PoseGuidanceCurveSegment = PoseGuidanceSegment & {
 };
 
 export type BodyHybridDisplaySnapshot = {
-  outerContour: Array<{ x: number; y: number }>;
-  innerContours: Array<Array<{ x: number; y: number }>>;
+  sourceWidth: number;
+  sourceHeight: number;
+  outerContour: NormalizedPoint[];
+  innerContours: NormalizedPoint[][];
   poseCurves: PoseGuidanceCurveSegment[];
 };
 
 export type BodyHybridReplayFrame = {
   t: number;
-  outerContour: Array<{ x: number; y: number }>;
-  innerContours: Array<Array<{ x: number; y: number }>>;
+  sourceWidth: number;
+  sourceHeight: number;
+  outerContour: NormalizedPoint[];
+  innerContours: NormalizedPoint[][];
 };
 
 function scaleContourPoint(
@@ -237,14 +242,10 @@ function scaleContourPoint(
   width: number,
   height: number,
 ): { x: number; y: number } {
-  return { x: (point.x / width) * 320, y: (point.y / height) * 160 };
+  return { x: point.x / width, y: point.y / height };
 }
 
-function scalePosePoint(point: { x: number; y: number }): { x: number; y: number } {
-  return { x: point.x * 320, y: point.y * 160 };
-}
-
-/** Creates only transient, normalized display geometry for live-to-waiting handoff. */
+/** Creates only transient, aspect-ratio-neutral display geometry for handoff. */
 export function createBodyHybridDisplaySnapshot(
   outerContour: readonly { x: number; y: number }[],
   innerContours: readonly (readonly { x: number; y: number }[])[],
@@ -252,15 +253,10 @@ export function createBodyHybridDisplaySnapshot(
   maskWidth: number,
   maskHeight: number,
 ): BodyHybridDisplaySnapshot {
-  const poseCurves = getPoseGuidanceCurveSegments(landmarks, "subtle-arms-torso-face").map(
-    ({ from, control, to, kind }) => ({
-      from: scalePosePoint(from),
-      control: scalePosePoint(control),
-      to: scalePosePoint(to),
-      kind,
-    }),
-  );
+  const poseCurves = getPoseGuidanceCurveSegments(landmarks, "subtle-arms-torso-face");
   return {
+    sourceWidth: maskWidth,
+    sourceHeight: maskHeight,
     outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
     innerContours: innerContours.map((contour) =>
       contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
@@ -279,6 +275,8 @@ export function createBodyHybridReplayFrame(
 ): BodyHybridReplayFrame {
   return {
     t,
+    sourceWidth: maskWidth,
+    sourceHeight: maskHeight,
     outerContour: outerContour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),
     innerContours: innerContours.map((contour) =>
       contour.map((point) => scaleContourPoint(point, maskWidth, maskHeight)),

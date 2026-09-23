@@ -24,6 +24,10 @@ import {
   windowProgress,
   type TransformStage,
 } from "./expression-transform";
+import {
+  getAspectPreservingTransform,
+  projectNormalizedPointToViewport,
+} from "../body/body-camera-cover";
 
 type ExpressionTransformProps =
   | {
@@ -62,6 +66,13 @@ function absorbedContourPath(contour: Array<{ x: number; y: number }>, progress:
     .join(" ");
 }
 
+function projectBodyPoint(
+  point: { x: number; y: number },
+  transform: ReturnType<typeof getAspectPreservingTransform>,
+): { x: number; y: number } {
+  return projectNormalizedPointToViewport(point, transform);
+}
+
 export function ExpressionTransform(props: ExpressionTransformProps) {
   const [elapsed, setElapsed] = useState(0);
   const bodyHybridMaskId = useId().replace(/:/g, "");
@@ -87,9 +98,21 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
     [props.mode, props.features],
   );
   const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
+  const bodyHybridTransform = bodyHybrid
+    ? getAspectPreservingTransform(
+        bodyHybrid.sourceWidth,
+        bodyHybrid.sourceHeight,
+        320,
+        160,
+        "contain",
+      )
+    : null;
   const bodyHybridOuterPath =
-    bodyHybrid && bodyHybrid.outerContour.length > 1
-      ? absorbedContourPath(bodyHybrid.outerContour, progress)
+    bodyHybrid && bodyHybridTransform && bodyHybrid.outerContour.length > 1
+      ? absorbedContourPath(
+          bodyHybrid.outerContour.map((point) => projectBodyPoint(point, bodyHybridTransform)),
+          progress,
+        )
       : "";
   const bodyHybridStyle = POSE_GUIDANCE_STYLES["subtle-arms-torso-face"];
   const bodyHybridStyleVariables = {
@@ -181,15 +204,27 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                       contour.length > 1 ? (
                         <path
                           className="expression-transform__body-hybrid-inner"
-                          d={absorbedContourPath(contour, progress)}
+                          d={absorbedContourPath(
+                            contour.map((point) => projectBodyPoint(point, bodyHybridTransform!)),
+                            progress,
+                          )}
                           key={`inner-${index}`}
                         />
                       ) : null,
                     )}
                     {bodyHybrid.poseCurves.map(({ from, control, to, kind }, index) => {
-                      const start = getBodyAbsorbedPoint(from, progress);
-                      const bend = getBodyAbsorbedPoint(control, progress);
-                      const end = getBodyAbsorbedPoint(to, progress);
+                      const start = getBodyAbsorbedPoint(
+                        projectBodyPoint(from, bodyHybridTransform!),
+                        progress,
+                      );
+                      const bend = getBodyAbsorbedPoint(
+                        projectBodyPoint(control, bodyHybridTransform!),
+                        progress,
+                      );
+                      const end = getBodyAbsorbedPoint(
+                        projectBodyPoint(to, bodyHybridTransform!),
+                        progress,
+                      );
                       return (
                         <path
                           className={`expression-transform__body-hybrid-${kind}`}

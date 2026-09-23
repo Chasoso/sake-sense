@@ -85,6 +85,7 @@ import {
 } from "./body-hybrid-comparison";
 import {
   getObjectFitCoverTransform,
+  projectNormalizedPointToViewport,
   projectNormalizedPointToCoverViewport,
 } from "./body-camera-cover";
 
@@ -126,17 +127,28 @@ function drawPose(canvas: HTMLCanvasElement, landmarks: BodyLandmark[] | null): 
 
 function drawHybridGeometryCanvas(
   canvas: HTMLCanvasElement,
-  geometry: Pick<BodyHybridDisplaySnapshot, "outerContour" | "innerContours"> | null,
+  geometry: Pick<
+    BodyHybridDisplaySnapshot,
+    "sourceWidth" | "sourceHeight" | "outerContour" | "innerContours"
+  > | null,
 ): void {
   const context = canvas.getContext("2d");
   if (!context) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (!geometry) return;
+  const viewport = getLiveOverlayViewport(canvas);
+  const transform = getObjectFitCoverTransform(
+    geometry.sourceWidth,
+    geometry.sourceHeight,
+    viewport.width,
+    viewport.height,
+  );
   const toCanvasPoints = (points: readonly { x: number; y: number }[]) =>
-    points.map((point) => ({
-      x: (point.x / 320) * canvas.width,
-      y: (point.y / 160) * canvas.height,
-    }));
+    projectViewportPointsToCanvas(
+      points.map((point) => projectNormalizedPointToViewport(point, transform)),
+      canvas,
+      viewport,
+    );
   context.save();
   context.strokeStyle = BODY_HYBRID_CONTOUR_COLOR;
   context.lineCap = "round";
@@ -166,6 +178,29 @@ function drawHybridGeometryCanvas(
     BODY_HYBRID_CONTOUR_STYLE.innerOpacity,
   );
   context.restore();
+}
+
+function projectReplayLandmarks(
+  landmarks: readonly BodyLandmark[] | null,
+  geometry: Pick<BodyHybridDisplaySnapshot, "sourceWidth" | "sourceHeight"> | null,
+  canvas: HTMLCanvasElement,
+): BodyLandmark[] | null {
+  if (!landmarks || !geometry) return landmarks ? [...landmarks] : null;
+  const viewport = getLiveOverlayViewport(canvas);
+  const transform = getObjectFitCoverTransform(
+    geometry.sourceWidth,
+    geometry.sourceHeight,
+    viewport.width,
+    viewport.height,
+  );
+  return landmarks.map((landmark) => {
+    const projected = projectNormalizedPointToViewport(landmark, transform);
+    return {
+      ...landmark,
+      x: projected.x / viewport.width,
+      y: projected.y / viewport.height,
+    };
+  });
 }
 
 type CanvasContourPoint = { x: number; y: number };
@@ -444,13 +479,12 @@ export function BodyExperiment({
       replayElapsedRef.current = elapsed;
       const frameIndex = getReplayFrameIndex(capturedFrames, elapsed);
       if (frameIndex >= 0) {
-        drawHybridGeometryCanvas(
-          canvas,
-          getBodyHybridReplayFrame(hybridReplayFrames, elapsed) ?? hybridSnapshot,
-        );
+        const replayGeometry =
+          getBodyHybridReplayFrame(hybridReplayFrames, elapsed) ?? hybridSnapshot;
+        drawHybridGeometryCanvas(canvas, replayGeometry);
         drawPoseGuidance(
           canvas.getContext("2d")!,
-          capturedFrames[frameIndex].landmarks,
+          projectReplayLandmarks(capturedFrames[frameIndex].landmarks, replayGeometry, canvas),
           "subtle-arms-torso-face",
           canvas.width,
           canvas.height,
@@ -459,13 +493,12 @@ export function BodyExperiment({
       if (elapsed >= durationMs) {
         const finalFrame = capturedFrames.at(-1);
         if (finalFrame) {
-          drawHybridGeometryCanvas(
-            canvas,
-            getBodyHybridReplayFrame(hybridReplayFrames, durationMs) ?? hybridSnapshot,
-          );
+          const replayGeometry =
+            getBodyHybridReplayFrame(hybridReplayFrames, durationMs) ?? hybridSnapshot;
+          drawHybridGeometryCanvas(canvas, replayGeometry);
           drawPoseGuidance(
             canvas.getContext("2d")!,
-            finalFrame.landmarks,
+            projectReplayLandmarks(finalFrame.landmarks, replayGeometry, canvas),
             "subtle-arms-torso-face",
             canvas.width,
             canvas.height,
@@ -1180,7 +1213,11 @@ export function BodyExperiment({
           <canvas
             ref={canvasRef}
             className={
-              status === "capturing" || status === "ready" ? "body-camera__live-overlay" : undefined
+              status === "capturing" || status === "ready"
+                ? "body-camera__live-overlay"
+                : status === "captured"
+                  ? "body-camera__replay-overlay"
+                  : undefined
             }
             width="640"
             height="360"

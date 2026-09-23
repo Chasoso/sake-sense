@@ -57,14 +57,16 @@ describe("body pose guidance", () => {
       100,
       50,
     );
+    expect(snapshot.sourceWidth).toBe(100);
+    expect(snapshot.sourceHeight).toBe(50);
     expect(snapshot.outerContour).toEqual([
       { x: 0, y: 0 },
-      { x: 320, y: 160 },
+      { x: 1, y: 1 },
     ]);
     expect(snapshot.innerContours).toEqual([
       [
-        { x: 32, y: 64 },
-        { x: 96, y: 128 },
+        { x: 0.1, y: 0.4 },
+        { x: 0.3, y: 0.8 },
       ],
     ]);
     expect(snapshot.poseCurves.every(({ kind }) => kind === "body" || kind === "face")).toBe(true);
@@ -80,6 +82,8 @@ describe("body pose guidance", () => {
     expect(getBodyHybridReplayFrame(frames, 100)).toEqual(second);
     expect(getBodyHybridReplayFrame(frames, 150)).toEqual(second);
     expect(first.outerContour).not.toEqual(second.outerContour);
+    expect(first.sourceWidth).toBe(100);
+    expect(first.sourceHeight).toBe(100);
     expect(first).not.toHaveProperty("landmarks");
   });
 
