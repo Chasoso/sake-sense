@@ -16,6 +16,10 @@ export type BodyVisualModel = {
 
 export type BodySkeletonGeometry = {
   skeletonPath: string;
+  skeletonSegments: Array<{
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  }>;
   skeletonPoints: Array<{ x: number; y: number }>;
   skeletonFrameIndex: number;
 };
@@ -93,6 +97,7 @@ export function selectSkeletonFrameIndex(frames: BodyPoseFrame[]): number {
 export function getBodySkeletonGeometry(frames: BodyPoseFrame[]): BodySkeletonGeometry {
   const skeletonPoints: Array<{ x: number; y: number }> = [];
   const skeletonSegments: string[] = [];
+  const segmentPoints: BodySkeletonGeometry["skeletonSegments"] = [];
 
   const skeletonFrameIndex = selectSkeletonFrameIndex(frames);
   const skeletonFrame = frames[skeletonFrameIndex];
@@ -105,10 +110,12 @@ export function getBodySkeletonGeometry(frames: BodyPoseFrame[]): BodySkeletonGe
     const connect = (from: number, to: number) => {
       const start = point(from);
       const end = point(to);
-      if (start && end)
+      if (start && end) {
+        segmentPoints.push({ start, end });
         skeletonSegments.push(
           `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`,
         );
+      }
     };
     connect(11, 12);
     connect(11, 13);
@@ -119,6 +126,13 @@ export function getBodySkeletonGeometry(frames: BodyPoseFrame[]): BodySkeletonGe
 
   return {
     skeletonPath: skeletonSegments.join(" ") || "M 120 48 L 200 48 M 160 48 L 160 116",
+    skeletonSegments:
+      segmentPoints.length > 0
+        ? segmentPoints
+        : [
+            { start: { x: 120, y: 48 }, end: { x: 200, y: 48 } },
+            { start: { x: 160, y: 48 }, end: { x: 160, y: 116 } },
+          ],
     skeletonPoints,
     skeletonFrameIndex,
   };
@@ -154,12 +168,23 @@ export function getBodyDissolveOpacity(progress: number): number {
   return 1 - getBodyDissolveProgress(progress);
 }
 
-export function getBodyDissolveScale(progress: number): number {
-  return 1 - getBodyDissolveProgress(progress) * 0.78;
-}
-
-export function getBodyAbsorptionRotation(progress: number): number {
-  return getBodyDissolveProgress(progress) * 12;
+export function getBodyAbsorbedPoint(
+  point: { x: number; y: number },
+  progress: number,
+): { x: number; y: number } {
+  const absorption = getBodyDissolveProgress(progress);
+  const centerX = 160;
+  const centerY = 80;
+  const deltaX = point.x - centerX;
+  const deltaY = point.y - centerY;
+  const radius = Math.hypot(deltaX, deltaY);
+  const radialFactor = Math.min(radius / 150, 1);
+  const angle = Math.atan2(deltaY, deltaX) + absorption * (0.04 + radialFactor * 0.12);
+  const radiusScale = 1 - absorption * (0.68 + radialFactor * 0.22);
+  return {
+    x: centerX + Math.cos(angle) * radius * radiusScale,
+    y: centerY + Math.sin(angle) * radius * radiusScale,
+  };
 }
 
 export function getTransformStage(elapsedMs: number): TransformStage {

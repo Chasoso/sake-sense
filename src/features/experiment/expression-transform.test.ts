@@ -4,8 +4,7 @@ import type { VoiceFeatures } from "../../domain/voice";
 import {
   getBodyDisplayWords,
   getBodyDissolveOpacity,
-  getBodyDissolveScale,
-  getBodyAbsorptionRotation,
+  getBodyAbsorbedPoint,
   getBodyIntermediateWords,
   getBodyLightProgress,
   getBodySkeletonGeometry,
@@ -84,30 +83,29 @@ describe("expression transformation", () => {
     const samples = [0, 0.2, 0.5, 0.8, 1].map((progress) => ({
       light: getBodyLightProgress(progress),
       opacity: getBodyDissolveOpacity(progress),
-      scale: getBodyDissolveScale(progress),
     }));
-    expect(samples[0]).toEqual({ light: 0, opacity: 1, scale: 1 });
+    expect(samples[0]).toEqual({ light: 0, opacity: 1 });
     expect(samples.at(-1)?.light).toBe(1);
     expect(samples.at(-1)?.opacity).toBe(0);
-    expect(samples.at(-1)?.scale).toBeCloseTo(0.22);
     expect(
       samples.every((sample, index) => index === 0 || sample.light >= samples[index - 1].light),
     ).toBe(true);
     expect(
       samples.every((sample, index) => index === 0 || sample.opacity <= samples[index - 1].opacity),
     ).toBe(true);
-    expect(
-      samples.every((sample, index) => index === 0 || sample.scale <= samples[index - 1].scale),
-    ).toBe(true);
     expect(samples[2].light).toBeGreaterThan(0);
     expect(samples[2].opacity).toBeGreaterThan(0);
   });
 
-  it("draws the Body skeleton into the center light with a restrained swirl", () => {
-    expect(getBodyAbsorptionRotation(0)).toBe(0);
-    expect(getBodyAbsorptionRotation(0.5)).toBeGreaterThan(0);
-    expect(getBodyAbsorptionRotation(1)).toBe(12);
-    expect(getBodyDissolveScale(1)).toBeLessThan(0.3);
+  it("pulls each Body point into the center with a restrained radial swirl", () => {
+    const outerPoint = { x: 40, y: 80 };
+    const innerPoint = { x: 145, y: 80 };
+    expect(getBodyAbsorbedPoint(outerPoint, 0).x).toBeCloseTo(outerPoint.x);
+    expect(getBodyAbsorbedPoint(outerPoint, 0).y).toBeCloseTo(outerPoint.y);
+    expect(getBodyAbsorbedPoint(outerPoint, 1).x).toBeGreaterThan(outerPoint.x);
+    expect(getBodyAbsorbedPoint(outerPoint, 1).x).toBeLessThan(160);
+    expect(getBodyAbsorbedPoint(outerPoint, 1).y).not.toBe(80);
+    expect(getBodyAbsorbedPoint(innerPoint, 1).x).toBeGreaterThan(innerPoint.x);
   });
 
   it("selects a visible upper-body frame near the center", () => {

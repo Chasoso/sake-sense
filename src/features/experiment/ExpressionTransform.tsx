@@ -9,8 +9,7 @@ import {
   getBodyDisplayWords,
   getBodySkeletonGeometry,
   getBodyDissolveOpacity,
-  getBodyDissolveScale,
-  getBodyAbsorptionRotation,
+  getBodyAbsorbedPoint,
   getBodyLightProgress,
   getBodyTransformProgress,
   getTransformProgress,
@@ -73,8 +72,6 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);
   const bodyOpacity = getBodyDissolveOpacity(progress);
-  const bodyScale = getBodyDissolveScale(progress);
-  const bodyAbsorptionRotation = getBodyAbsorptionRotation(progress);
   const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
 
@@ -110,24 +107,32 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                   transform: `scale(${0.82 + bodyLightProgress * 0.24})`,
                 }}
               />
-              <g
-                className="expression-transform__body-dissolve"
-                transform={`translate(160 80) rotate(${bodyAbsorptionRotation} 0 0) scale(${bodyScale}) translate(-160 -80)`}
-                style={{ opacity: bodyOpacity }}
-              >
-                <path
-                  className="expression-transform__body-skeleton"
-                  d={bodySkeleton?.skeletonPath}
-                />
-                {bodySkeleton?.skeletonPoints.map((point, index) => (
-                  <circle
-                    className="expression-transform__body-joint"
-                    cx={point.x}
-                    cy={point.y}
-                    key={`${point.x}-${point.y}-${index}`}
-                    r="3.5"
-                  />
-                ))}
+              <g className="expression-transform__body-dissolve" style={{ opacity: bodyOpacity }}>
+                {bodySkeleton?.skeletonSegments.map((segment, index) => {
+                  const start = getBodyAbsorbedPoint(segment.start, progress);
+                  const end = getBodyAbsorbedPoint(segment.end, progress);
+                  return (
+                    <path
+                      className="expression-transform__body-skeleton"
+                      d={`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`}
+                      key={`segment-${index}`}
+                    />
+                  );
+                })}
+                {bodySkeleton?.skeletonPoints.map((point, index) =>
+                  (() => {
+                    const absorbedPoint = getBodyAbsorbedPoint(point, progress);
+                    return (
+                      <circle
+                        className="expression-transform__body-joint"
+                        cx={absorbedPoint.x}
+                        cy={absorbedPoint.y}
+                        key={`${point.x}-${point.y}-${index}`}
+                        r="3.5"
+                      />
+                    );
+                  })(),
+                )}
               </g>
             </svg>
           ) : (
