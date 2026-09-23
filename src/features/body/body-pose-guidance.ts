@@ -11,6 +11,7 @@ export type PoseGuidanceStyle = {
   opacity: number;
   strokeWidth: number;
   includesShoulderHip: boolean;
+  includesUpperBodyTorso: boolean;
   includesFace: boolean;
   faceOpacity: number;
   faceStrokeWidth: number;
@@ -23,6 +24,7 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
     opacity: 0.28,
     strokeWidth: 1.2,
     includesShoulderHip: false,
+    includesUpperBodyTorso: false,
     includesFace: false,
     faceOpacity: 0,
     faceStrokeWidth: 0,
@@ -33,6 +35,7 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
     opacity: 0.22,
     strokeWidth: 1.1,
     includesShoulderHip: true,
+    includesUpperBodyTorso: true,
     includesFace: false,
     faceOpacity: 0,
     faceStrokeWidth: 0,
@@ -43,6 +46,7 @@ export const POSE_GUIDANCE_STYLES: Record<PoseGuidanceVariantId, PoseGuidanceSty
     opacity: 0.22,
     strokeWidth: 1.1,
     includesShoulderHip: true,
+    includesUpperBodyTorso: true,
     includesFace: true,
     faceOpacity: 0.12,
     faceStrokeWidth: 0.75,
@@ -60,6 +64,10 @@ const SHOULDER_HIP_PAIRS: readonly LandmarkPair[] = [
   [11, 23],
   [12, 24],
 ];
+
+const SHOULDER_LINE_PAIR: LandmarkPair = [11, 12];
+const UPPER_BODY_CENTER_CUE_RATIO = 0.28;
+const UPPER_BODY_CENTER_CUE_MAX_LENGTH = 0.12;
 
 export type PoseGuidanceSegment = {
   from: { x: number; y: number };
@@ -124,6 +132,35 @@ function getFacePaths(landmarks: readonly BodyLandmark[]): PoseGuidancePath[] {
   ];
 }
 
+function getUpperBodyTorsoPaths(landmarks: readonly BodyLandmark[]): PoseGuidancePath[] {
+  const leftShoulder = landmarks[SHOULDER_LINE_PAIR[0]];
+  const rightShoulder = landmarks[SHOULDER_LINE_PAIR[1]];
+  if (!isRenderableLandmark(leftShoulder) || !isRenderableLandmark(rightShoulder)) return [];
+  const shoulderLine = getPath(landmarks, SHOULDER_LINE_PAIR, "body");
+  const shoulderMidpoint = {
+    x: (leftShoulder.x + rightShoulder.x) / 2,
+    y: (leftShoulder.y + rightShoulder.y) / 2,
+  };
+  const shoulderWidth = Math.hypot(
+    rightShoulder.x - leftShoulder.x,
+    rightShoulder.y - leftShoulder.y,
+  );
+  const centerCueLength = Math.min(
+    shoulderWidth * UPPER_BODY_CENTER_CUE_RATIO,
+    UPPER_BODY_CENTER_CUE_MAX_LENGTH,
+  );
+  return [
+    ...(shoulderLine ? [shoulderLine] : []),
+    {
+      points: [
+        shoulderMidpoint,
+        { x: shoulderMidpoint.x, y: shoulderMidpoint.y + centerCueLength },
+      ],
+      kind: "body",
+    },
+  ];
+}
+
 /** Returns only reviewed, display-only pose paths; it never adds markers or head geometry. */
 export function getPoseGuidancePaths(
   landmarks: readonly BodyLandmark[] | null | undefined,
@@ -135,6 +172,7 @@ export function getPoseGuidancePaths(
     const path = getPath(landmarks, chain, "body");
     return path ? [path] : [];
   });
+  if (style.includesUpperBodyTorso) paths.push(...getUpperBodyTorsoPaths(landmarks));
   if (style.includesShoulderHip) {
     SHOULDER_HIP_PAIRS.forEach((pair) => {
       const path = getPath(landmarks, pair, "body");

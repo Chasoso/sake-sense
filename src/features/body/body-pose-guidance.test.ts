@@ -21,8 +21,25 @@ describe("body pose guidance", () => {
     expect(getPoseGuidanceSegments(landmarks(), "subtle-arms")).toHaveLength(4);
   });
 
-  it("adds only paired shoulder-to-hip guidance in the limited torso variant", () => {
-    expect(getPoseGuidanceSegments(landmarks(), "subtle-arms-torso")).toHaveLength(6);
+  it("adds upper-body and conditional hip guidance in the limited torso variant", () => {
+    expect(getPoseGuidanceSegments(landmarks(), "subtle-arms-torso")).toHaveLength(8);
+  });
+
+  it("keeps upper-body torso guidance when hips are unavailable", () => {
+    const source = landmarks();
+    source[23] = undefined as unknown as BodyLandmark;
+    source[24] = undefined as unknown as BodyLandmark;
+    const paths = getPoseGuidancePaths(source, "subtle-arms-torso");
+    expect(paths).toHaveLength(4);
+    expect(getPoseGuidanceSegments(source, "subtle-arms-torso")).toHaveLength(6);
+    expect(paths.slice(-2).every(({ points }) => points.length === 2)).toBe(true);
+  });
+
+  it("derives a short shoulder-center cue from shoulder width", () => {
+    const paths = getPoseGuidancePaths(landmarks(), "subtle-arms-torso");
+    const centerCue = paths[3];
+    expect(centerCue.points[0].x).toBeCloseTo(0.115);
+    expect(centerCue.points[1].y - centerCue.points[0].y).toBeLessThanOrEqual(0.12);
   });
 
   it("omits a segment when either endpoint is missing or below confidence", () => {
@@ -38,7 +55,7 @@ describe("body pose guidance", () => {
 
   it("uses only nose and mouth landmarks for the face direction cue", () => {
     const paths = getPoseGuidancePaths(landmarks(), "subtle-arms-torso-face");
-    expect(paths).toHaveLength(6);
+    expect(paths).toHaveLength(8);
     const facePaths = paths.filter(({ kind }) => kind === "face");
     expect(facePaths).toHaveLength(2);
     expect(facePaths.flatMap(({ points }) => points).every(({ x }) => x <= 0.1)).toBe(true);
@@ -47,7 +64,7 @@ describe("body pose guidance", () => {
   it("omits face guidance when a required face landmark is low confidence", () => {
     const source = landmarks();
     source[10].visibility = POSE_GUIDANCE_VISIBILITY_THRESHOLD - 0.01;
-    expect(getPoseGuidancePaths(source, "subtle-arms-torso-face")).toHaveLength(4);
+    expect(getPoseGuidancePaths(source, "subtle-arms-torso-face")).toHaveLength(6);
   });
 
   it("does not add joint markers, head geometry, or mutate input", () => {
@@ -55,7 +72,7 @@ describe("body pose guidance", () => {
     const snapshot = structuredClone(source);
     const segments = getPoseGuidanceSegments(source, "subtle-arms-torso");
     expect(segments.every((segment) => "from" in segment && "to" in segment)).toBe(true);
-    expect(segments).toHaveLength(6);
+    expect(segments).toHaveLength(8);
     expect(source).toEqual(snapshot);
   });
 
@@ -81,7 +98,7 @@ describe("body pose guidance", () => {
     expect(source).toEqual(snapshot);
     expect(first.every(({ points }) => points.length >= 2)).toBe(true);
     const curves = getPoseGuidanceCurveSegments(source, "subtle-arms-torso-face");
-    expect(curves).toHaveLength(8);
+    expect(curves).toHaveLength(10);
     expect(
       curves.some(
         ({ from, control, to }) =>
