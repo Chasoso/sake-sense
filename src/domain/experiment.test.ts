@@ -42,11 +42,11 @@ const voiceFeatures: VoiceFeatures = {
 };
 const gestureFeatures: GestureFeatures = {
   pointCount: 12,
-  durationMs: 1200,
-  pathLength: 18.25,
-  averageSpeed: 0.015,
-  spread: 4.5,
-  horizontalDirectionChanges: 2,
+  durationMs: 900,
+  pathLength: 90,
+  averageSpeed: 0.1,
+  spread: 80,
+  horizontalDirectionChanges: 0,
   endingSpeedRatio: 0.4,
   abruptEnding: false,
 };
@@ -265,12 +265,12 @@ describe("experiment integration boundaries", () => {
     expect(received).toEqual({
       modality: "gesture",
       input: {
-        durationMs: 1200,
+        durationMs: 900,
         pointCount: 12,
-        pathLength: 18.25,
-        averageSpeed: 0.015,
-        spread: 4.5,
-        horizontalDirectionChanges: 2,
+        pathLength: 90,
+        averageSpeed: 0.1,
+        spread: 80,
+        horizontalDirectionChanges: 0,
         endingSpeedRatio: 0.4,
         abruptEnding: false,
       },
@@ -322,5 +322,45 @@ describe("experiment integration boundaries", () => {
       expect(result.candidates).toEqual([]);
       expect(result.sakeProducts).toEqual([]);
     }
+  });
+
+  it("derives different fixture results from different movement qualities", async () => {
+    const variants: GestureFeatures[] = [
+      gestureFeatures,
+      {
+        ...gestureFeatures,
+        pointCount: 6,
+        durationMs: 500,
+        pathLength: 150,
+        averageSpeed: 0.3,
+        spread: 50,
+        endingSpeedRatio: 0.9,
+        abruptEnding: true,
+      },
+      {
+        ...gestureFeatures,
+        durationMs: 900,
+        pathLength: 150,
+        averageSpeed: 0.3,
+        spread: 150,
+        endingSpeedRatio: 0.8,
+      },
+      {
+        ...gestureFeatures,
+        pointCount: 10,
+        horizontalDirectionChanges: 4,
+      },
+    ];
+    const results = await Promise.all(
+      variants.map((features) => runGestureSemanticExperiment(features)),
+    );
+    const candidateSignatures = results.map((result) => {
+      expect("error" in result).toBe(false);
+      if ("error" in result) return "error";
+      return result.candidates.map((candidate) => candidate.entry.id).join(",");
+    });
+    expect(new Set(candidateSignatures).size).toBeGreaterThan(1);
+    expect(candidateSignatures).toContain("nameraka");
+    expect(candidateSignatures).toContain("kire");
   });
 });

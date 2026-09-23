@@ -4,6 +4,7 @@ import supportCaseData from "./data/sensory-support-cases.v0.1.json";
 import schema from "../../schemas/sensory-support-cases.schema.json";
 import {
   evaluateBodySensorySupport,
+  evaluateGestureSensorySupport,
   evaluateVoiceSensorySupport,
   findSensorySupportCaseErrors,
   getApprovedCandidateTermIdsForSupport,
@@ -11,6 +12,7 @@ import {
   sensorySupportCases,
 } from "./sensory-support-cases";
 import type { SensoryBridgeInput, VoiceSensoryBridgeInput } from "./sensory-bridge";
+import type { GestureFeatures } from "./gesture";
 
 const bodyInput: SensoryBridgeInput = {
   duration: "lingering",
@@ -28,6 +30,55 @@ const voiceInput: VoiceSensoryBridgeInput = {
   averageIntensity: 0.4,
   pauseCount: 1,
   endingBehavior: "fading",
+};
+
+const gestureInput: GestureFeatures = {
+  pointCount: 12,
+  durationMs: 900,
+  pathLength: 90,
+  averageSpeed: 0.075,
+  spread: 80,
+  horizontalDirectionChanges: 0,
+  endingSpeedRatio: 0.5,
+  abruptEnding: false,
+};
+const slowInput: GestureFeatures = {
+  ...gestureInput,
+  durationMs: 1800,
+  pathLength: 50,
+  averageSpeed: 0.05,
+};
+const shortFastAbruptInput: GestureFeatures = {
+  ...gestureInput,
+  pointCount: 6,
+  durationMs: 500,
+  pathLength: 150,
+  averageSpeed: 0.3,
+  spread: 50,
+  endingSpeedRatio: 0.9,
+  abruptEnding: true,
+};
+const broadInput: GestureFeatures = {
+  ...gestureInput,
+  durationMs: 900,
+  pathLength: 150,
+  averageSpeed: 0.3,
+  spread: 150,
+  endingSpeedRatio: 0.8,
+};
+const compactInput: GestureFeatures = {
+  ...gestureInput,
+  pointCount: 3,
+  durationMs: 400,
+  pathLength: 30,
+  averageSpeed: 0.075,
+  spread: 30,
+  endingSpeedRatio: 0.5,
+};
+const repeatedTurnsInput: GestureFeatures = {
+  ...gestureInput,
+  pointCount: 10,
+  horizontalDirectionChanges: 4,
 };
 
 describe("observable sensory support cases", () => {
@@ -174,6 +225,29 @@ describe("observable sensory support cases", () => {
     expect(
       evaluateVoiceSensorySupport({ ...voiceInput, endingBehavior: "maintained" }),
     ).toMatchObject({ resultKind: "unmapped", expressionIds: [] });
+  });
+
+  it("evaluates Gesture movement with deterministic multi-feature reviewed cases", () => {
+    const slow = evaluateGestureSensorySupport(gestureInput);
+    expect(slow).toMatchObject({
+      matchedCaseIds: ["gesture-smooth-continuous-flow"],
+      resultKind: "expression",
+      expressionIds: ["smooth-flow"],
+    });
+    expect(evaluateGestureSensorySupport(slowInput)).toEqual(
+      evaluateGestureSensorySupport({ ...slowInput }),
+    );
+    expect(evaluateGestureSensorySupport(shortFastAbruptInput)).toMatchObject({
+      resultKind: "expression",
+      expressionIds: ["clean-fade"],
+    });
+    expect(evaluateGestureSensorySupport(shortFastAbruptInput)).not.toEqual(slow);
+    expect(evaluateGestureSensorySupport(broadInput)).toMatchObject({
+      resultKind: "expression",
+      expressionIds: ["rounded-enveloping"],
+    });
+    expect(evaluateGestureSensorySupport(compactInput).resultKind).toBe("unmapped");
+    expect(evaluateGestureSensorySupport(repeatedTurnsInput).resultKind).toBe("unmapped");
   });
 
   it("rejects malformed patterns, system states as expressions, and duplicate cases", () => {

@@ -8,6 +8,7 @@ import type { VoiceFeatures } from "./voice";
 import type { GestureFeatures } from "./gesture";
 import {
   evaluateBodySensorySupport,
+  evaluateGestureSensorySupport,
   evaluateVoiceSensorySupport,
   getApprovedCandidateTermIdsForSupport,
   getSensoryExpressionDisplayTextsForSupport,
@@ -28,6 +29,15 @@ export const sensoryClassValues = [
   "unmapped",
 ] as const;
 export type SensoryClassProposal = (typeof sensoryClassValues)[number];
+
+const reviewedGestureTermRelations: Record<string, SensoryClassProposal> = {
+  atoaji: "lingering-after-feel",
+  kire: "clean-fade",
+  nameraka: "smooth-flow",
+  marui: "rounded-enveloping",
+  tanrei: "light-delicate",
+  nojun: "rich-full",
+};
 
 export type SensoryBridgeInput = {
   duration: "short" | "lingering" | "unknown";
@@ -271,6 +281,17 @@ export function serializeSensoryDictionaryContext(): SensoryDictionaryContext {
 
 export function getSelectableSensoryTermIds(): string[] {
   return serializeSensoryDictionaryContext().map((entry) => entry.id);
+}
+
+function getGestureAuthorizationForSupport(
+  support: ReturnType<typeof evaluateGestureSensorySupport>,
+): NonNullable<SensoryBridgeResponse["authorization"]> {
+  return getApprovedCandidateTermIdsForSupport(support).flatMap((termId) => {
+    const sensoryClass = reviewedGestureTermRelations[termId];
+    return sensoryClass
+      ? [{ termId, sensoryClass, level: "strong" as const, supportCount: 1 }]
+      : [];
+  });
 }
 
 export function getSensoryDictionaryContextForIds(
@@ -549,6 +570,12 @@ export function applyReviewedSemanticGrounding(
       : support.resultKind === "interpretation-state"
         ? "既存のレビュー済みルールでは候補を一つに確定しません。"
         : "既存のレビュー済みルールでは安全な感覚表現を確定しません。";
+  const approvedAuthorization =
+    request.modality === "gesture"
+      ? (response.authorization ?? []).filter((entry) =>
+          request.allowedTermIds.includes(entry.termId),
+        )
+      : response.authorization;
 
   return {
     ...response,
@@ -566,6 +593,7 @@ export function applyReviewedSemanticGrounding(
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
     reason: request.modality === "gesture" ? response.reason : legacyReason,
+    ...(request.modality === "gesture" ? { authorization: approvedAuthorization } : {}),
   };
 }
 
@@ -574,38 +602,14 @@ export function createFixtureSensoryBridgeProvider(): SensoryBridgeProvider {
     kind: "fixture",
     async interpret(request: SensoryBridgeRequest): Promise<SensoryBridgeRawResponse> {
       if (request.modality === "gesture") {
+        const support = evaluateGestureSensorySupport(request.input);
+        const authorization = getGestureAuthorizationForSupport(support);
         return applyReviewedSemanticGrounding(request, {
-          sensoryInterpretation: {
-            outcome: "interpreted",
-            sensoryExpression: "指の動きの特徴をfixtureで解釈しました。",
-            semanticProfile: {
-              timeQuality: "sustained",
-              weightQuality: "unknown",
-              flowQuality: "free",
-              directness: "direct",
-              persistence: "moderate",
-              resolution: "gradual",
-              continuity: "continuous",
-              rhythmicity: "singular",
-              expansion: "neutral",
-              spread: "neutral",
-              smoothness: "smooth",
-              roundness: "unknown",
-            },
-          },
-          sensoryClassProposals: ["smooth-flow"],
-          sensoryExpressions: ["なめらかな動きの印象"],
-          candidateTermIds: [],
+          sensoryExpressions: getSensoryExpressionDisplayTextsForSupport(support),
+          candidateTermIds: getApprovedCandidateTermIdsForSupport(support),
           unmappedFeatures: [],
-          reason: "観測した指の動きから、なめらかな流れの印象をfixtureで確認しました。",
-          authorization: [
-            {
-              termId: "nameraka",
-              sensoryClass: "smooth-flow",
-              level: "strong",
-              supportCount: 2,
-            },
-          ],
+          reason: `観測した指の動きのreviewed case: ${support.matchedCaseIds.join(",") || "unmapped"}`,
+          authorization,
           authorizationConflicts: [],
         });
       }

@@ -378,6 +378,76 @@ describe("MVP sensory bridge vocabulary boundary", () => {
     expect(validated.value.candidateTermIds).toEqual(["kire"]);
   });
 
+  it("derives Gesture fixture candidates from reviewed movement cases", async () => {
+    const provider = createFixtureSensoryBridgeProvider();
+    const cases = [
+      {
+        input: {
+          durationMs: 900,
+          pointCount: 12,
+          pathLength: 90,
+          averageSpeed: 0.1,
+          spread: 80,
+          horizontalDirectionChanges: 0,
+          endingSpeedRatio: 0.4,
+          abruptEnding: false,
+        },
+        candidateTermIds: ["nameraka"],
+      },
+      {
+        input: {
+          durationMs: 500,
+          pointCount: 6,
+          pathLength: 150,
+          averageSpeed: 0.3,
+          spread: 50,
+          horizontalDirectionChanges: 0,
+          endingSpeedRatio: 0.9,
+          abruptEnding: true,
+        },
+        candidateTermIds: ["kire"],
+      },
+      {
+        input: {
+          durationMs: 400,
+          pointCount: 3,
+          pathLength: 30,
+          averageSpeed: 0.075,
+          spread: 30,
+          horizontalDirectionChanges: 0,
+          endingSpeedRatio: 0.5,
+          abruptEnding: false,
+        },
+        candidateTermIds: [],
+      },
+    ] as const;
+    for (const { input, candidateTermIds } of cases) {
+      const response = await provider.interpret({
+        modality: "gesture",
+        input,
+        allowedTermIds: getSelectableSensoryTermIds(),
+      });
+      const validated = validateSensoryBridgeResponse(response);
+      expect(validated.ok).toBe(true);
+      if (!validated.ok) continue;
+      expect(validated.value.candidateTermIds).toEqual(candidateTermIds);
+      expect(validated.value.candidateTermIds).toEqual(
+        validated.value.authorization?.map((entry) => entry.termId) ?? [],
+      );
+    }
+    const restricted = await provider.interpret({
+      modality: "gesture",
+      input: cases[1].input,
+      allowedTermIds: ["nameraka"],
+    });
+    const restrictedValidation = validateSensoryBridgeResponse(restricted);
+    expect(restrictedValidation.ok).toBe(true);
+    if (restrictedValidation.ok) {
+      expect(restrictedValidation.value.candidateTermIds).toEqual([]);
+      expect(restrictedValidation.value.authorization).toEqual([]);
+    }
+  });
+
   it("uses no candidate in the deterministic Voice fading fixture path", async () => {
     const response = await createFixtureSensoryBridgeProvider().interpret({
       modality: "voice",
