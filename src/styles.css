@@ -271,19 +271,9 @@ h4 {
 
 .start-screen__actions {
   display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin-top: 32px;
-}
-
-.start-screen__primary-actions {
-  display: flex;
   flex-wrap: wrap;
   gap: 12px;
-}
-
-.start-screen__secondary-actions {
-  margin-top: 20px;
+  margin-top: 32px;
 }
 
 .start-screen__visual {
@@ -364,113 +354,6 @@ h4 {
 
 .experience-screen__footer {
   margin-top: 36px;
-}
-
-/* Sources / provenance */
-.sources-page__header {
-  margin-bottom: 28px;
-}
-
-.sources-page__header h1 {
-  margin-top: 10px;
-}
-
-.sources-page__boundary,
-.sources-page__section {
-  margin-top: 28px;
-}
-
-.sources-page__boundary {
-  padding: 20px;
-  background: var(--soft-surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-}
-
-.sources-page__boundary h2,
-.sources-page__section h2 {
-  font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-size: clamp(1.25rem, 3vw, 1.65rem);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.sources-page__boundary p,
-.sources-page__section-copy {
-  margin: 12px 0 0;
-  color: var(--muted);
-  line-height: 1.8;
-}
-
-.sources-page__list {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.sources-page__card {
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-soft);
-}
-
-.sources-page__source-name {
-  margin: 0;
-  color: var(--deep-green-dark);
-  font-weight: 700;
-  line-height: 1.6;
-}
-
-.sources-page__card h3 {
-  margin-top: 6px;
-  font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.sources-page__metadata {
-  display: grid;
-  gap: 4px;
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.6;
-}
-
-.sources-page__metadata div {
-  display: grid;
-  grid-template-columns: 5.5em 1fr;
-  gap: 8px;
-}
-
-.sources-page__metadata dt {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.sources-page__metadata dd {
-  margin: 0;
-}
-
-.sources-page__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-  color: var(--deep-green-dark);
-  font-size: 0.86rem;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-@media (min-width: 720px) {
-  .sources-page__list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .screen-reader-only {
@@ -1982,7 +1865,6 @@ input {
   }
 
   .start-screen__actions,
-  .start-screen__primary-actions,
   .body-capture-card__actions,
   .experiment__actions {
     align-items: stretch;
