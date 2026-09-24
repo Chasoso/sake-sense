@@ -1,7 +1,13 @@
+import type { BodyCaptureStatus } from "./body-capture-layout";
+
 export type CameraFacingMode = "user" | "environment";
 
 export const BODY_CAMERA_DEFAULT_FACING_MODE: CameraFacingMode = "user";
 export const BODY_CAMERA_PRESENTATION_MIRRORED = true;
+
+export function canSwitchBodyCamera(status: BodyCaptureStatus, countdownActive: boolean): boolean {
+  return status === "ready" && !countdownActive;
+}
 
 export function shouldMirrorBodyCameraPresentation(actualFacingMode: string | undefined): boolean {
   if (actualFacingMode === "environment") return false;
