@@ -12,7 +12,7 @@ Deploy `infra/aws/data-admin.yaml` as an independent stack, passing:
 - `CognitoLogoutUrl`: normally `/admin/login`; local default is `http://localhost:5173/admin/login`
 - `CognitoDomainPrefix`: a globally unique hosted-UI prefix
 
-The stack creates four on-demand tables, an HTTP API, public/admin Lambda functions, a Cognito user pool, an app client without a secret, an `admin` group, and a JWT authorizer. No production credentials are stored in the repository.
+The stack creates four on-demand tables, an HTTP API, public/admin Lambda functions, a Cognito user pool, an app client without a secret, an `admin` group, and a JWT authorizer. The user pool keeps optional MFA enabled with software-token (`SOFTWARE_TOKEN_MFA`) support only; it does not configure SMS, SNS, or phone-number verification. No production credentials are stored in the repository.
 
 For local frontend development, set `VITE_SAKE_DATA_API_BASE_URL` only when a local or deployed
 data API is available. The app otherwise uses the checked-in JSON fixtures for local/test use. The

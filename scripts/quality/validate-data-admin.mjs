@@ -31,6 +31,9 @@ const required = [
   "BillingMode: PAY_PER_REQUEST",
   "CognitoCallbackUrl:",
   "CognitoLogoutUrl:",
+  "MfaConfiguration: OPTIONAL",
+  "EnabledMfas:",
+  "SOFTWARE_TOKEN_MFA",
   "RoleName: !Sub ${AWS::StackName}-lambda-runtime",
   "RoleName: !Sub ${AWS::StackName}-lambda-admin",
   "FunctionName: !Sub ${AWS::StackName}-public-read",
@@ -38,6 +41,17 @@ const required = [
 ];
 const missing = required.filter((value) => !template.includes(value));
 if (missing.length) throw new Error(`data-admin infrastructure is missing: ${missing.join(", ")}`);
+for (const forbidden of [
+  "SmsConfiguration:",
+  "AWS::SNS",
+  "phone_number",
+  "AutoVerifiedAttributes:",
+]) {
+  if (template.includes(forbidden))
+    throw new Error(
+      `data-admin Cognito configuration must not introduce SMS/phone MFA: ${forbidden}`,
+    );
+}
 if (template.includes("GenerateSecret: true"))
   throw new Error("Cognito SPA client must not have a secret");
 const workflowRequired = [
