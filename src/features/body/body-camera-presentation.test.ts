@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
+  canSwitchBodyCamera,
   getBodyCameraPresentationTransform,
   isCameraSwitchAccepted,
   isConfirmedCameraSwitchAvailable,
@@ -31,6 +32,14 @@ describe("body camera presentation coordinates", () => {
     expect(isConfirmedCameraSwitchAvailable(1, undefined)).toBe(false);
     expect(isConfirmedCameraSwitchAvailable(2, undefined)).toBe(false);
     expect(isConfirmedCameraSwitchAvailable(2, "user")).toBe(true);
+  });
+
+  it("allows switching only from a ready, non-countdown state", () => {
+    expect(canSwitchBodyCamera("ready", false)).toBe(true);
+    expect(canSwitchBodyCamera("ready", true)).toBe(false);
+    expect(canSwitchBodyCamera("captured", false)).toBe(false);
+    expect(canSwitchBodyCamera("capturing", false)).toBe(false);
+    expect(canSwitchBodyCamera("loading", false)).toBe(false);
   });
 
   it("recognizes an ineffective switch when the effective camera is unchanged", () => {

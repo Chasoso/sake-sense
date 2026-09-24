@@ -35,6 +35,7 @@ import {
 import {
   BODY_CAMERA_DEFAULT_FACING_MODE,
   BODY_CAMERA_PRESENTATION_MIRRORED,
+  canSwitchBodyCamera,
   isCameraSwitchAccepted,
   isConfirmedCameraSwitchAvailable,
   isSameCameraDevice,
@@ -703,7 +704,7 @@ export function BodyExperiment({
   };
 
   const switchCamera = () => {
-    if (status === "capturing" || status === "loading" || countdown !== null) return;
+    if (!canSwitchBodyCamera(status, countdown !== null)) return;
     const nextFacingMode: CameraFacingMode = cameraFacingMode === "user" ? "environment" : "user";
     void prepareCamera(nextFacingMode);
   };
@@ -1306,12 +1307,11 @@ export function BodyExperiment({
               <span>戻る</span>
             </button>
           </nav>
-          {hasMultipleCameras && (status === "ready" || status === "captured") && (
+          {hasMultipleCameras && canSwitchBodyCamera(status, countdown !== null) && (
             <button
               className="body-camera__switch"
               type="button"
               onClick={switchCamera}
-              disabled={countdown !== null}
               aria-label={
                 cameraFacingMode === "user" ? "背面カメラに切り替え" : "前面カメラに切り替え"
               }
