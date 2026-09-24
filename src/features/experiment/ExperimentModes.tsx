@@ -6,9 +6,11 @@ import { VoiceExperiment } from "./VoiceExperiment";
 import logoHorizontal from "../../assets/brand/logo-horizontal.png";
 import heroSakeCup from "../../assets/brand/hero-sake-cup.png";
 import { SourcesPage } from "../sources/SourcesPage";
+import { useScreenScrollReset } from "./use-screen-scroll-reset";
 
 export function ExperimentModes() {
   const [mode, setMode] = useState<"start" | "body" | "voice" | "gesture" | "sources">("start");
+  useScreenScrollReset(mode);
 
   if (mode === "sources") {
     return <SourcesPage onBack={() => setMode("start")} />;

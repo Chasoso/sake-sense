@@ -15,6 +15,7 @@ import {
 } from "../../domain/sensory-bridge";
 import { evaluateGestureSensorySupport } from "../../domain/sensory-support-cases";
 import { ExperienceBrand } from "./ExperienceBrand";
+import { useScreenScrollReset } from "./use-screen-scroll-reset";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -45,6 +46,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [error, setError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const capturedPointerId = useRef<number | null>(null);
+  useScreenScrollReset(result);
 
   const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     if (capturedPointerId.current !== event.pointerId) return;

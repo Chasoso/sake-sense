@@ -33,6 +33,7 @@ import {
   requestVoiceMicrophone,
   type VoiceStartupFailure,
 } from "./voice-permission";
+import { useScreenScrollReset } from "./use-screen-scroll-reset";
 
 export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [expression, setExpression] = useState("");
@@ -46,6 +47,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  useScreenScrollReset(result);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
   const voiceAnalyser = useRef<AnalyserNode | null>(null);

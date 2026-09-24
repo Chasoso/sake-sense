@@ -12,6 +12,7 @@ import { getReplayDurationMs } from "../../domain/body-replay";
 import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import { ExperienceBrand } from "../experiment/ExperienceBrand";
+import { useScreenScrollReset } from "../experiment/use-screen-scroll-reset";
 import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
@@ -405,6 +406,7 @@ export function BodyExperiment({
   const [countdown, setCountdown] = useState<BodyCaptureCountdown>(null);
   const [features, setFeatures] = useState<BodyMovementFeatures | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
+  useScreenScrollReset(result);
   const [error, setError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<BodyPoseFrame[]>([]);
   const [hybridReplayFrames, setHybridReplayFrames] = useState<BodyHybridReplayFrame[]>([]);
