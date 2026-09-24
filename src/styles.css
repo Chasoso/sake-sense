@@ -1169,7 +1169,7 @@ h4 {
 
 /* Voice and gesture */
 .voice-primary {
-  max-width: 760px;
+  width: 100%;
 }
 
 .experiment__grid {
