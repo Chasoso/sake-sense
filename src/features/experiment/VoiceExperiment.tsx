@@ -23,6 +23,7 @@ import {
 } from "../../domain/sensory-bridge";
 import { ExpressionTransform } from "./ExpressionTransform";
 import { Result } from "./Experiment";
+import { ExperienceBrand } from "./ExperienceBrand";
 
 export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [expression, setExpression] = useState("");
@@ -208,7 +209,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>最初に戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
         <Result result={result} onTryAgain={reset} />
       </main>
@@ -223,7 +224,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
       )}
       <header className="experience-screen__header">

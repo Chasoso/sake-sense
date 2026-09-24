@@ -36,6 +36,7 @@ import {
   getCandidateDisplaySummary,
   getResultPresentationPolicy,
 } from "./result-presentation";
+import { ExperienceBrand } from "./ExperienceBrand";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -311,7 +312,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>最初に戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
         <Result result={result} onTryAgain={reset} />
       </main>
@@ -326,7 +327,7 @@ export function Experiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
       )}
       <header className="experience-screen__header">

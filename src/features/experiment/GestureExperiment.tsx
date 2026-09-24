@@ -14,6 +14,7 @@ import {
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
 import { evaluateGestureSensorySupport } from "../../domain/sensory-support-cases";
+import { ExperienceBrand } from "./ExperienceBrand";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -146,7 +147,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>最初に戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
         <Result result={result} onTryAgain={reset} />
         {gestureCalibrationEnabled && result.sensoryBridge?.modality === "gesture" && (
@@ -172,7 +173,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>戻る</span>
           </button>
-          <span className="experience-screen__brand">Sake Sense</span>
+          <ExperienceBrand />
         </nav>
       )}
       <header className="experience-screen__header">

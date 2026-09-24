@@ -12,6 +12,7 @@ import type { GestureFeatures } from "../../domain/gesture";
 import type { VoiceFeatures } from "../../domain/voice";
 import { Result } from "../experiment/Experiment";
 import { SourcesPage } from "../sources/SourcesPage";
+import { ExperienceBrand } from "../experiment/ExperienceBrand";
 
 export type UiInventoryState =
   | "body-loading"
@@ -78,7 +79,7 @@ function InventoryNav() {
         <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
         <span>戻る</span>
       </button>
-      <span className="experience-screen__brand">Sake Sense</span>
+      <ExperienceBrand />
     </nav>
   );
 }

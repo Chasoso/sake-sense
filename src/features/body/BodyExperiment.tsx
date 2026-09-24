@@ -11,6 +11,7 @@ import {
 import { getReplayDurationMs } from "../../domain/body-replay";
 import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
 import { Result } from "../experiment/Experiment";
+import { ExperienceBrand } from "../experiment/ExperienceBrand";
 import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
@@ -1242,7 +1243,7 @@ export function BodyExperiment({
                   <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
                   <span>最初に戻る</span>
                 </button>
-                <span className="experience-screen__brand">Sake Sense</span>
+                <ExperienceBrand />
               </nav>
               <Result result={result} onTryAgain={retry} />
             </div>

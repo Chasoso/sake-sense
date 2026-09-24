@@ -4,6 +4,7 @@ import {
   DEFAULT_TERMINOLOGY_SOURCES,
   type DisplaySource,
 } from "./source-aggregation";
+import { ExperienceBrand } from "../experiment/ExperienceBrand";
 
 function sourceTypeLabel(source: DisplaySource): string {
   if (source.sourceType === "official-product-page") return "公式商品情報";
@@ -56,7 +57,7 @@ export function SourcesPage({ onBack }: { onBack: () => void }) {
           <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
           <span>戻る</span>
         </button>
-        <span className="experience-screen__brand">Sake Sense</span>
+        <ExperienceBrand />
       </nav>
 
       <header className="experience-screen__header sources-page__header">
