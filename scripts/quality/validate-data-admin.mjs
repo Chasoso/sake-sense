@@ -60,6 +60,24 @@ const workflowRequired = [
 const missingWorkflow = workflowRequired.filter((value) => !workflow.includes(value));
 if (missingWorkflow.length)
   throw new Error(`data-admin workflow is missing: ${missingWorkflow.join(", ")}`);
+for (const required of [
+  'describe_output="$(\n',
+  "2>&1\n",
+  "printf '%s\\n' \"${describe_output}\"",
+  'grep -qi "does not exist"',
+  'echo "Unable to determine whether the data-admin stack exists." >&2',
+]) {
+  if (!workflow.includes(required))
+    throw new Error(
+      `data-admin workflow must preserve visible stack detection diagnostics: ${required}`,
+    );
+}
+if (
+  workflow.includes(
+    'describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1',
+  )
+)
+  throw new Error("data-admin stack detection must not discard the AWS CLI error");
 if (/^\s+push:/m.test(workflow) || /deploy-production/.test(workflow))
   throw new Error("data-admin deployment must remain a separate manual workflow");
 if (workflow.includes("migrate:sake-data -- --apply"))
@@ -81,6 +99,7 @@ const bootstrapRequired = [
   "!GetAtt DataAdminCloudFormationExecutionRole.Arn",
   "GitHubActionsDataAdminDeploymentPolicy",
   "s3:PutObject",
+  "DetectDataAdminStackBeforeCreate",
   "cloudformation:CreateChangeSet",
   "cloudformation:DescribeChangeSet",
   "cloudformation:ExecuteChangeSet",
@@ -127,6 +146,26 @@ for (const forbidden of ["iam:*", "iam:CreateRole", "iam:PutRolePolicy", "lambda
 if (!bootstrap.includes("iam:PassedToService: lambda.amazonaws.com"))
   throw new Error("data-admin Lambda-side PassRole condition must remain intact");
 const githubDeploymentPolicy = bootstrap.slice(githubDeploymentStart);
+const detectionStart = githubDeploymentPolicy.indexOf("Sid: DetectDataAdminStackBeforeCreate");
+const createChangeSetStart = githubDeploymentPolicy.indexOf("Sid: CreateDataAdminChangeSet");
+const manageStackStart = githubDeploymentPolicy.indexOf("Sid: InspectAndExecuteDataAdminChangeSet");
+if (
+  detectionStart < 0 ||
+  createChangeSetStart < 0 ||
+  manageStackStart < 0 ||
+  !githubDeploymentPolicy
+    .slice(detectionStart, createChangeSetStart)
+    .includes("Action: cloudformation:DescribeStacks") ||
+  !githubDeploymentPolicy.slice(detectionStart, createChangeSetStart).includes('Resource: "*"') ||
+  !githubDeploymentPolicy
+    .slice(createChangeSetStart, manageStackStart)
+    .includes("Action: cloudformation:CreateChangeSet") ||
+  !githubDeploymentPolicy.slice(createChangeSetStart, manageStackStart).includes('Resource: "*"') ||
+  githubDeploymentPolicy.slice(manageStackStart).includes('Resource: "*"')
+)
+  throw new Error(
+    "GitHub Actions CloudFormation pre-create and stack-scoped statements are invalid",
+  );
 for (const required of [
   "!Ref GitHubActionsRoleName",
   "arn:${AWS::Partition}:s3:::${ArtifactBucketName}/data-admin/*",
@@ -144,11 +183,12 @@ if (!githubDeploymentPolicy.includes("Action: lambda:GetFunctionConfiguration"))
 if (!githubDeploymentPolicy.includes("Action: dynamodb:DescribeTable"))
   throw new Error("GitHub Actions deployment policy must grant DynamoDB verification read access");
 if (
-  (githubDeploymentPolicy.match(/^\s+Resource: "\*"/gm) ?? []).length !== 1 ||
+  (githubDeploymentPolicy.match(/^\s+Resource: "\*"/gm) ?? []).length !== 2 ||
+  !githubDeploymentPolicy.includes("Sid: DetectDataAdminStackBeforeCreate") ||
   !githubDeploymentPolicy.includes("Sid: CreateDataAdminChangeSet")
 )
   throw new Error(
-    "GitHub Actions deployment policy may use Resource: * only for CREATE change-set authorization",
+    "GitHub Actions deployment policy must isolate only stack detection and CREATE change-set wildcard access",
   );
 if (githubDeploymentPolicy.includes("cloudformation:DeleteChangeSet"))
   throw new Error("GitHub Actions deployment policy must not grant unused DeleteChangeSet");
