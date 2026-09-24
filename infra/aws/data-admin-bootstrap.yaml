@@ -82,6 +82,7 @@ Resources:
                   - cognito-idp:DeleteUserPoolClient
                   - cognito-idp:DescribeUserPool
                   - cognito-idp:DescribeUserPoolClient
+                  - cognito-idp:SetUserPoolMfaConfig
                   - cognito-idp:GetGroup
                   - cognito-idp:ListTagsForResource
                   - cognito-idp:TagResource
