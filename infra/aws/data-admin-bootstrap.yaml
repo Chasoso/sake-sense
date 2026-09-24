@@ -10,6 +10,10 @@ Parameters:
     Type: String
     Description: Existing private bucket containing data-admin/* Lambda artifacts.
     AllowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+  GitHubActionsRoleName:
+    Type: String
+    Description: Existing GitHub Actions OIDC role referenced by the AWS_ROLE_ARN production variable.
+    AllowedPattern: "^[A-Za-z0-9+=,.@_-]{1,64}$"
 
 Resources:
   DataAdminCloudFormationExecutionRole:
@@ -139,6 +143,23 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: lambda.amazonaws.com
+
+  GitHubActionsDataAdminPassRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${DataAdminStackName}-github-passrole
+      Roles:
+        - !Ref GitHubActionsRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PassOnlyDataAdminCloudFormationRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt DataAdminCloudFormationExecutionRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: cloudformation.amazonaws.com
 
 Outputs:
   DataAdminCloudFormationExecutionRoleArn:

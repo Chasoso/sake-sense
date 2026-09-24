@@ -75,6 +75,11 @@ const bootstrapRequired = [
   "data-admin/*",
   "iam:PassRole",
   "iam:PassedToService",
+  "GitHubActionsRoleName",
+  "AWS::IAM::Policy",
+  "!Ref GitHubActionsRoleName",
+  "!GetAtt DataAdminCloudFormationExecutionRole.Arn",
+  "cloudformation.amazonaws.com",
 ];
 const missingBootstrap = bootstrapRequired.filter((value) => !bootstrap.includes(value));
 if (missingBootstrap.length)
@@ -91,6 +96,20 @@ for (const forbidden of [
 }
 if (bootstrap.includes("Principal:\n              Service: lambda.amazonaws.com"))
   throw new Error("data-admin bootstrap role must trust CloudFormation only");
+const githubPassRoleStart = bootstrap.indexOf("GitHubActionsDataAdminPassRolePolicy:");
+const githubPassRolePolicy = bootstrap.slice(githubPassRoleStart);
+if (githubPassRoleStart < 0)
+  throw new Error("data-admin bootstrap is missing the GitHub Actions PassRole policy");
+if (githubPassRolePolicy.includes('Resource: "*"'))
+  throw new Error("GitHub Actions data-admin PassRole must not use Resource: *");
+if (!githubPassRolePolicy.includes("Action: iam:PassRole"))
+  throw new Error("GitHub Actions data-admin policy must grant only iam:PassRole");
+for (const forbidden of ["iam:*", "iam:CreateRole", "iam:PutRolePolicy", "lambda.amazonaws.com"]) {
+  if (githubPassRolePolicy.includes(forbidden))
+    throw new Error(`GitHub Actions PassRole policy contains forbidden permission: ${forbidden}`);
+}
+if (!bootstrap.includes("iam:PassedToService: lambda.amazonaws.com"))
+  throw new Error("data-admin Lambda-side PassRole condition must remain intact");
 if (workflow.includes("vars.CLOUDFORMATION_EXECUTION_ROLE_ARN"))
   throw new Error("data-admin workflow must use its dedicated execution role variable");
 if (semanticBridgeWorkflow.includes("vars.DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN"))
