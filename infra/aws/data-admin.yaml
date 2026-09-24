@@ -1,0 +1,338 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Independent Sake Sense data, public API, and admin foundation.
+
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Description: Exact HTTPS origin allowed by the public and admin API CORS policy.
+    AllowedPattern: "^https://[^\\s]+$"
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: Existing private bucket containing the data-platform Lambda artifact.
+  LambdaCodeS3Key:
+    Type: String
+    Description: Immutable S3 key for the data-platform Lambda artifact.
+  CognitoCallbackUrl:
+    Type: String
+    Default: http://localhost:5173/admin/callback
+    Description: Deployment-time SPA callback URL; replace for production.
+  CognitoLogoutUrl:
+    Type: String
+    Default: http://localhost:5173/admin/login
+    Description: Deployment-time SPA logout URL; replace for production.
+  CognitoDomainPrefix:
+    Type: String
+    Default: sake-sense-admin-local
+    Description: Globally unique Cognito hosted UI domain prefix.
+    AllowedPattern: "^[a-z0-9-]+$"
+
+Resources:
+  BreweriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TableName: !Sub ${AWS::StackName}-breweries
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TableName: !Sub ${AWS::StackName}-products
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  SourcesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TableName: !Sub ${AWS::StackName}-sources
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  ProductEvidenceTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: productId-index
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TableName: !Sub ${AWS::StackName}-product-evidence
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  AdminUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-users
+      UsernameAttributes:
+        - email
+      MfaConfiguration: OPTIONAL
+      UserPoolTags:
+        Application: sake-sense
+        Purpose: admin-only
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref AdminUserPool
+      Description: Sake Sense administrators allowed to use write APIs.
+
+  AdminUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-spa
+      UserPoolId: !Ref AdminUserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Ref CognitoCallbackUrl
+      LogoutURLs:
+        - !Ref CognitoLogoutUrl
+
+  AdminUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref AdminUserPool
+
+  DataApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowMethods: [GET, POST, PATCH, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 300
+
+  DataApiAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref DataApi
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      JwtConfiguration:
+        Audience:
+          - !Ref AdminUserPoolClient
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${AdminUserPool}
+      Name: admin-jwt
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-lambda-runtime
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DataPlatformRuntime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:Query, dynamodb:Scan]
+                Resource:
+                  - !GetAtt BreweriesTable.Arn
+                  - !GetAtt ProductsTable.Arn
+                  - !GetAtt SourcesTable.Arn
+                  - !GetAtt ProductEvidenceTable.Arn
+                  - !Sub ${ProductEvidenceTable.Arn}/index/*
+
+  AdminLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-lambda-admin
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DataPlatformAdminRuntime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  [
+                    dynamodb:GetItem,
+                    dynamodb:PutItem,
+                    dynamodb:UpdateItem,
+                    dynamodb:Query,
+                    dynamodb:Scan,
+                  ]
+                Resource:
+                  - !GetAtt BreweriesTable.Arn
+                  - !GetAtt ProductsTable.Arn
+                  - !GetAtt SourcesTable.Arn
+                  - !GetAtt ProductEvidenceTable.Arn
+                  - !Sub ${ProductEvidenceTable.Arn}/index/*
+
+  PublicReadFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-public-read
+      Runtime: nodejs24.x
+      Handler: public-handler.handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          BREWERIES_TABLE_NAME: !Ref BreweriesTable
+          PRODUCTS_TABLE_NAME: !Ref ProductsTable
+          SOURCES_TABLE_NAME: !Ref SourcesTable
+          PRODUCT_EVIDENCE_TABLE_NAME: !Ref ProductEvidenceTable
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+
+  AdminWriteFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-admin-write
+      Runtime: nodejs24.x
+      Handler: admin-handler.handler
+      Role: !GetAtt AdminLambdaRole.Arn
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref AdminUserPool
+          COGNITO_CLIENT_ID: !Ref AdminUserPoolClient
+          BREWERIES_TABLE_NAME: !Ref BreweriesTable
+          PRODUCTS_TABLE_NAME: !Ref ProductsTable
+          SOURCES_TABLE_NAME: !Ref SourcesTable
+          PRODUCT_EVIDENCE_TABLE_NAME: !Ref ProductEvidenceTable
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+
+  PublicIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref DataApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt PublicReadFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  AdminIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref DataApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt AdminWriteFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  PublicRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref DataApi
+      RouteKey: "GET /api/{proxy+}"
+      Target: !Sub integrations/${PublicIntegration}
+
+  AdminRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref DataApi
+      RouteKey: "ANY /admin/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref DataApiAuthorizer
+      Target: !Sub integrations/${AdminIntegration}
+
+  DataApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref DataApi
+      StageName: $default
+      AutoDeploy: true
+
+  PublicPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PublicReadFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${DataApi}/*/*
+
+  AdminPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AdminWriteFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${DataApi}/*/*
+
+Outputs:
+  DataApiEndpoint:
+    Value: !Sub https://${DataApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  BreweriesTableName:
+    Value: !Ref BreweriesTable
+  ProductsTableName:
+    Value: !Ref ProductsTable
+  SourcesTableName:
+    Value: !Ref SourcesTable
+  ProductEvidenceTableName:
+    Value: !Ref ProductEvidenceTable
+  CognitoUserPoolId:
+    Value: !Ref AdminUserPool
+  CognitoClientId:
+    Value: !Ref AdminUserPoolClient
+  CognitoIssuer:
+    Value: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${AdminUserPool}

@@ -35,6 +35,9 @@ jobs:
       - name: Run scroll reset E2E
         run: npx playwright test tests/e2e/scroll-reset.spec.ts
 
+      - name: Run Admin E2E
+        run: npm run test:e2e:admin
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v6

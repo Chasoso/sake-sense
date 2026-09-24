@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Dedicated CloudFormation execution role for the Sake Sense data-admin stack.
+
+Parameters:
+  DataAdminStackName:
+    Type: String
+    Description: Exact stack name used for infra/aws/data-admin.yaml resources.
+    AllowedPattern: "^[A-Za-z0-9][A-Za-z0-9-]{0,48}$"
+  ArtifactBucketName:
+    Type: String
+    Description: Existing private bucket containing data-admin/* Lambda artifacts.
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+  GitHubActionsRoleName:
+    Type: String
+    Description: Existing GitHub Actions OIDC role referenced by the AWS_ROLE_ARN production variable.
+    AllowedPattern: "^[A-Za-z0-9+=,.@_-]{1,64}$"
+
+Resources:
+  DataAdminCloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${DataAdminStackName}-cfn-execution
+      Description: Dedicated CloudFormation execution role for the Sake Sense data-admin stack.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DataAdminStackProvisioning
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Lambda code is uploaded by GitHub Actions. The execution role only reads
+              # immutable objects under the data-admin prefix.
+              - Sid: ReadDataAdminLambdaArtifacts
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource: !Sub arn:${AWS::Partition}:s3:::${ArtifactBucketName}/data-admin/*
+
+              # DynamoDB CreateTable has no table resource type in the IAM service
+              # authorization reference. Keep that one action isolated at account scope;
+              # all post-create table operations are limited to this stack's table names.
+              - Sid: CreateDataAdminTables
+                Effect: Allow
+                Action: dynamodb:CreateTable
+                Resource: "*"
+              - Sid: ManageDataAdminTables
+                Effect: Allow
+                Action:
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:DescribeTable
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateContinuousBackups
+                  - dynamodb:UpdateTable
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DataAdminStackName}-*
+
+              # Cognito create/domain APIs do not expose a resource ARN before the
+              # resource exists, so only those bootstrap actions use Resource: "*".
+              - Sid: CreateDataAdminCognitoResources
+                Effect: Allow
+                Action:
+                  - cognito-idp:CreateGroup
+                  - cognito-idp:CreateUserPool
+                  - cognito-idp:CreateUserPoolClient
+                  - cognito-idp:CreateUserPoolDomain
+                  - cognito-idp:DeleteUserPoolDomain
+                  - cognito-idp:DescribeUserPoolDomain
+                Resource: "*"
+              - Sid: ManageDataAdminCognitoPoolResources
+                Effect: Allow
+                Action:
+                  - cognito-idp:DeleteGroup
+                  - cognito-idp:DeleteUserPool
+                  - cognito-idp:DeleteUserPoolClient
+                  - cognito-idp:DescribeUserPool
+                  - cognito-idp:DescribeUserPoolClient
+                  - cognito-idp:GetGroup
+                  - cognito-idp:ListTagsForResource
+                  - cognito-idp:TagResource
+                  - cognito-idp:UntagResource
+                  - cognito-idp:UpdateGroup
+                  - cognito-idp:UpdateUserPool
+                  - cognito-idp:UpdateUserPoolClient
+                Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+              # API Gateway v2 management actions use service-specific paths and the
+              # API identifier is generated during creation; keep this service isolated
+              # in its own statement rather than widening unrelated services.
+              - Sid: ManageDataAdminHttpApi
+                Effect: Allow
+                Action:
+                  - apigateway:DELETE
+                  - apigateway:GET
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                Resource: "*"
+
+              - Sid: ManageDataAdminFunctions
+                Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:ListTags
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${DataAdminStackName}-*
+
+              # data-admin.yaml names both Lambda runtime roles deterministically so
+              # PassRole cannot reach unrelated application roles.
+              - Sid: ManageDataAdminLambdaRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PutRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${DataAdminStackName}-*
+              - Sid: PassOnlyDataAdminLambdaRoles
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${DataAdminStackName}-*
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
+
+  GitHubActionsDataAdminPassRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${DataAdminStackName}-github-passrole
+      Roles:
+        - !Ref GitHubActionsRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PassOnlyDataAdminCloudFormationRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt DataAdminCloudFormationExecutionRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: cloudformation.amazonaws.com
+
+  GitHubActionsDataAdminDeploymentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${DataAdminStackName}-github-deploy
+      Roles:
+        - !Ref GitHubActionsRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # The workflow uploads only immutable Lambda artifacts under this prefix.
+          - Sid: UploadDataAdminLambdaArtifact
+            Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub arn:${AWS::Partition}:s3:::${ArtifactBucketName}/data-admin/*
+
+          # CREATE change sets need account-scoped authorization because the target
+          # stack ARN does not exist yet. This is the only CloudFormation statement
+          # below that uses Resource: "*".
+          - Sid: CreateDataAdminChangeSet
+            Effect: Allow
+            Action: cloudformation:CreateChangeSet
+            Resource: "*"
+          - Sid: InspectAndExecuteDataAdminChangeSet
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
+            Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DataAdminStackName}/*
+
+          - Sid: VerifyDataAdminFunctions
+            Effect: Allow
+            Action: lambda:GetFunctionConfiguration
+            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${DataAdminStackName}-*
+          - Sid: VerifyDataAdminTables
+            Effect: Allow
+            Action: dynamodb:DescribeTable
+            Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DataAdminStackName}-*
+
+Outputs:
+  DataAdminCloudFormationExecutionRoleArn:
+    Description: ARN to set as DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN.
+    Value: !GetAtt DataAdminCloudFormationExecutionRole.Arn
