@@ -4,8 +4,16 @@ const template = await readFile(
   new URL("../../infra/aws/data-admin.yaml", import.meta.url),
   "utf8",
 );
+const bootstrap = await readFile(
+  new URL("../../infra/aws/data-admin-bootstrap.yaml", import.meta.url),
+  "utf8",
+);
 const workflow = await readFile(
   new URL("../../.github/workflows/deploy-data-admin.yml", import.meta.url),
+  "utf8",
+);
+const semanticBridgeWorkflow = await readFile(
+  new URL("../../.github/workflows/deploy-production.yml", import.meta.url),
   "utf8",
 );
 const frontendWorkflow = await readFile(
@@ -23,6 +31,10 @@ const required = [
   "BillingMode: PAY_PER_REQUEST",
   "CognitoCallbackUrl:",
   "CognitoLogoutUrl:",
+  "RoleName: !Sub ${AWS::StackName}-lambda-runtime",
+  "RoleName: !Sub ${AWS::StackName}-lambda-admin",
+  "FunctionName: !Sub ${AWS::StackName}-public-read",
+  "FunctionName: !Sub ${AWS::StackName}-admin-write",
 ];
 const missing = required.filter((value) => !template.includes(value));
 if (missing.length) throw new Error(`data-admin infrastructure is missing: ${missing.join(", ")}`);
@@ -54,6 +66,35 @@ if (workflow.includes("migrate:sake-data -- --apply"))
   throw new Error("data-admin deployment must not apply migration data");
 if (/AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AKIA[0-9A-Z]{16}/.test(workflow))
   throw new Error("data-admin workflow must not contain hardcoded AWS credentials");
+const bootstrapRequired = [
+  "AWS::IAM::Role",
+  "cloudformation.amazonaws.com",
+  "DataAdminCloudFormationExecutionRoleArn",
+  "s3:GetObject",
+  "s3:GetObjectVersion",
+  "data-admin/*",
+  "iam:PassRole",
+  "iam:PassedToService",
+];
+const missingBootstrap = bootstrapRequired.filter((value) => !bootstrap.includes(value));
+if (missingBootstrap.length)
+  throw new Error(`data-admin bootstrap is missing: ${missingBootstrap.join(", ")}`);
+for (const forbidden of [
+  "AdministratorAccess",
+  "PowerUserAccess",
+  "iam:*",
+  "dynamodb:*",
+  "lambda:*",
+]) {
+  if (bootstrap.includes(forbidden))
+    throw new Error(`data-admin bootstrap contains forbidden broad permission: ${forbidden}`);
+}
+if (bootstrap.includes("Principal:\n              Service: lambda.amazonaws.com"))
+  throw new Error("data-admin bootstrap role must trust CloudFormation only");
+if (workflow.includes("vars.CLOUDFORMATION_EXECUTION_ROLE_ARN"))
+  throw new Error("data-admin workflow must use its dedicated execution role variable");
+if (semanticBridgeWorkflow.includes("vars.DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN"))
+  throw new Error("semantic-bridge deployment must not use the data-admin execution role variable");
 const frontendPassThrough = [
   "VITE_SAKE_DATA_API_BASE_URL: ${{ vars.VITE_SAKE_DATA_API_BASE_URL }}",
   "VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}",

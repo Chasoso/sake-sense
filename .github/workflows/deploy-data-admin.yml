@@ -21,7 +21,7 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
-      CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
+      DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN }}
       DATA_ADMIN_STACK_NAME: ${{ vars.DATA_ADMIN_STACK_NAME }}
       DATA_ADMIN_ARTIFACT_BUCKET: ${{ vars.DATA_ADMIN_ARTIFACT_BUCKET }}
       DATA_ADMIN_ALLOWED_ORIGIN: ${{ vars.DATA_ADMIN_ALLOWED_ORIGIN }}
@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for variable in AWS_REGION AWS_ROLE_ARN CLOUDFORMATION_EXECUTION_ROLE_ARN DATA_ADMIN_STACK_NAME DATA_ADMIN_ARTIFACT_BUCKET DATA_ADMIN_ALLOWED_ORIGIN DATA_ADMIN_COGNITO_CALLBACK_URL DATA_ADMIN_COGNITO_LOGOUT_URL DATA_ADMIN_COGNITO_DOMAIN_PREFIX; do
+          for variable in AWS_REGION AWS_ROLE_ARN DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN DATA_ADMIN_STACK_NAME DATA_ADMIN_ARTIFACT_BUCKET DATA_ADMIN_ALLOWED_ORIGIN DATA_ADMIN_COGNITO_CALLBACK_URL DATA_ADMIN_COGNITO_LOGOUT_URL DATA_ADMIN_COGNITO_DOMAIN_PREFIX; do
             if [ -z "${!variable}" ]; then
               echo "Missing GitHub production variable: ${variable}" >&2
               exit 1
@@ -123,7 +123,7 @@ jobs:
             --change-set-name "${change_set_name}" \
             --change-set-type "${stack_type}" \
             --capabilities CAPABILITY_NAMED_IAM \
-            --role-arn "${CLOUDFORMATION_EXECUTION_ROLE_ARN}" \
+            --role-arn "${DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN}" \
             --parameters \
               ParameterKey=AllowedOrigin,ParameterValue="${DATA_ADMIN_ALLOWED_ORIGIN}" \
               ParameterKey=LambdaCodeS3Bucket,ParameterValue="${DATA_ADMIN_ARTIFACT_BUCKET}" \

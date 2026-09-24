@@ -163,6 +163,7 @@ Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub ${AWS::StackName}-lambda-runtime
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -190,6 +191,7 @@ Resources:
   AdminLambdaRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub ${AWS::StackName}-lambda-admin
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -224,6 +226,7 @@ Resources:
   PublicReadFunction:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub ${AWS::StackName}-public-read
       Runtime: nodejs24.x
       Handler: public-handler.handler
       Role: !GetAtt LambdaRole.Arn
@@ -243,6 +246,7 @@ Resources:
   AdminWriteFunction:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub ${AWS::StackName}-admin-write
       Runtime: nodejs24.x
       Handler: admin-handler.handler
       Role: !GetAtt AdminLambdaRole.Arn

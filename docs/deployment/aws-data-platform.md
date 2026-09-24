@@ -48,9 +48,42 @@ fallback when not explicitly configured.
 
 The repository includes `.github/workflows/deploy-data-admin.yml`. It is intentionally triggered
 only by `workflow_dispatch` in the GitHub `production` environment; merging to `main` does not
-deploy this stack. Configure these production variables before the first run:
+deploy this stack. The data-admin stack does not reuse the semantic-bridge CloudFormation
+execution role.
 
-- `AWS_REGION`, `AWS_ROLE_ARN`, `CLOUDFORMATION_EXECUTION_ROLE_ARN`
+### Bootstrap the execution role once
+
+Choose the private artifact bucket, then deploy `infra/aws/data-admin-bootstrap.yaml` manually
+using an already authorized deployment identity. The bootstrap stack creates only the
+CloudFormation service role for `data-admin.yaml`; it does not create the data tables, API, Lambda,
+or Cognito resources. For example:
+
+```bash
+aws cloudformation deploy \
+  --template-file infra/aws/data-admin-bootstrap.yaml \
+  --stack-name sake-sense-data-admin-bootstrap \
+  --parameter-overrides \
+    DataAdminStackName=sake-sense-data-admin \
+    ArtifactBucketName=YOUR_PRIVATE_ARTIFACT_BUCKET \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+Retrieve the `DataAdminCloudFormationExecutionRoleArn` output and set it as the GitHub
+`production` environment variable `DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN`. The bootstrap
+stack is a one-time, human-managed prerequisite and is not updated by the normal data-admin
+deployment workflow.
+
+The role is limited to resources managed by `data-admin.yaml`: the four tables, data-admin Lambda
+functions and runtime roles, Cognito pool resources, the HTTP API, and read-only access to
+`s3://<artifact-bucket>/data-admin/*`. `dynamodb:CreateTable`, Cognito create/domain operations,
+and API Gateway v2 management operations use `Resource: "*"` because AWS does not expose a usable
+target ARN before creation (or does not provide a resource type for that management action). These
+actions are isolated in separate statements. `iam:PassRole` is restricted to roles named
+`<data-admin-stack>-*` and to `lambda.amazonaws.com`.
+
+Configure these production variables before the first data-admin workflow run:
+
+- `AWS_REGION`, `AWS_ROLE_ARN`, `DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN`
 - `DATA_ADMIN_STACK_NAME`, `DATA_ADMIN_ARTIFACT_BUCKET`, `DATA_ADMIN_ALLOWED_ORIGIN`
 - `DATA_ADMIN_COGNITO_CALLBACK_URL`, `DATA_ADMIN_COGNITO_LOGOUT_URL`,
   `DATA_ADMIN_COGNITO_DOMAIN_PREFIX`
