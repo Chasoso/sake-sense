@@ -4,5 +4,6 @@ backend/semantic-bridge/dist/
 coverage/
 test-results/
 playwright-report/
+docs/ui-inventory/screenshots/
 *.tsbuildinfo
 .DS_Store
