@@ -161,6 +161,47 @@ Resources:
               StringEquals:
                 iam:PassedToService: cloudformation.amazonaws.com
 
+  GitHubActionsDataAdminDeploymentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${DataAdminStackName}-github-deploy
+      Roles:
+        - !Ref GitHubActionsRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # The workflow uploads only immutable Lambda artifacts under this prefix.
+          - Sid: UploadDataAdminLambdaArtifact
+            Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub arn:${AWS::Partition}:s3:::${ArtifactBucketName}/data-admin/*
+
+          # CREATE change sets need account-scoped authorization because the target
+          # stack ARN does not exist yet. This is the only CloudFormation statement
+          # below that uses Resource: "*".
+          - Sid: CreateDataAdminChangeSet
+            Effect: Allow
+            Action: cloudformation:CreateChangeSet
+            Resource: "*"
+          - Sid: InspectAndExecuteDataAdminChangeSet
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
+            Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DataAdminStackName}/*
+
+          - Sid: VerifyDataAdminFunctions
+            Effect: Allow
+            Action: lambda:GetFunctionConfiguration
+            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${DataAdminStackName}-*
+          - Sid: VerifyDataAdminTables
+            Effect: Allow
+            Action: dynamodb:DescribeTable
+            Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DataAdminStackName}-*
+
 Outputs:
   DataAdminCloudFormationExecutionRoleArn:
     Description: ARN to set as DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN.

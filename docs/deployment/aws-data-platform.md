@@ -71,12 +71,14 @@ aws cloudformation deploy \
 
 Retrieve the `DataAdminCloudFormationExecutionRoleArn` output and set it as the GitHub
 `production` environment variable `DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN`. The bootstrap
-stack also attaches a single-purpose `iam:PassRole` policy to the existing role named by
+stack also attaches two narrowly scoped policies to the existing role named by
 `GitHubActionsRoleName`. Pass the role name used by the GitHub `production` environment variable
 `AWS_ROLE_ARN`; do not create a replacement role or change its trust policy. The relationship is
 `AWS_ROLE_ARN` → existing GitHub Actions OIDC role → `iam:PassRole` →
-`DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN` → CloudFormation. The policy is restricted to the
-one data-admin execution role and `cloudformation.amazonaws.com`.
+`DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN` → CloudFormation.
+The deployment policy only uploads `data-admin/*` artifacts, manages the named stack change set, and reads the
+data-admin Lambda and DynamoDB verification targets. The PassRole policy is restricted to the one
+data-admin execution role and `cloudformation.amazonaws.com`.
 
 The bootstrap stack is a one-time, human-managed prerequisite and is not updated by the normal
 data-admin deployment workflow.
@@ -84,9 +86,13 @@ data-admin deployment workflow.
 The role is limited to resources managed by `data-admin.yaml`: the four tables, data-admin Lambda
 functions and runtime roles, Cognito pool resources, the HTTP API, and read-only access to
 `s3://<artifact-bucket>/data-admin/*`. `dynamodb:CreateTable`, Cognito create/domain operations,
-and API Gateway v2 management operations use `Resource: "*"` because AWS does not expose a usable
-target ARN before creation (or does not provide a resource type for that management action). These
-actions are isolated in separate statements. `iam:PassRole` is restricted to roles named
+and API Gateway v2 management operations use `Resource: "*"` in the execution role because AWS
+does not expose a usable target ARN before creation (or does not provide a resource type for that
+management action). These actions are isolated in separate statements. The GitHub Actions role
+has only one additional `Resource: "*"` statement: `cloudformation:CreateChangeSet`, which must
+also support the first CREATE before the stack ARN exists. All other GitHub Actions deployment
+reads/execution, artifact upload, Lambda verification, and DynamoDB verification are scoped to the
+data-admin prefixes. The execution role's `iam:PassRole` remains restricted to roles named
 `<data-admin-stack>-*` and to `lambda.amazonaws.com`.
 
 Configure these production variables before the first data-admin workflow run:
