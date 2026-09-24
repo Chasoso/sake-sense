@@ -6,7 +6,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage", "dist", "backend/semantic-bridge/dist", "node_modules"],
+    ignores: [
+      "coverage",
+      "dist",
+      "backend/semantic-bridge/dist",
+      "backend/data-platform/dist",
+      "node_modules",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

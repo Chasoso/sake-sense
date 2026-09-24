@@ -1,8 +1,8 @@
 import dictionaryData from "./data/sensory-dictionary.v0.1.json";
-import sampleData from "./data/ishikawa-sake-sample.v0.1.json";
+import { getSakeProducts, type RuntimeSakeProduct } from "./sake-catalog";
 import { isRenderableProductTermReference } from "./sake-sample-validation";
 
-export type SakeProduct = (typeof sampleData.products)[number];
+export type SakeProduct = RuntimeSakeProduct;
 export type SakeTermReference = SakeProduct["termReferences"][number];
 
 const dictionary = new Map(dictionaryData.entries.map((entry) => [entry.id, entry]));
@@ -48,7 +48,7 @@ export function findSakeProductMatches(
     candidateTermIds.filter((id) => dictionary.get(id)?.vocabularyStatus === "selectable"),
   );
 
-  return sampleData.products.flatMap((product) => {
+  return getSakeProducts().flatMap((product) => {
     const matchedReferences = product.termReferences.filter(
       (reference) =>
         candidateIds.has(reference.termId) &&

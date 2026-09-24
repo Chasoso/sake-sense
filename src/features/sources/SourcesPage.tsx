@@ -1,9 +1,5 @@
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import {
-  DEFAULT_PRODUCT_SOURCES,
-  DEFAULT_TERMINOLOGY_SOURCES,
-  type DisplaySource,
-} from "./source-aggregation";
+import { getProductSources, getTerminologySources, type DisplaySource } from "./source-aggregation";
 import { ExperienceBrand } from "../experiment/ExperienceBrand";
 
 function SourceList({ sources }: { sources: ReadonlyArray<DisplaySource> }) {
@@ -70,13 +66,13 @@ export function SourcesPage({ onBack }: { onBack: () => void }) {
         <p className="sources-page__section-copy">
           用語の説明や官能評価の資料として参照している公開情報です。
         </p>
-        <SourceList sources={DEFAULT_TERMINOLOGY_SOURCES} />
+        <SourceList sources={getTerminologySources()} />
       </section>
 
       <section className="sources-page__section" aria-labelledby="product-sources-title">
         <h2 id="product-sources-title">石川県の日本酒・酒蔵 / 商品情報</h2>
         <p className="sources-page__section-copy">商品や酒蔵の情報を確認できる公開ページです。</p>
-        <SourceList sources={DEFAULT_PRODUCT_SOURCES} />
+        <SourceList sources={getProductSources()} />
       </section>
 
       <footer className="experience-screen__footer">

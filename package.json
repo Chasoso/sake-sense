@@ -12,6 +12,9 @@
     "build": "tsc -b && vite build",
     "build:semantic-bridge": "esbuild backend/semantic-bridge/src/handler.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=backend/semantic-bridge/dist/index.js",
     "package:semantic-bridge": "node scripts/package-semantic-bridge.mjs",
+    "build:data-platform": "esbuild backend/data-platform/src/public-handler.mjs backend/data-platform/src/admin-handler.mjs --bundle --platform=node --target=node24 --format=esm --outdir=backend/data-platform/dist",
+    "package:data-platform": "node scripts/package-data-platform.mjs",
+    "migrate:sake-data": "node scripts/migrate-sake-data.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -27,13 +30,17 @@
     "validate:sake-sample": "node scripts/quality/validate-sake-sample.mjs",
     "validate:domain-integrity": "node scripts/quality/validate-domain-integrity.mjs",
     "validate:pwa": "node scripts/quality/validate-pwa.mjs",
+    "validate:data-admin": "node scripts/quality/validate-data-admin.mjs",
     "secret-scan": "node scripts/quality/secret-scan.mjs",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run validate:sensory-expressions && npm run validate:sensory-support-cases && npm run validate:sake-sample && npm run validate:domain-integrity && npm run validate:pwa && npm run test:coverage && npm run build && npm run secret-scan",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run validate:sensory-expressions && npm run validate:sensory-support-cases && npm run validate:sake-sample && npm run validate:domain-integrity && npm run validate:pwa && npm run validate:data-admin && npm run test:coverage && npm run build && npm run secret-scan",
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1000.0",
+    "@aws-sdk/client-dynamodb": "^3.1139.0",
+    "@aws-sdk/lib-dynamodb": "^3.1139.0",
     "@mediapipe/tasks-vision": "^1.0.1",
+    "aws-jwt-verify": "^5.2.1",
     "lucide-react": "^1.45.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

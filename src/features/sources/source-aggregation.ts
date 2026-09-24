@@ -1,5 +1,5 @@
 import dictionaryData from "../../domain/data/sensory-dictionary.v0.1.json";
-import sakeData from "../../domain/data/ishikawa-sake-sample.v0.1.json";
+import { getSakeProducts } from "../../domain/sake-catalog";
 
 export type DisplaySource = {
   key: string;
@@ -8,9 +8,14 @@ export type DisplaySource = {
   url: string;
   sourceType?: string;
   reviewedAt?: string;
+  category?: "terminology" | "product" | "shared";
 };
 
-type SakeProduct = (typeof sakeData.products)[number];
+type SakeProduct = ReturnType<typeof getSakeProducts>[number];
+
+let runtimeProducts: ReadonlyArray<SakeProduct> = getSakeProducts();
+let runtimeSources: DisplaySource[] | null = null;
+let runtimeTerminologySources: DisplaySource[] | null = null;
 
 const INTERNAL_HOSTS = new Set([
   "github.com",
@@ -79,7 +84,7 @@ export function collectTerminologySources(
 }
 
 export function collectProductSources(
-  products: ReadonlyArray<SakeProduct> = sakeData.products,
+  products: ReadonlyArray<SakeProduct> = getSakeProducts(),
 ): DisplaySource[] {
   const sources = new Map<string, DisplaySource>();
   const primaryUrls = new Set<string>();
@@ -112,6 +117,25 @@ export function collectProductSources(
     }
   }
   return [...sources.values()];
+}
+
+export function setProductSourceProducts(products: ReadonlyArray<SakeProduct>): void {
+  runtimeProducts = products;
+}
+
+export function setProductSourceEntries(sources: ReadonlyArray<DisplaySource>): void {
+  runtimeSources = sources.filter((source) => source.category !== "terminology");
+  runtimeTerminologySources = sources.filter(
+    (source) => source.category === "terminology" || source.category === "shared",
+  );
+}
+
+export function getProductSources(): DisplaySource[] {
+  return runtimeSources ? [...runtimeSources] : collectProductSources(runtimeProducts);
+}
+
+export function getTerminologySources(): DisplaySource[] {
+  return runtimeTerminologySources ? [...runtimeTerminologySources] : collectTerminologySources();
 }
 
 export const DEFAULT_TERMINOLOGY_SOURCES = collectTerminologySources();
