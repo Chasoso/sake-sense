@@ -79,7 +79,9 @@ describe("Result concise presentation", () => {
       expect(text).not.toContain("Official source explicitly uses");
       expect(text).not.toContain("この商品は、候補語とterm参照が重なるため表示しています。");
       expect(text.match(new RegExp(UNCERTAINTY_NOTE, "g"))).toHaveLength(1);
-      expect(text).toContain("なめらか ｜ 公式表現");
+      expect(text).toContain("なめらか");
+      expect(text).not.toContain("公式表現");
+      expect(text).not.toContain("承認済み表現");
       expect(text).toContain("商品情報（公式）");
       expect(markup).toContain("開発者向け詳細");
     },
