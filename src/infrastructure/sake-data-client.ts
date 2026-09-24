@@ -23,7 +23,14 @@ export type PublicSakeBrewery = {
 
 type Collection<T> = { items: T[] };
 
+export type PublicSakeCatalog = {
+  products: PublicSakeProduct[];
+  sources: PublicSakeSource[];
+  breweries: PublicSakeBrewery[];
+};
+
 export type SakeDataClient = {
+  loadCatalog(): Promise<PublicSakeCatalog>;
   loadProducts(): Promise<PublicSakeProduct[]>;
   loadBreweries(): Promise<PublicSakeBrewery[]>;
   loadSources(): Promise<PublicSakeSource[]>;
@@ -39,17 +46,11 @@ export function createApiSakeDataClient(baseUrl: string, fetcher = fetch): SakeD
     if (!response.ok) throw new Error(`Sake data API request failed (${response.status})`);
     return (await response.json()) as T;
   }
+  const loadCatalog = () => get<PublicSakeCatalog>("/api/catalog");
   return {
+    loadCatalog,
     async loadProducts() {
-      const { items } = await get<Collection<PublicSakeProduct>>("/api/products");
-      const products = await Promise.all(
-        items.map(async (product) => {
-          const evidence = await get<Collection<RuntimeSakeEvidence>>(
-            `/api/products/${encodeURIComponent(product.id)}/evidence`,
-          );
-          return { ...product, termReferences: evidence.items };
-        }),
-      );
+      const { products } = await loadCatalog();
       return products;
     },
     async loadSources() {

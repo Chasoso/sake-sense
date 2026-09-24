@@ -17,6 +17,28 @@ export function createPublicHandler(repository) {
       const parts = path.split("/").filter(Boolean);
       if (parts[0] !== "api") return json(404, { error: "not_found" });
       const collection = parts[1];
+      if (collection === "catalog" && !parts[2]) {
+        const [products, evidence, sources, breweries] = await Promise.all([
+          repository.list("products", { publishedOnly: true }),
+          repository.list("evidence", { publishedOnly: true }),
+          repository.list("sources", { publishedOnly: true }),
+          repository.list("breweries", { publishedOnly: true }),
+        ]);
+        const evidenceByProduct = new Map();
+        for (const item of evidence) {
+          const productEvidence = evidenceByProduct.get(item.productId) ?? [];
+          productEvidence.push(toPublicEvidence(item));
+          evidenceByProduct.set(item.productId, productEvidence);
+        }
+        return json(200, {
+          products: products.map((product) => ({
+            ...toPublicProduct(product),
+            termReferences: evidenceByProduct.get(product.id) ?? [],
+          })),
+          sources: sources.map(toPublicSource),
+          breweries: breweries.map(toPublicBrewery),
+        });
+      }
       if (collection === "products" && parts[2] && parts[3] === "evidence") {
         const parent = await repository.get("products", parts[2], { publishedOnly: true });
         if (!parent) return json(404, { error: "not_found" });

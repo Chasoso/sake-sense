@@ -28,6 +28,56 @@ describe("data platform handlers", () => {
     expect(hiddenEvidence.statusCode).toBe(404);
   });
 
+  it("returns a published catalog with product evidence attached", async () => {
+    const handler = createPublicHandler(
+      createMemoryRepository({
+        products: [product, draft],
+        evidence: [
+          {
+            id: "e1",
+            productId: "p1",
+            termId: "kire",
+            sourceId: "s1",
+            sourceWording: "exact",
+            evidenceStatus: "direct",
+            rationale: "reviewed",
+            status: "published",
+          },
+          { id: "e2", productId: "p2", status: "published" },
+        ],
+        sources: [
+          { id: "s1", sourceName: "Source", url: "https://example.com", status: "published" },
+        ],
+        breweries: [{ id: "b1", name: "Brewery", status: "published" }],
+      }),
+    );
+    const response = await handler({ rawPath: "/api/catalog" });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      products: [
+        {
+          ...product,
+          termReferences: [
+            {
+              id: "e1",
+              productId: "p1",
+              termId: "kire",
+              sourceId: "s1",
+              sourceWording: "exact",
+              evidenceStatus: "direct",
+              rationale: "reviewed",
+              status: "published",
+            },
+          ],
+        },
+      ],
+      sources: [
+        { id: "s1", sourceName: "Source", url: "https://example.com", status: "published" },
+      ],
+      breweries: [{ id: "b1", name: "Brewery", status: "published" }],
+    });
+  });
+
   it("rejects unauthenticated admin access and accepts admin claims", async () => {
     const repository = createMemoryRepository({ products: [] });
     const denied = createAdminHandler(repository, async () => ({

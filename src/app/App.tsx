@@ -48,8 +48,9 @@ export function App() {
     if (!apiBaseUrl) return;
     let active = true;
     const client = createApiSakeDataClient(apiBaseUrl);
-    void Promise.all([client.loadProducts(), client.loadSources(), client.loadBreweries()])
-      .then(([products, sources, breweries]) => {
+    void client
+      .loadCatalog()
+      .then(({ products, sources, breweries }) => {
         if (!active) return;
         setSakeProducts(products);
         setProductSourceProducts(products);
