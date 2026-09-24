@@ -1246,6 +1246,32 @@ input {
   height: 100%;
 }
 
+.voice-startup-error {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-button);
+  color: var(--ink);
+  background: var(--soft-surface);
+}
+
+.voice-startup-error p {
+  margin: 0;
+}
+
+.voice-startup-error__guide {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.voice-startup-error .button,
+.voice-startup-error .icon-text-button {
+  justify-self: start;
+}
+
 .voice-visualizer line {
   stroke: var(--line);
   stroke-width: 1;

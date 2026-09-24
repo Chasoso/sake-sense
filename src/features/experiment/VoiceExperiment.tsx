@@ -24,6 +24,14 @@ import {
 import { ExpressionTransform } from "./ExpressionTransform";
 import { Result } from "./Experiment";
 import { ExperienceBrand } from "./ExperienceBrand";
+import {
+  classifyVoiceAudioInitializationError,
+  classifyVoiceCaptureError,
+  getVoiceFailureMessage,
+  getVoicePermissionGuidance,
+  requestVoiceMicrophone,
+  type VoiceStartupFailure,
+} from "./voice-permission";
 
 export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [expression, setExpression] = useState("");
@@ -32,6 +40,8 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [voiceStatus, setVoiceStatus] = useState<
     "idle" | "recording" | "captured" | "unavailable" | "denied"
   >("idle");
+  const [voiceFailure, setVoiceFailure] = useState<VoiceStartupFailure | null>(null);
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -105,14 +115,26 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   };
 
   const startVoice = async () => {
+    setVoiceFailure(null);
+    setShowPermissionGuide(false);
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
       setWaveHistory([]);
       setVoiceStatus("unavailable");
       return;
     }
-    let stream: MediaStream | null = null;
+    let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await requestVoiceMicrophone(
+        navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices),
+      );
+    } catch (error) {
+      setWaveHistory([]);
+      setVoiceFailure(classifyVoiceCaptureError(error));
+      setVoiceStatus("denied");
+      return;
+    }
+
+    try {
       const context = new AudioContext();
       const analyser = context.createAnalyser();
       analyser.fftSize = 2048;
@@ -129,11 +151,13 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
       waveLastTimestamp.current = null;
       setWaveHistory([]);
       setVoiceFeatures(null);
+      setVoiceFailure(null);
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
-      stream?.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       setWaveHistory([]);
+      setVoiceFailure(classifyVoiceAudioInitializationError());
       setVoiceStatus("denied");
     }
   };
@@ -144,10 +168,13 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
       : voiceStatus === "captured"
         ? "声の特徴を取得しました。録音は保存していません。"
         : voiceStatus === "denied"
-          ? "マイクが許可されませんでした。別の方法で表現できます。"
+          ? "音声入力を開始できませんでした。別の方法で表現できます。"
           : voiceStatus === "unavailable"
             ? "このブラウザではマイクを使えません。別の方法で表現できます。"
             : "声の内容は通信・保存せず、声の出し方の特徴だけを使います。";
+
+  const voiceFailureMessage = voiceFailure ? getVoiceFailureMessage(voiceFailure) : null;
+  const isPermissionDenied = voiceFailure === "permission-denied";
 
   const canAnalyze = (voiceFeatures?.durationMs ?? 0) > 0;
 
@@ -194,6 +221,8 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
     setWaveHistory([]);
     setVoiceFeatures(null);
     setVoiceStatus("idle");
+    setVoiceFailure(null);
+    setShowPermissionGuide(false);
   };
 
   const returnToStart = () => {
@@ -247,6 +276,36 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
             {voiceStatus === "recording" ? "音声入力を止める" : "音声入力を始める"}
           </button>
           <span className="input-card__hint">{voiceLabel}</span>
+          {voiceFailureMessage && (
+            <section className="voice-startup-error" role="alert">
+              <p>{voiceFailureMessage}</p>
+              {isPermissionDenied && (
+                <>
+                  <p>ブラウザまたは端末の設定で、Sake Sense のマイク利用を許可してください。</p>
+                  <button
+                    className="icon-text-button"
+                    type="button"
+                    aria-expanded={showPermissionGuide}
+                    onClick={() => setShowPermissionGuide((current) => !current)}
+                  >
+                    設定方法を見る
+                  </button>
+                  {showPermissionGuide && (
+                    <div className="voice-startup-error__guide">
+                      <p>
+                        {getVoicePermissionGuidance(
+                          typeof navigator === "undefined" ? "" : navigator.userAgent,
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  <button className="button button--secondary" type="button" onClick={startVoice}>
+                    もう一度試す
+                  </button>
+                </>
+              )}
+            </section>
+          )}
           {voiceStatus === "recording" && (
             <div className="voice-visualizer" role="status" aria-label="声の高さの変化を表示中">
               <svg viewBox="0 0 320 64" aria-hidden="true">
