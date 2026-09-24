@@ -11,6 +11,6 @@ Public unauthenticated routes:
 - `GET /api/sources`
 - `GET /api/products/{productId}/evidence`
 
-Only `published` records are returned. Responses are DTOs, not DynamoDB items. Missing detail records return `404 {"error":"not_found"}`; malformed or unexpected server failures return a sanitized `500`.
+Only `published` records are returned. Responses are DTOs, not DynamoDB items. Missing detail records return `404 {"error":"not_found"}`; malformed or unexpected server failures return a sanitized `500`. The product evidence endpoint also returns `404` when the parent product is missing or not published, rather than exposing evidence for a non-public parent.
 
-Admin routes are under `/admin/{products|breweries|sources|evidence}` and require a Cognito access token with membership in the `admin` group. The handler validates explicit fields and never accepts arbitrary DynamoDB attributes. Publication is rejected when references, URL/date fields, source wording, evidence status, or lifecycle constraints are invalid.
+Admin routes are under `/admin/{products|breweries|sources|evidence}` and require a Cognito access token with membership in the `admin` group. `POST /admin/{collection}` creates a server-ID record; `PATCH /admin/{collection}/{id}` updates an existing record; `GET` supports both collection and detail routes. The handler validates explicit fields and never accepts arbitrary DynamoDB attributes. Publication is rejected when references, URL/date fields, source wording, evidence status, or lifecycle constraints are invalid. Published evidence requires both its product and source to be published, and the public evidence route hides evidence when its parent product is not published.

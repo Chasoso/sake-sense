@@ -18,6 +18,8 @@ export function createPublicHandler(repository) {
       if (parts[0] !== "api") return json(404, { error: "not_found" });
       const collection = parts[1];
       if (collection === "products" && parts[2] && parts[3] === "evidence") {
+        const parent = await repository.get("products", parts[2], { publishedOnly: true });
+        if (!parent) return json(404, { error: "not_found" });
         const items = await repository.listEvidenceForProduct(parts[2], { publishedOnly: true });
         return json(200, { items: items.map(toPublicEvidence) });
       }

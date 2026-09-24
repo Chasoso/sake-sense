@@ -14,11 +14,18 @@ const draft = { id: "p2", name: "Draft", status: "draft" };
 
 describe("data platform handlers", () => {
   it("returns only published data and shaped details", async () => {
-    const handler = createPublicHandler(createMemoryRepository({ products: [product, draft] }));
+    const handler = createPublicHandler(
+      createMemoryRepository({
+        products: [product, draft],
+        evidence: [{ id: "e1", productId: "p1", status: "published" }],
+      }),
+    );
     const list = await handler({ rawPath: "/api/products" });
     expect(JSON.parse(list.body).items).toEqual([product]);
     const detail = await handler({ rawPath: "/api/products/p2" });
     expect(detail.statusCode).toBe(404);
+    const hiddenEvidence = await handler({ rawPath: "/api/products/p2/evidence" });
+    expect(hiddenEvidence.statusCode).toBe(404);
   });
 
   it("rejects unauthenticated admin access and accepts admin claims", async () => {
@@ -67,13 +74,89 @@ describe("data platform handlers", () => {
     expect(blocked.statusCode).toBe(409);
 
     const created = await handler({
-      rawPath: "/admin/breweries/b2",
+      rawPath: "/admin/breweries",
       body: JSON.stringify({ name: "New", status: "draft", arbitrarySecret: "ignored" }),
-      requestContext: { http: { method: "PATCH" } },
+      requestContext: { http: { method: "POST" } },
     });
     expect(created.statusCode).toBe(201);
-    const stored = await repository.get("breweries", "b2");
-    expect(stored).toMatchObject({ id: "b2", name: "New" });
+    const createdBody = JSON.parse(created.body);
+    const stored = await repository.get("breweries", createdBody.id);
+    expect(stored).toMatchObject({ id: createdBody.id, name: "New" });
     expect(stored.arbitrarySecret).toBeUndefined();
+    const detail = await handler({
+      rawPath: `/admin/breweries/${createdBody.id}`,
+      requestContext: { http: { method: "GET" } },
+    });
+    expect(detail.statusCode).toBe(200);
+    const second = await handler({
+      rawPath: "/admin/breweries",
+      body: JSON.stringify({ name: "Another", status: "draft" }),
+      requestContext: { http: { method: "POST" } },
+    });
+    expect(second.statusCode).toBe(201);
+    expect(JSON.parse(second.body).id).not.toBe(createdBody.id);
+  });
+
+  it("accepts published evidence only when both references are published", async () => {
+    const repository = createMemoryRepository({
+      products: [{ ...product, status: "published" }],
+      sources: [
+        {
+          id: "s1",
+          sourceName: "Source",
+          url: "https://example.com",
+          reviewedAt: "2026-01-01",
+          status: "published",
+        },
+      ],
+    });
+    const handler = createAdminHandler(repository, async () => ({
+      ok: true,
+      claims: { sub: "admin" },
+    }));
+    const valid = await handler({
+      rawPath: "/admin/evidence",
+      body: JSON.stringify({
+        productId: "p1",
+        termId: "atoaji",
+        sourceId: "s1",
+        sourceWording: "exact",
+        evidenceStatus: "direct",
+        rationale: "reviewed",
+        status: "published",
+      }),
+      requestContext: { http: { method: "POST" } },
+    });
+    expect(valid.statusCode).toBe(201);
+
+    const draftProduct = createMemoryRepository({
+      products: [{ ...product, status: "draft" }],
+      sources: [
+        {
+          id: "s1",
+          sourceName: "Source",
+          url: "https://example.com",
+          reviewedAt: "2026-01-01",
+          status: "published",
+        },
+      ],
+    });
+    const rejected = await createAdminHandler(draftProduct, async () => ({
+      ok: true,
+      claims: { sub: "admin" },
+    }))({
+      rawPath: "/admin/evidence",
+      body: JSON.stringify({
+        productId: "p1",
+        termId: "atoaji",
+        sourceId: "s1",
+        sourceWording: "exact",
+        evidenceStatus: "direct",
+        rationale: "reviewed",
+        status: "published",
+      }),
+      requestContext: { http: { method: "POST" } },
+    });
+    expect(rejected.statusCode).toBe(422);
   });
 });

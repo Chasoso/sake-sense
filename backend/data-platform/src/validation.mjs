@@ -53,10 +53,17 @@ export function validateSourceInput(input) {
 
 export function validateEvidenceInput(input, { products = [], sources = [], terms = [] } = {}) {
   const errors = [];
-  if (!products.some((item) => item.id === input.productId && item.status !== "archived"))
-    errors.push("productId is invalid");
-  if (!sources.some((item) => item.id === input.sourceId && item.status !== "archived"))
-    errors.push("sourceId is invalid");
+  const product = products.find((item) => item.id === input.productId);
+  const source = sources.find((item) => item.id === input.sourceId);
+  const published = input.status === "published";
+  if (!product || (published ? product.status !== "published" : product.status === "archived"))
+    errors.push(
+      published ? "published evidence requires a published product" : "productId is invalid",
+    );
+  if (!source || (published ? source.status !== "published" : source.status === "archived"))
+    errors.push(
+      published ? "published evidence requires a published source" : "sourceId is invalid",
+    );
   if (!terms.includes(input.termId)) errors.push("termId is invalid");
   if (!input.sourceWording?.trim()) errors.push("sourceWording is required");
   if (!EVIDENCE.has(input.evidenceStatus)) errors.push("evidenceStatus is unsupported");

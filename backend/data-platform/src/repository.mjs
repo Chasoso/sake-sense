@@ -2,6 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DeleteCommand,
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
   ScanCommand,
@@ -14,8 +15,12 @@ const TABLE_ENV = {
   evidence: "PRODUCT_EVIDENCE_TABLE_NAME",
 };
 
-export function createDynamoRepository({ client = new DynamoDBClient({}), tableNames = {} } = {}) {
-  const documentClient = DynamoDBDocumentClient.from(client);
+export function createDynamoRepository({
+  client = new DynamoDBClient({}),
+  documentClient: providedDocumentClient,
+  tableNames = {},
+} = {}) {
+  const documentClient = providedDocumentClient ?? DynamoDBDocumentClient.from(client);
   const table = (name) => tableNames[name] || process.env[TABLE_ENV[name]];
   const requireTable = (name) => {
     const value = table(name);
@@ -24,24 +29,41 @@ export function createDynamoRepository({ client = new DynamoDBClient({}), tableN
   };
   return {
     async list(name, { publishedOnly = false } = {}) {
-      const input = { TableName: requireTable(name) };
-      const result = await documentClient.send(new ScanCommand(input));
-      return (result.Items ?? []).filter((item) => !publishedOnly || item.status === "published");
+      const items = [];
+      let ExclusiveStartKey;
+      do {
+        const result = await documentClient.send(
+          new ScanCommand({ TableName: requireTable(name), ExclusiveStartKey }),
+        );
+        items.push(...(result.Items ?? []));
+        ExclusiveStartKey = result.LastEvaluatedKey;
+      } while (ExclusiveStartKey);
+      return items.filter((item) => !publishedOnly || item.status === "published");
     },
     async get(name, id, { publishedOnly = false } = {}) {
-      const items = await this.list(name, { publishedOnly });
-      return items.find((item) => item.id === id) ?? null;
+      const result = await documentClient.send(
+        new GetCommand({ TableName: requireTable(name), Key: { id } }),
+      );
+      if (!result.Item || (publishedOnly && result.Item.status !== "published")) return null;
+      return result.Item;
     },
     async listEvidenceForProduct(productId, { publishedOnly = false } = {}) {
-      const result = await documentClient.send(
-        new QueryCommand({
-          TableName: requireTable("evidence"),
-          IndexName: "productId-index",
-          KeyConditionExpression: "productId = :productId",
-          ExpressionAttributeValues: { ":productId": productId },
-        }),
-      );
-      return (result.Items ?? []).filter((item) => !publishedOnly || item.status === "published");
+      const items = [];
+      let ExclusiveStartKey;
+      do {
+        const result = await documentClient.send(
+          new QueryCommand({
+            TableName: requireTable("evidence"),
+            IndexName: "productId-index",
+            KeyConditionExpression: "productId = :productId",
+            ExpressionAttributeValues: { ":productId": productId },
+            ExclusiveStartKey,
+          }),
+        );
+        items.push(...(result.Items ?? []));
+        ExclusiveStartKey = result.LastEvaluatedKey;
+      } while (ExclusiveStartKey);
+      return items.filter((item) => !publishedOnly || item.status === "published");
     },
     async put(name, item) {
       await documentClient.send(new PutCommand({ TableName: requireTable(name), Item: item }));

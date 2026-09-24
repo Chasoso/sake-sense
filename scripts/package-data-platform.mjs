@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -9,10 +9,15 @@ if (!existsSync(directory))
   throw new Error("Missing data-platform dist. Run npm run build:data-platform first.");
 if (existsSync(archive)) rmSync(archive);
 mkdirSync(directory, { recursive: true });
-const result = spawnSync("zip", ["-q", "-X", archive, "public-handler.js", "admin-handler.js"], {
-  cwd: directory,
-  stdio: "inherit",
-});
+writeFileSync(resolve(directory, "package.json"), '{"type":"commonjs"}\n');
+const result = spawnSync(
+  "zip",
+  ["-q", "-X", archive, "public-handler.js", "admin-handler.js", "package.json"],
+  {
+    cwd: directory,
+    stdio: "inherit",
+  },
+);
 if (result.error && process.platform === "win32") {
   const fallback = spawnSync(
     "powershell.exe",
@@ -20,7 +25,7 @@ if (result.error && process.platform === "win32") {
       "-NoProfile",
       "-NonInteractive",
       "-Command",
-      `Compress-Archive -LiteralPath 'public-handler.js','admin-handler.js' -DestinationPath '${archive}' -Force`,
+      `Compress-Archive -LiteralPath 'public-handler.js','admin-handler.js','package.json' -DestinationPath '${archive}' -Force`,
     ],
     { cwd: directory, stdio: "inherit" },
   );

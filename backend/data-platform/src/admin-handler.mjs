@@ -62,17 +62,26 @@ export function createAdminHandler(repository, authorize) {
     const collection = parts[1];
     const table = tableFor[collection];
     if (!table) return json(404, { error: "not_found" });
-    if (event.requestContext?.http?.method === "GET") {
+    const method = event.requestContext?.http?.method ?? "GET";
+    if (method === "GET") {
+      if (parts[2]) {
+        const item = await repository.get(table, parts[2]);
+        return item ? json(200, toAdminRecord(item)) : json(404, { error: "not_found" });
+      }
       const items = await repository.list(table);
       return json(200, { items: items.map(toAdminRecord) });
     }
+    if (method === "POST" && parts[2]) return json(400, { error: "create_uses_collection_route" });
+    if (method !== "POST" && method !== "PATCH") return json(405, { error: "method_not_allowed" });
     let input;
     try {
       input = JSON.parse(event.body ?? "{}");
     } catch {
       return json(400, { error: "invalid_json" });
     }
-    const id = parts[2] ?? input.id ?? crypto.randomUUID();
+    if (method === "PATCH" && (!parts[2] || parts[2] === "new"))
+      return json(400, { error: "update_requires_id" });
+    const id = method === "POST" ? crypto.randomUUID() : parts[2];
     const existing = await repository.get(table, id);
     const patch = Object.fromEntries(
       editableFields[collection]

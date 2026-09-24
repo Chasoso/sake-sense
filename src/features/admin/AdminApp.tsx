@@ -4,6 +4,28 @@ import { completeAdminLogin, getAdminSession, logoutAdmin, startAdminLogin } fro
 
 type AdminCollection = "products" | "breweries" | "sources" | "evidence";
 type RecordItem = Record<string, unknown> & { id?: string; status?: string; updatedAt?: string };
+const FORM_FIELDS: Record<AdminCollection, readonly string[]> = {
+  products: [
+    "name",
+    "breweryId",
+    "region",
+    "descriptionSummary",
+    "availabilityStatus",
+    "primarySourceId",
+    "status",
+  ],
+  breweries: ["name", "displayName", "region", "officialUrl", "status"],
+  sources: ["sourceName", "title", "url", "reviewedAt", "sourceType", "status"],
+  evidence: [
+    "productId",
+    "termId",
+    "sourceId",
+    "sourceWording",
+    "evidenceStatus",
+    "rationale",
+    "status",
+  ],
+};
 
 function apiBase(): string {
   return ((import.meta.env.VITE_SAKE_DATA_API_BASE_URL as string | undefined) ?? "").replace(
@@ -50,10 +72,12 @@ function AdminCollectionPage({
   collection,
   token,
   onLogout,
+  detailId,
 }: {
   collection: AdminCollection;
   token: string;
   onLogout: () => void;
+  detailId?: string;
 }) {
   const [items, setItems] = useState<RecordItem[]>([]);
   const [selected, setSelected] = useState<RecordItem | null>(null);
@@ -74,7 +98,13 @@ function AdminCollectionPage({
     if (!response.ok) throw new Error(`読み込みに失敗しました (${response.status})`);
     const body = (await response.json()) as { items: RecordItem[] };
     setItems(body.items);
-  }, [collection, token]);
+    if (detailId) {
+      const detailResponse = await fetch(`${apiBase()}/admin/${collection}/${detailId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (detailResponse.ok) setSelected((await detailResponse.json()) as RecordItem);
+    }
+  }, [collection, detailId, token]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load().catch((reason: unknown) =>
@@ -87,11 +117,15 @@ function AdminCollectionPage({
   );
   const save = async () => {
     if (!selected) return;
-    const response = await fetch(`${apiBase()}/admin/${collection}/${selected.id ?? "new"}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(selected),
-    });
+    const hasId = Boolean(selected.id);
+    const response = await fetch(
+      `${apiBase()}/admin/${collection}${hasId ? `/${encodeURIComponent(selected.id as string)}` : ""}`,
+      {
+        method: hasId ? "PATCH" : "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify(selected),
+      },
+    );
     if (!response.ok) {
       setError(`保存に失敗しました (${response.status})`);
       return;
@@ -161,30 +195,15 @@ function AdminCollectionPage({
               ID
               <input value={String(selected.id ?? "")} disabled onChange={() => undefined} />
             </label>
-            {[
-              "name",
-              "sourceName",
-              "url",
-              "breweryId",
-              "region",
-              "descriptionSummary",
-              "availabilityStatus",
-              "reviewedAt",
-              "sourceWording",
-              "rationale",
-              "evidenceStatus",
-              "status",
-            ]
-              .filter((field) => field in selected || field === "name" || field === "status")
-              .map((field) => (
-                <label key={field}>
-                  {field}
-                  <input
-                    value={String(selected[field] ?? "")}
-                    onChange={(event) => setSelected({ ...selected, [field]: event.target.value })}
-                  />
-                </label>
-              ))}
+            {FORM_FIELDS[collection].map((field) => (
+              <label key={field}>
+                {field}
+                <input
+                  value={String(selected[field] ?? "")}
+                  onChange={(event) => setSelected({ ...selected, [field]: event.target.value })}
+                />
+              </label>
+            ))}
             <button className="button button--primary" type="button" onClick={() => void save()}>
               <Save size={16} />
               保存
@@ -211,6 +230,7 @@ export function AdminApp() {
     <AdminCollectionPage
       collection={collection}
       token={session.accessToken}
+      detailId={path.split("/")[3]}
       onLogout={() => {
         logoutAdmin();
         setSession(null);
