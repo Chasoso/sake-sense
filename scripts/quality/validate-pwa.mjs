@@ -36,6 +36,21 @@ for (const icon of manifest.icons) {
   }
 }
 
+for (const [relativePath, expectedSize] of [
+  ["public/apple-touch-icon.png", 180],
+  ["public/favicon-16x16.png", 16],
+  ["public/favicon-32x32.png", 32],
+]) {
+  const iconPath = resolve(root, relativePath);
+  if (!existsSync(iconPath)) throw new Error(`Required PWA asset does not exist: ${relativePath}`);
+  const actual = readPngSize(iconPath);
+  if (actual.width !== expectedSize || actual.height !== expectedSize) {
+    throw new Error(
+      `PWA asset size mismatch for ${relativePath}: ${actual.width}x${actual.height}`,
+    );
+  }
+}
+
 const indexHtml = readFileSync(resolve(root, "index.html"), "utf8");
 for (const requiredLink of [
   'rel="manifest" href="/manifest.webmanifest"',
