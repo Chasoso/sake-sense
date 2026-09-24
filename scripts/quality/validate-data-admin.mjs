@@ -122,6 +122,7 @@ const bootstrapRequired = [
   "cloudformation:DescribeStackResources",
   "lambda:GetFunctionConfiguration",
   "dynamodb:DescribeTable",
+  "cognito-idp:SetUserPoolMfaConfig",
   "cloudformation.amazonaws.com",
 ];
 const missingBootstrap = bootstrapRequired.filter((value) => !bootstrap.includes(value));
