@@ -1,0 +1,222 @@
+name: Deploy data admin
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-admin-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy data-admin infrastructure
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
+      DATA_ADMIN_STACK_NAME: ${{ vars.DATA_ADMIN_STACK_NAME }}
+      DATA_ADMIN_ARTIFACT_BUCKET: ${{ vars.DATA_ADMIN_ARTIFACT_BUCKET }}
+      DATA_ADMIN_ALLOWED_ORIGIN: ${{ vars.DATA_ADMIN_ALLOWED_ORIGIN }}
+      DATA_ADMIN_COGNITO_CALLBACK_URL: ${{ vars.DATA_ADMIN_COGNITO_CALLBACK_URL }}
+      DATA_ADMIN_COGNITO_LOGOUT_URL: ${{ vars.DATA_ADMIN_COGNITO_LOGOUT_URL }}
+      DATA_ADMIN_COGNITO_DOMAIN_PREFIX: ${{ vars.DATA_ADMIN_COGNITO_DOMAIN_PREFIX }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate repository
+        run: npm run validate
+
+      - name: Validate migration input without AWS writes
+        run: npm run migrate:sake-data -- --validate
+
+      - name: Build and package data-platform Lambda
+        run: npm run package:data-platform
+
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in AWS_REGION AWS_ROLE_ARN CLOUDFORMATION_EXECUTION_ROLE_ARN DATA_ADMIN_STACK_NAME DATA_ADMIN_ARTIFACT_BUCKET DATA_ADMIN_ALLOWED_ORIGIN DATA_ADMIN_COGNITO_CALLBACK_URL DATA_ADMIN_COGNITO_LOGOUT_URL DATA_ADMIN_COGNITO_DOMAIN_PREFIX; do
+            if [ -z "${!variable}" ]; then
+              echo "Missing GitHub production variable: ${variable}" >&2
+              exit 1
+            fi
+          done
+          case "${DATA_ADMIN_ALLOWED_ORIGIN}" in
+            https://*) ;;
+            *) echo "DATA_ADMIN_ALLOWED_ORIGIN must start with https://" >&2; exit 1 ;;
+          esac
+          if [[ "${DATA_ADMIN_ALLOWED_ORIGIN}" == */ ]]; then
+            echo "DATA_ADMIN_ALLOWED_ORIGIN must not have a trailing slash" >&2
+            exit 1
+          fi
+          for variable in DATA_ADMIN_COGNITO_CALLBACK_URL DATA_ADMIN_COGNITO_LOGOUT_URL; do
+            case "${!variable}" in
+              https://*) ;;
+              *) echo "${variable} must start with https:// for production" >&2; exit 1 ;;
+            esac
+          done
+          if ! [[ "${DATA_ADMIN_COGNITO_DOMAIN_PREFIX}" =~ ^[a-z0-9-]+$ ]]; then
+            echo "DATA_ADMIN_COGNITO_DOMAIN_PREFIX has an invalid format" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: sake-sense-data-admin
+
+      - name: Upload immutable Lambda artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_key="data-admin/${GITHUB_SHA}.zip"
+          echo "DATA_ADMIN_ARTIFACT_KEY=${artifact_key}" >> "$GITHUB_ENV"
+          aws s3 cp backend/data-platform/dist/data-platform.zip \
+            "s3://${DATA_ADMIN_ARTIFACT_BUCKET}/${artifact_key}" \
+            --only-show-errors
+
+      - name: Create, inspect, and execute CloudFormation change set
+        shell: bash
+        run: |
+          set -euo pipefail
+          change_set_name="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          change_set_file="${RUNNER_TEMP}/data-admin-change-set-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          stack_type=""
+
+          if aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+            stack_type=UPDATE
+          else
+            describe_status=$?
+            if aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" 2>&1 | grep -qi "does not exist"; then
+              stack_type=CREATE
+            else
+              echo "Unable to determine whether the data-admin stack exists (exit ${describe_status})." >&2
+              exit "${describe_status}"
+            fi
+          fi
+          echo "CloudFormation change set type: ${stack_type}"
+
+          create_output="$(aws cloudformation create-change-set \
+            --template-body file://infra/aws/data-admin.yaml \
+            --stack-name "${DATA_ADMIN_STACK_NAME}" \
+            --change-set-name "${change_set_name}" \
+            --change-set-type "${stack_type}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --role-arn "${CLOUDFORMATION_EXECUTION_ROLE_ARN}" \
+            --parameters \
+              ParameterKey=AllowedOrigin,ParameterValue="${DATA_ADMIN_ALLOWED_ORIGIN}" \
+              ParameterKey=LambdaCodeS3Bucket,ParameterValue="${DATA_ADMIN_ARTIFACT_BUCKET}" \
+              ParameterKey=LambdaCodeS3Key,ParameterValue="${DATA_ADMIN_ARTIFACT_KEY}" \
+              ParameterKey=CognitoCallbackUrl,ParameterValue="${DATA_ADMIN_COGNITO_CALLBACK_URL}" \
+              ParameterKey=CognitoLogoutUrl,ParameterValue="${DATA_ADMIN_COGNITO_LOGOUT_URL}" \
+              ParameterKey=CognitoDomainPrefix,ParameterValue="${DATA_ADMIN_COGNITO_DOMAIN_PREFIX}" \
+            --region "${AWS_REGION}" \
+            --query '{Id:Id}' \
+            --output json)"
+          change_set_id="$(printf '%s' "${create_output}" | jq -r '.Id // empty')"
+          if [ -z "${change_set_id}" ]; then
+            echo "CloudFormation change set creation returned no identifier" >&2
+            exit 1
+          fi
+
+          wait_status=0
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${DATA_ADMIN_STACK_NAME}" \
+            --change-set-name "${change_set_id}" \
+            --region "${AWS_REGION}" || wait_status=$?
+          if ! aws cloudformation describe-change-set \
+            --stack-name "${DATA_ADMIN_STACK_NAME}" \
+            --change-set-name "${change_set_id}" \
+            --region "${AWS_REGION}" \
+            --output json > "${change_set_file}"; then
+            echo "Unable to inspect CloudFormation change set" >&2
+            exit 1
+          fi
+
+          set +e
+          gate_output="$(node scripts/check-cloudformation-change-set.mjs "${change_set_file}")"
+          gate_status=$?
+          set -e
+          printf '%s\n' "${gate_output}"
+          if [ "${gate_status}" -eq 2 ]; then
+            echo "CloudFormation reported no changes; deployment is a successful no-op."
+            exit 0
+          fi
+          if [ "${wait_status}" -ne 0 ] || [ "${gate_status}" -ne 0 ]; then
+            echo "CloudFormation change set was not safe to execute; it was not executed." >&2
+            exit 1
+          fi
+
+          aws cloudformation execute-change-set \
+            --stack-name "${DATA_ADMIN_STACK_NAME}" \
+            --change-set-name "${change_set_id}" \
+            --region "${AWS_REGION}"
+          if [ "${stack_type}" = "CREATE" ]; then
+            wait_status=0
+            aws cloudformation wait stack-create-complete --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" || wait_status=$?
+          else
+            wait_status=0
+            aws cloudformation wait stack-update-complete --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" || wait_status=$?
+          fi
+          if [ "${wait_status}" -ne 0 ]; then
+            echo "CloudFormation stack deployment failed. Relevant stack events:" >&2
+            aws cloudformation describe-stack-events \
+              --stack-name "${DATA_ADMIN_STACK_NAME}" \
+              --region "${AWS_REGION}" \
+              --query 'StackEvents[?ResourceStatus==`UPDATE_FAILED` || ResourceStatus==`CREATE_FAILED` || ResourceStatus==`DELETE_FAILED` || ResourceStatus==`UPDATE_ROLLBACK_FAILED` || ResourceStatus==`ROLLBACK_FAILED`] | [0:20].{LogicalResourceId:LogicalResourceId,ResourceType:ResourceType,ResourceStatus:ResourceStatus,ResourceStatusReason:ResourceStatusReason}' \
+              --output table >&2 || true
+            exit "${wait_status}"
+          fi
+
+      - name: Verify data-admin stack, Lambda, API, Cognito, and DynamoDB outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          stack_status="$(aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" --query 'Stacks[0].StackStatus' --output text)"
+          if [ "${stack_status}" != "CREATE_COMPLETE" ] && [ "${stack_status}" != "UPDATE_COMPLETE" ]; then
+            echo "Unexpected stack status: ${stack_status}" >&2
+            exit 1
+          fi
+          echo "StackStatus: ${stack_status}"
+          outputs_json="$(aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" --query 'Stacks[0].Outputs' --output json)"
+          printf '%s\n' "${outputs_json}" | jq -r '.[] | "\(.OutputKey): \(.OutputValue)"'
+          for output in DataApiEndpoint BreweriesTableName ProductsTableName SourcesTableName ProductEvidenceTableName CognitoUserPoolId CognitoClientId CognitoIssuer; do
+            if ! printf '%s' "${outputs_json}" | jq -e --arg key "${output}" 'any(.[]; .OutputKey == $key and (.OutputValue | length > 0))' >/dev/null; then
+              echo "Missing CloudFormation output: ${output}" >&2
+              exit 1
+            fi
+          done
+          for logical_id in PublicReadFunction AdminWriteFunction; do
+            function_name="$(aws cloudformation describe-stack-resources --stack-name "${DATA_ADMIN_STACK_NAME}" --logical-resource-id "${logical_id}" --region "${AWS_REGION}" --query 'StackResources[0].PhysicalResourceId' --output text)"
+            configuration="$(aws lambda get-function-configuration --function-name "${function_name}" --region "${AWS_REGION}" --query '{FunctionName:FunctionName,Runtime:Runtime,Handler:Handler,MemorySize:MemorySize,Timeout:Timeout,LastUpdateStatus:LastUpdateStatus}' --output json)"
+            printf '%s\n' "${configuration}"
+            if [ "${logical_id}" = "PublicReadFunction" ]; then expected_handler="public-handler.handler"; else expected_handler="admin-handler.handler"; fi
+            printf '%s' "${configuration}" | jq -e --arg handler "${expected_handler}" '(.LastUpdateStatus == "Successful") and (.Runtime == "nodejs24.x") and (.Handler == $handler)' >/dev/null
+          done
+          for output in BreweriesTableName ProductsTableName SourcesTableName ProductEvidenceTableName; do
+            table_name="$(printf '%s' "${outputs_json}" | jq -r --arg key "${output}" '.[] | select(.OutputKey == $key) | .OutputValue')"
+            table_info="$(aws dynamodb describe-table --table-name "${table_name}" --region "${AWS_REGION}" --query '{TableName:Table.TableName,BillingMode:Table.BillingModeSummary.BillingMode}' --output json)"
+            printf '%s\n' "${table_info}"
+            printf '%s' "${table_info}" | jq -e '.BillingMode == "PAY_PER_REQUEST"' >/dev/null
+          done

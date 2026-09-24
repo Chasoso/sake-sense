@@ -34,6 +34,28 @@ secret. Directly reachable admin routes are `/admin/login`, `/admin`, `/admin/pr
 7. Set `VITE_SAKE_DATA_API_BASE_URL` in the frontend deployment environment and deploy the frontend. API failures must remain visible errors; there is no silent JSON fallback in production.
 8. Run the public Body, Voice, Gesture, Result, and Sources Human Experience checks.
 
+## Phase 1 manual deployment
+
+The repository includes `.github/workflows/deploy-data-admin.yml`. It is intentionally triggered
+only by `workflow_dispatch` in the GitHub `production` environment; merging to `main` does not
+deploy this stack. Configure these production variables before the first run:
+
+- `AWS_REGION`, `AWS_ROLE_ARN`, `CLOUDFORMATION_EXECUTION_ROLE_ARN`
+- `DATA_ADMIN_STACK_NAME`, `DATA_ADMIN_ARTIFACT_BUCKET`, `DATA_ADMIN_ALLOWED_ORIGIN`
+- `DATA_ADMIN_COGNITO_CALLBACK_URL`, `DATA_ADMIN_COGNITO_LOGOUT_URL`,
+  `DATA_ADMIN_COGNITO_DOMAIN_PREFIX`
+
+The workflow validates the repository and migration input, builds the Lambda bundle, uploads
+`data-admin/${GITHUB_SHA}.zip`, creates a `CREATE` or `UPDATE` change set, runs the existing safety
+gate, executes only an allowed change set, waits for completion, and verifies Lambda/API/Cognito/
+DynamoDB outputs. An empty DynamoDB table is a valid initial state. It never runs migration `--apply`,
+creates an admin user, or changes the frontend API configuration.
+
+Initial deploy steps are: configure variables, manually run `Deploy data admin`, review outputs,
+bootstrap the Cognito admin, run migration dry-run and apply manually, verify APIs, then perform the
+frontend cutover. Subsequent updates are also manual workflow dispatches; migration is never rerun
+automatically. Phase 2 main-merge-triggered data-admin deployment is explicitly not implemented.
+
 ## Rollback
 
 Before cutover, keep the previous frontend deployment available. If the API or data validation fails, remove the API base URL from the next frontend deployment and redeploy the previous static bundle. Do not delete the tables during rollback. Resolve data issues through draft records and an audited migration rerun.
