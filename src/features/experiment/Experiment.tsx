@@ -31,11 +31,7 @@ import {
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
 import { ExpressionTransform } from "./ExpressionTransform";
-import {
-  getCompactEvidenceLabel,
-  getCandidateDisplaySummary,
-  getResultPresentationPolicy,
-} from "./result-presentation";
+import { getCandidateDisplaySummary, getResultPresentationPolicy } from "./result-presentation";
 import { ExperienceBrand } from "./ExperienceBrand";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
@@ -562,7 +558,6 @@ export function Result({
                       <li key={reference.termId}>
                         <p className="sake-product__evidence-compact">
                           <strong>{term ?? "対応する日本酒の言葉"}</strong>
-                          <span> ｜ {getCompactEvidenceLabel(reference.evidenceStatus)}</span>
                         </p>
                       </li>
                     );
