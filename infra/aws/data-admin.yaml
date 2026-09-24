@@ -99,6 +99,8 @@ Resources:
       UsernameAttributes:
         - email
       MfaConfiguration: OPTIONAL
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
       UserPoolTags:
         Application: sake-sense
         Purpose: admin-only
