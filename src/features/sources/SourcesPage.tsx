@@ -6,15 +6,6 @@ import {
 } from "./source-aggregation";
 import { ExperienceBrand } from "../experiment/ExperienceBrand";
 
-function sourceTypeLabel(source: DisplaySource): string {
-  if (source.sourceType === "official-product-page") return "公式商品情報";
-  if (source.sourceType === "association") return "公的・業界団体の公開情報";
-  if (source.sourceType === "term-reference") return "関連する公開資料";
-  if (source.sourceType?.includes("government")) return "公的資料";
-  if (source.sourceType?.includes("institutional")) return "公的機関の資料";
-  return "公開情報";
-}
-
 function SourceList({ sources }: { sources: ReadonlyArray<DisplaySource> }) {
   return (
     <div className="sources-page__list">
@@ -23,10 +14,6 @@ function SourceList({ sources }: { sources: ReadonlyArray<DisplaySource> }) {
           <p className="sources-page__source-name">{source.sourceName}</p>
           {source.title && <h3>{source.title}</h3>}
           <dl className="sources-page__metadata">
-            <div>
-              <dt>種類</dt>
-              <dd>{sourceTypeLabel(source)}</dd>
-            </div>
             {source.reviewedAt && (
               <div>
                 <dt>確認日</dt>
@@ -88,9 +75,7 @@ export function SourcesPage({ onBack }: { onBack: () => void }) {
 
       <section className="sources-page__section" aria-labelledby="product-sources-title">
         <h2 id="product-sources-title">石川県の日本酒・酒蔵 / 商品情報</h2>
-        <p className="sources-page__section-copy">
-          商品や酒蔵の情報を確認できる公開ページです。同じ出典はまとめて表示しています。
-        </p>
+        <p className="sources-page__section-copy">商品や酒蔵の情報を確認できる公開ページです。</p>
         <SourceList sources={DEFAULT_PRODUCT_SOURCES} />
       </section>
 
