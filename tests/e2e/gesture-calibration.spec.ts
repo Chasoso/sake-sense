@@ -66,7 +66,9 @@ const smoothCurve: SyntheticSample[] = [0, 1, 2, 3, 4, 5].map((index) => ({
   family: "smooth-curve",
   variantId: `smooth-curve-${index + 1}`,
   points: Array.from({ length: 7 }, (_, pointIndex) => ({
-    x: 55 + pointIndex * 18,
+    // Keep the curve's spread above the reviewed smooth-flow boundary while
+    // staying below the broad-spreading family and its speed threshold.
+    x: 55 + pointIndex * 28,
     y: 82 + Math.round(Math.sin((pointIndex / 6) * Math.PI) * (20 + index * 2)),
   })),
   intervalsMs: [120, 120, 120, 120, 120, 300],
