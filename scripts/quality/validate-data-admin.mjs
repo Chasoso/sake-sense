@@ -8,6 +8,10 @@ const workflow = await readFile(
   new URL("../../.github/workflows/deploy-data-admin.yml", import.meta.url),
   "utf8",
 );
+const frontendWorkflow = await readFile(
+  new URL("../../.github/workflows/deploy-production.yml", import.meta.url),
+  "utf8",
+);
 const required = [
   "AWS::DynamoDB::Table",
   "AWS::ApiGatewayV2::Api",
@@ -50,4 +54,21 @@ if (workflow.includes("migrate:sake-data -- --apply"))
   throw new Error("data-admin deployment must not apply migration data");
 if (/AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AKIA[0-9A-Z]{16}/.test(workflow))
   throw new Error("data-admin workflow must not contain hardcoded AWS credentials");
+const frontendPassThrough = [
+  "VITE_SAKE_DATA_API_BASE_URL: ${{ vars.VITE_SAKE_DATA_API_BASE_URL }}",
+  "VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}",
+  "VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}",
+  "VITE_COGNITO_REDIRECT_URI: ${{ vars.VITE_COGNITO_REDIRECT_URI }}",
+  "VITE_COGNITO_LOGOUT_URI: ${{ vars.VITE_COGNITO_LOGOUT_URI }}",
+];
+const missingFrontendPassThrough = frontendPassThrough.filter(
+  (value) => !frontendWorkflow.includes(value),
+);
+if (missingFrontendPassThrough.length)
+  throw new Error(
+    `frontend deploy is missing optional data-admin env pass-through: ${missingFrontendPassThrough.join(", ")}`,
+  );
+const requiredFrontendLine = frontendWorkflow.match(/for variable in ([^\n]+)/)?.[1] ?? "";
+if (frontendPassThrough.some((value) => requiredFrontendLine.includes(value.split(":")[0])))
+  throw new Error("data-admin frontend env pass-through must remain optional");
 console.log("Data-admin infrastructure validation passed.");

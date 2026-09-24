@@ -31,8 +31,18 @@ secret. Directly reachable admin routes are `/admin/login`, `/admin`, `/admin/pr
 4. After review, set the four table names and AWS region and run the same command with `--apply`. The script is idempotent by stable IDs and uses `PutItem`; Codex does not run this step.
 5. Verify public published counts, representative product/brewery/source records, and product evidence.
 6. Verify admin authentication and create/edit/publish/archive workflows.
-7. Set `VITE_SAKE_DATA_API_BASE_URL` in the frontend deployment environment and deploy the frontend. API failures must remain visible errors; there is no silent JSON fallback in production.
-8. Run the public Body, Voice, Gesture, Result, and Sources Human Experience checks.
+7. After API verification, configure these GitHub `production` environment variables for the frontend:
+   - `VITE_SAKE_DATA_API_BASE_URL`
+   - `VITE_COGNITO_DOMAIN`
+   - `VITE_COGNITO_CLIENT_ID`
+   - optionally `VITE_COGNITO_REDIRECT_URI` and `VITE_COGNITO_LOGOUT_URI`
+8. Manually run `Deploy production`. API failures remain visible errors; there is no silent JSON fallback after the API variable is set.
+9. Run the public Body, Voice, Gesture, Result, Sources, and Admin Human Experience checks.
+
+These frontend variables are optional until the data-admin stack, migration, and API verification
+are complete. If they are unset, the existing frontend deploy still succeeds and the app keeps its
+checked-in JSON runtime data. The Cognito redirect/logout values retain their `window.location.origin`
+fallback when not explicitly configured.
 
 ## Phase 1 manual deployment
 
