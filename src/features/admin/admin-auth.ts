@@ -1,6 +1,6 @@
 const STORAGE_KEY = "sake-sense-admin-session";
 
-type AdminSession = { accessToken: string; idToken?: string; expiresAt: number };
+export type AdminSession = { accessToken: string; idToken?: string; expiresAt: number };
 
 function randomString(): string {
   const bytes = new Uint8Array(32);

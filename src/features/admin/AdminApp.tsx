@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LogOut, Plus, Save } from "lucide-react";
-import { completeAdminLogin, getAdminSession, logoutAdmin, startAdminLogin } from "./admin-auth";
+import {
+  completeAdminLogin,
+  getAdminSession,
+  logoutAdmin,
+  startAdminLogin,
+  type AdminSession,
+} from "./admin-auth";
 
 type AdminCollection = "products" | "breweries" | "sources" | "evidence";
 type RecordItem = Record<string, unknown> & { id?: string; status?: string; updatedAt?: string };
@@ -34,16 +40,25 @@ function apiBase(): string {
   );
 }
 
-function AdminLogin({ callback }: { callback: boolean }) {
+function AdminLogin({
+  callback,
+  onAuthenticated,
+}: {
+  callback: boolean;
+  onAuthenticated: (session: AdminSession) => void;
+}) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!callback) return;
     void completeAdminLogin()
-      .then(() => window.history.replaceState({}, "", "/admin"))
+      .then((session) => {
+        onAuthenticated(session);
+        window.history.replaceState({}, "", "/admin");
+      })
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : "Login failed"),
       );
-  }, [callback]);
+  }, [callback, onAuthenticated]);
   return (
     <main className="admin-page">
       <h1>Sake Sense 管理画面</h1>
@@ -183,6 +198,12 @@ function AdminCollectionPage({
               onClick={() => setSelected(item)}
             >
               <strong>{String(item.name ?? item.sourceName ?? item.termId ?? item.id)}</strong>
+              {collection === "products" && (
+                <>
+                  <span>{String(item.breweryName ?? item.breweryId ?? "-")}</span>
+                  <span>{String(item.availabilityStatus ?? "-")}</span>
+                </>
+              )}
               <span>
                 {String(item.status ?? "-")} · {String(item.updatedAt ?? "-")}
               </span>
@@ -216,9 +237,10 @@ function AdminCollectionPage({
 }
 
 export function AdminApp() {
-  const [session, setSession] = useState(getAdminSession);
+  const [session, setSession] = useState<AdminSession | null>(getAdminSession);
   const path = window.location.pathname;
-  if (!session) return <AdminLogin callback={path === "/admin/callback"} />;
+  if (!session)
+    return <AdminLogin callback={path === "/admin/callback"} onAuthenticated={setSession} />;
   const collection = path.startsWith("/admin/breweries")
     ? "breweries"
     : path.startsWith("/admin/sources")
