@@ -103,6 +103,8 @@ Resources:
                   - apigateway:PATCH
                   - apigateway:POST
                   - apigateway:PUT
+                  - apigateway:TagResource
+                  - apigateway:UntagResource
                 Resource: "*"
 
               - Sid: ManageDataAdminFunctions
