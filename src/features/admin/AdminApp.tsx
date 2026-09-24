@@ -155,7 +155,7 @@ function AdminCollectionPage({
           <p className="eyebrow">Sake Sense Admin</p>
           <h1>{label}管理</h1>
         </div>
-        <button className="icon-text-button" type="button" onClick={onLogout}>
+        <button className="icon-text-button" type="button" aria-label="Log out" onClick={onLogout}>
           <LogOut size={16} />
           ログアウト
         </button>
@@ -177,6 +177,7 @@ function AdminCollectionPage({
         <button
           className="button button--secondary"
           type="button"
+          aria-label="Create new record"
           onClick={() => setSelected({ status: "draft" })}
         >
           <Plus size={16} />
@@ -225,7 +226,12 @@ function AdminCollectionPage({
                 />
               </label>
             ))}
-            <button className="button button--primary" type="button" onClick={() => void save()}>
+            <button
+              className="button button--primary"
+              type="button"
+              aria-label="Save record"
+              onClick={() => void save()}
+            >
               <Save size={16} />
               保存
             </button>

@@ -22,6 +22,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:e2e:gesture-calibration": "playwright test tests/e2e/gesture-calibration.spec.ts",
+    "test:e2e:admin": "playwright test tests/e2e/admin.spec.ts",
     "ui:inventory": "playwright test tests/e2e/ui-inventory.spec.ts",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "test:coverage": "vitest run --coverage",

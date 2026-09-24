@@ -22,6 +22,9 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       VITE_GESTURE_CALIBRATION: "true",
+      VITE_SAKE_DATA_API_BASE_URL: "http://127.0.0.1:4173/e2e-api",
+      VITE_COGNITO_DOMAIN: "https://cognito.example.test",
+      VITE_COGNITO_CLIENT_ID: "e2e-client",
     },
   },
 });
