@@ -61,4 +61,15 @@ for (const requiredLink of [
   if (!indexHtml.includes(requiredLink)) throw new Error(`index.html is missing: ${requiredLink}`);
 }
 
+const deployWorkflow = readFileSync(
+  resolve(root, ".github/workflows/deploy-production.yml"),
+  "utf8",
+);
+if (!deployWorkflow.includes("aws s3 sync dist/")) {
+  throw new Error("Production deployment must synchronize generated dist/ output");
+}
+if (deployWorkflow.includes("dist/favicon.svg")) {
+  throw new Error("Production deployment references removed dist/favicon.svg");
+}
+
 console.log(`PWA validation passed (${manifest.icons.length} manifest icons).`);

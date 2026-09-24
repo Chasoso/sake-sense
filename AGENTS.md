@@ -54,4 +54,9 @@ After reviewing an experiment, record one outcome: `keep` (validated enough to c
 - Before a PR, search the diff and repository for secrets, debug code, accidental files, unfinished TODOs, and scope creep.
 - Never weaken tests or rules just to obtain a passing result.
 
+## Repository-wide references and deployment assets
+
+- Reference searches must include hidden files and directories, while excluding `.git` and other generated noise when appropriate (for example, use `rg --hidden --glob '!.git'`).
+- Deployments must use the generated `dist/` output as the source of truth and synchronize it as a set. Avoid fixed per-file uploads when the build output can be synchronized directly; keep special handling limited to files that genuinely require different cache or content-type behavior.
+
 See [the development loop](docs/development/development-loop.md) for the expanded workflow and [the Issue authoring guide](docs/development/issue-authoring-guide.md) for Issue structure.
