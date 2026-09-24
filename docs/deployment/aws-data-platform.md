@@ -89,10 +89,11 @@ functions and runtime roles, Cognito pool resources, the HTTP API, and read-only
 and API Gateway v2 management operations use `Resource: "*"` in the execution role because AWS
 does not expose a usable target ARN before creation (or does not provide a resource type for that
 management action). These actions are isolated in separate statements. The GitHub Actions role
-has only one additional `Resource: "*"` statement: `cloudformation:CreateChangeSet`, which must
-also support the first CREATE before the stack ARN exists. All other GitHub Actions deployment
-reads/execution, artifact upload, Lambda verification, and DynamoDB verification are scoped to the
-data-admin prefixes. The execution role's `iam:PassRole` remains restricted to roles named
+has two additional `Resource: "*"` statements: pre-create `cloudformation:DescribeStacks` detection
+and `cloudformation:CreateChangeSet`, which must also support the first CREATE before the stack ARN
+exists. All other GitHub Actions deployment reads/execution, artifact upload, Lambda verification,
+and DynamoDB verification are scoped to the data-admin prefixes. The workflow surfaces the original
+AWS CLI error when stack detection fails. The execution role's `iam:PassRole` remains restricted to roles named
 `<data-admin-stack>-*` and to `lambda.amazonaws.com`.
 
 Configure these production variables before the first data-admin workflow run:

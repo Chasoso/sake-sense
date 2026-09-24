@@ -104,16 +104,19 @@ jobs:
           change_set_file="${RUNNER_TEMP}/data-admin-change-set-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
           stack_type=""
 
-          if aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+          describe_output=""
+          if describe_output="$(
+            aws cloudformation describe-stacks \
+              --stack-name "${DATA_ADMIN_STACK_NAME}" \
+              --region "${AWS_REGION}" 2>&1
+          )"; then
             stack_type=UPDATE
+          elif printf '%s\n' "${describe_output}" | grep -qi "does not exist"; then
+            stack_type=CREATE
           else
-            describe_status=$?
-            if aws cloudformation describe-stacks --stack-name "${DATA_ADMIN_STACK_NAME}" --region "${AWS_REGION}" 2>&1 | grep -qi "does not exist"; then
-              stack_type=CREATE
-            else
-              echo "Unable to determine whether the data-admin stack exists (exit ${describe_status})." >&2
-              exit "${describe_status}"
-            fi
+            printf '%s\n' "${describe_output}" >&2
+            echo "Unable to determine whether the data-admin stack exists." >&2
+            exit 1
           fi
           echo "CloudFormation change set type: ${stack_type}"
 

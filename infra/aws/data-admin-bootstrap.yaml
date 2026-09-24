@@ -176,9 +176,15 @@ Resources:
             Action: s3:PutObject
             Resource: !Sub arn:${AWS::Partition}:s3:::${ArtifactBucketName}/data-admin/*
 
-          # CREATE change sets need account-scoped authorization because the target
-          # stack ARN does not exist yet. This is the only CloudFormation statement
-          # below that uses Resource: "*".
+          # Initial stack detection and CREATE change sets need account-scoped
+          # authorization because the target stack ARN does not exist yet. These
+          # are the only CloudFormation statements below that use Resource: "*".
+          # The target stack ARN is also unavailable during the initial existence
+          # check, so this read is isolated to the pre-create detection statement.
+          - Sid: DetectDataAdminStackBeforeCreate
+            Effect: Allow
+            Action: cloudformation:DescribeStacks
+            Resource: "*"
           - Sid: CreateDataAdminChangeSet
             Effect: Allow
             Action: cloudformation:CreateChangeSet
@@ -188,7 +194,6 @@ Resources:
             Action:
               - cloudformation:DescribeChangeSet
               - cloudformation:ExecuteChangeSet
-              - cloudformation:DescribeStacks
               - cloudformation:DescribeStackEvents
               - cloudformation:DescribeStackResources
             Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DataAdminStackName}/*
