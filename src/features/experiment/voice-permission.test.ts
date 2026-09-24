@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   classifyVoiceAudioInitializationError,
   classifyVoiceCaptureError,
+  cleanupVoiceStartupResources,
   getVoiceFailureMessage,
   getVoicePermissionGuidance,
   getVoicePermissionPlatform,
@@ -52,5 +53,26 @@ describe("voice permission handling", () => {
     expect(getUserMedia).toHaveBeenCalledTimes(2);
     expect(getUserMedia).toHaveBeenNthCalledWith(1, { audio: true });
     expect(getUserMedia).toHaveBeenNthCalledWith(2, { audio: true });
+  });
+
+  it("closes an AudioContext after post-permission startup failure", async () => {
+    const stop = vi.fn();
+    const close = vi.fn().mockResolvedValue(undefined);
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream;
+    const context = { close } as unknown as AudioContext;
+
+    await cleanupVoiceStartupResources(stream, context);
+
+    expect(stop).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("does not let cleanup failure replace the startup failure", async () => {
+    const stream = { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream;
+    const context = {
+      close: vi.fn().mockRejectedValue(new Error("close failed")),
+    } as unknown as AudioContext;
+
+    await expect(cleanupVoiceStartupResources(stream, context)).resolves.toBeUndefined();
   });
 });

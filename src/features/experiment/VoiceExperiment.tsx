@@ -27,6 +27,7 @@ import { ExperienceBrand } from "./ExperienceBrand";
 import {
   classifyVoiceAudioInitializationError,
   classifyVoiceCaptureError,
+  cleanupVoiceStartupResources,
   getVoiceFailureMessage,
   getVoicePermissionGuidance,
   requestVoiceMicrophone,
@@ -134,8 +135,9 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
       return;
     }
 
+    let context: AudioContext | null = null;
     try {
-      const context = new AudioContext();
+      context = new AudioContext();
       const analyser = context.createAnalyser();
       analyser.fftSize = 2048;
       context.createMediaStreamSource(stream).connect(analyser);
@@ -155,7 +157,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
       setVoiceStatus("recording");
       voiceFrame.current = requestAnimationFrame(sampleVoice);
     } catch {
-      stream.getTracks().forEach((track) => track.stop());
+      void cleanupVoiceStartupResources(stream, context);
       setWaveHistory([]);
       setVoiceFailure(classifyVoiceAudioInitializationError());
       setVoiceStatus("denied");

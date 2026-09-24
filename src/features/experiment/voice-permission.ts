@@ -69,3 +69,16 @@ export type VoiceGetUserMedia = (constraints: MediaStreamConstraints) => Promise
 export function requestVoiceMicrophone(getUserMedia: VoiceGetUserMedia): Promise<MediaStream> {
   return getUserMedia({ audio: true });
 }
+
+export async function cleanupVoiceStartupResources(
+  stream: MediaStream,
+  context: AudioContext | null,
+): Promise<void> {
+  stream.getTracks().forEach((track) => track.stop());
+  if (!context) return;
+  try {
+    await context.close();
+  } catch {
+    // Cleanup failure must not replace the original startup failure.
+  }
+}
