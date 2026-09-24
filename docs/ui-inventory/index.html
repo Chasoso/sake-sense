@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sake Sense UI inventory</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #263630;
+        --muted: #65736d;
+        --line: #d8d2c4;
+        --paper: #f7f4ed;
+        --gold: #c9a96a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font:
+          15px/1.6 system-ui,
+          sans-serif;
+      }
+      main {
+        width: min(1400px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 36px 0 72px;
+      }
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.2;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 4rem);
+      }
+      h2 {
+        margin-top: 42px;
+        font-size: 1.45rem;
+      }
+      h3 {
+        font-size: 1.05rem;
+      }
+      p {
+        color: var(--muted);
+      }
+      .eyebrow {
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .intro {
+        max-width: 760px;
+        margin: 16px 0 24px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 24px 0;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 8px 14px;
+        color: var(--ink);
+        background: transparent;
+      }
+      button[aria-pressed="true"] {
+        color: white;
+        border-color: var(--ink);
+        background: var(--ink);
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 18px 0 30px;
+      }
+      .flow span {
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+      }
+      .flow i {
+        color: var(--gold);
+        font-style: normal;
+        font-size: 1.3rem;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+        gap: 18px;
+      }
+      .card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: white;
+        box-shadow: 0 8px 24px rgb(38 54 48 / 7%);
+      }
+      .card figure {
+        margin: 0;
+        background: #e9e6df;
+      }
+      .card img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .card-body {
+        padding: 16px;
+      }
+      .meta {
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 4px 10px;
+        margin: 12px 0 18px;
+        font-size: 0.9rem;
+      }
+      .meta dt {
+        color: var(--muted);
+      }
+      .meta dd {
+        margin: 0;
+      }
+      .review-panel {
+        margin-top: 28px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: white;
+      }
+      .review-panel h2 {
+        margin: 0 0 6px;
+      }
+      .review-panel p {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      .review {
+        display: grid;
+        gap: 8px;
+      }
+      .review label {
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .review textarea {
+        width: 100%;
+        min-height: 42px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px;
+        font: inherit;
+      }
+      .review textarea::placeholder {
+        color: #a3aaa5;
+      }
+      .device-mobile .desktop-shot {
+        display: none;
+      }
+      .device-desktop .mobile-shot {
+        display: none;
+      }
+      .note {
+        padding: 12px 14px;
+        border-left: 3px solid var(--gold);
+        background: rgb(201 169 106 / 12%);
+      }
+      footer {
+        margin-top: 48px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      @media (max-width: 640px) {
+        main {
+          width: min(100% - 20px, 560px);
+          padding-top: 22px;
+        }
+        .flow {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .flow i {
+          transform: rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body class="device-desktop">
+    <main>
+      <p class="eyebrow">Sake Sense / UI inventory</p>
+      <h1>画面遷移 / UI inventory</h1>
+      <p class="intro">
+        現行アプリの主要画面と状態を、同じviewportで比較するための開発用棚卸しです。スクリーンショットはPlaywrightのdeterministic
+        fixtureで生成しています。ここではデザイン評価や改善案の結論は扱いません。
+      </p>
+
+      <div class="toolbar" aria-label="表示サイズ">
+        <button type="button" data-device="desktop" aria-pressed="true">Desktop 1440 × 1000</button>
+        <button type="button" data-device="mobile" aria-pressed="false">Mobile 390 × 844</button>
+      </div>
+
+      <h2>画面遷移</h2>
+      <div class="flow" aria-label="画面遷移図">
+        <span>Start</span><i>→</i><span>Body</span><i>→</i><span>Ready</span><i>→</i
+        ><span>Countdown</span><i>→</i><span>Capture</span><i>→</i><span>Replay</span><i>→</i
+        ><span>Result</span>
+      </div>
+      <div class="flow">
+        <span>Start</span><i>→</i><span>Voice: initial / recording / analyzing / result</span>
+      </div>
+      <div class="flow">
+        <span>Start</span><i>→</i><span>Gesture: initial / drawing / result</span>
+      </div>
+      <div class="flow"><span>Start</span><i>→</i><span>Sources</span></div>
+      <p class="note">
+        Bodyのpermission
+        denied、no-matchなどの分岐は通常状態とは別の表示状態として棚卸ししています。実カメラ・実マイク・外部AI・外部ネットワークは使用していません。
+      </p>
+
+      <h2>画面カード</h2>
+      <section class="cards">
+        <script>
+          const screens = [
+            [
+              "01",
+              "Start",
+              "start",
+              "アプリ起点。Body / Voice / Gestureが主操作、Sourcesが補助導線。",
+              "Start",
+            ],
+            ["02", "Body / Camera loading", "body-loading", "カメラ準備中。", "Start → Body"],
+            [
+              "03",
+              "Body / Camera ready",
+              "body-ready",
+              "カメラ準備完了。動作開始CTAを表示。",
+              "Loading → Ready",
+            ],
+            [
+              "04",
+              "Body / Countdown",
+              "body-countdown",
+              "3秒カウントダウン。記録前の準備状態。",
+              "Ready → Countdown",
+            ],
+            [
+              "05",
+              "Body / Capturing",
+              "body-capturing",
+              "3秒の動きを記録中。",
+              "Countdown → Capturing",
+            ],
+            [
+              "06",
+              "Body / Replay",
+              "body-replay",
+              "撮影後のReplay。再生コントロールを表示。",
+              "Capturing → Replay",
+            ],
+            [
+              "07",
+              "Body / Result",
+              "body-result",
+              "Bodyのderived featuresから結果へ。",
+              "Replay → Result",
+            ],
+            [
+              "08",
+              "Body / No match",
+              "body-no-match",
+              "候補語がない場合のfallback。",
+              "Body → No match",
+            ],
+            [
+              "09",
+              "Body / Permission denied",
+              "body-denied",
+              "カメラ権限が得られない場合。",
+              "Body → Error",
+            ],
+            ["10", "Voice / Initial", "voice-initial", "音声入力の初期状態。", "Start → Voice"],
+            [
+              "11",
+              "Voice / Recording",
+              "voice-recording",
+              "音声入力中。visualizerを表示。",
+              "Initial → Recording",
+            ],
+            [
+              "12",
+              "Voice / Analyzing",
+              "voice-analyzing",
+              "入力後の整理・変換状態。",
+              "Captured → Analyzing",
+            ],
+            ["13", "Voice / Result", "voice-result", "Voiceの結果画面。", "Analyzing → Result"],
+            [
+              "14",
+              "Voice / No match",
+              "voice-no-match",
+              "候補語がない場合のfallback。",
+              "Voice → No match",
+            ],
+            [
+              "15",
+              "Gesture / Initial",
+              "gesture-initial",
+              "描画入力の初期状態。",
+              "Start → Gesture",
+            ],
+            [
+              "16",
+              "Gesture / Drawing",
+              "gesture-drawing",
+              "SVG gesture padに入力中。",
+              "Initial → Drawing",
+            ],
+            ["17", "Gesture / Result", "gesture-result", "Gestureの結果画面。", "Drawing → Result"],
+            [
+              "18",
+              "Sources",
+              "sources",
+              "terminology / product sourcesの一覧。",
+              "Start → Sources",
+            ],
+          ];
+          document.write(
+            screens
+              .map(
+                ([number, title, slug, description, transition]) => `
+            <article class="card">
+              <figure>
+                <img class="desktop-shot" src="screenshots/desktop/${number}-${slug}.png" alt="${title} desktop screenshot" />
+                <img class="mobile-shot" src="screenshots/mobile/${number}-${slug}.png" alt="${title} mobile screenshot" />
+              </figure>
+              <div class="card-body">
+                <h3>${title}</h3>
+                <dl class="meta"><dt>状態</dt><dd>${slug}</dd><dt>遷移</dt><dd>${transition}</dd><dt>説明</dt><dd>${description}</dd></dl>
+              </div>
+            </article>`,
+              )
+              .join(""),
+          );
+          document.querySelectorAll("[data-device]").forEach((button) =>
+            button.addEventListener("click", () => {
+              const device = button.dataset.device;
+              document.body.className = `device-${device}`;
+              document
+                .querySelectorAll("[data-device]")
+                .forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+            }),
+          );
+        </script>
+      </section>
+      <section class="review-panel" aria-labelledby="review-title">
+        <h2 id="review-title">UIレビュー用注記</h2>
+        <p>画面全体を横断したレビューを、ここに1か所だけ記入します。</p>
+        <div class="review">
+          <label>Visual hierarchy<textarea placeholder="レビューを記入"></textarea></label>
+          <label>Spacing<textarea placeholder="レビューを記入"></textarea></label>
+          <label>Typography<textarea placeholder="レビューを記入"></textarea></label>
+          <label>CTA clarity<textarea placeholder="レビューを記入"></textarea></label>
+          <label>Mobile issue<textarea placeholder="レビューを記入"></textarea></label>
+          <label>Notes<textarea placeholder="レビューを記入"></textarea></label>
+        </div>
+      </section>
+      <footer>
+        Generated by <code>npm run ui:inventory</code>. Screenshot PNGs are local, gitignored
+        development artifacts; review fields are intentionally blank.
+      </footer>
+    </main>
+  </body>
+</html>

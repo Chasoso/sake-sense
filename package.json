@@ -18,6 +18,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:e2e:gesture-calibration": "playwright test tests/e2e/gesture-calibration.spec.ts",
+    "ui:inventory": "playwright test tests/e2e/ui-inventory.spec.ts",
     "test:coverage": "vitest run --coverage",
     "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
     "validate:sensory-expressions": "node scripts/quality/validate-sensory-expressions.mjs",
