@@ -102,19 +102,26 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: sake-sense-production
 
-      - name: Upload hashed assets
+      - name: Upload generated frontend assets
         run: |
           aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/" \
             --delete \
             --exclude index.html \
-            --exclude favicon.svg \
+            --exclude manifest.webmanifest \
+            --exclude "favicon-*.png" \
+            --exclude apple-touch-icon.png \
+            --exclude "icons/*" \
             --cache-control "public,max-age=31536000,immutable"
 
-      - name: Upload favicon without immutable cache
+      - name: Upload fixed PWA assets without immutable cache
         run: |
-          aws s3 cp dist/favicon.svg "s3://${S3_BUCKET_NAME}/favicon.svg" \
-            --cache-control "public,max-age=300" \
-            --content-type "image/svg+xml"
+          aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/" \
+            --exclude "*" \
+            --include manifest.webmanifest \
+            --include "favicon-*.png" \
+            --include apple-touch-icon.png \
+            --include "icons/*" \
+            --cache-control "public,max-age=300"
 
       - name: Upload entrypoint without long cache
         run: |

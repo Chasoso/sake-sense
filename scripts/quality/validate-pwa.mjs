@@ -61,4 +61,43 @@ for (const requiredLink of [
   if (!indexHtml.includes(requiredLink)) throw new Error(`index.html is missing: ${requiredLink}`);
 }
 
+const deployWorkflow = readFileSync(
+  resolve(root, ".github/workflows/deploy-production.yml"),
+  "utf8",
+);
+if (!deployWorkflow.includes("aws s3 sync dist/")) {
+  throw new Error("Production deployment must synchronize generated dist/ output");
+}
+if (deployWorkflow.includes("dist/favicon.svg")) {
+  throw new Error("Production deployment references removed dist/favicon.svg");
+}
+const immutableCache = "public,max-age=31536000,immutable";
+const shortCache = "public,max-age=300";
+if (!deployWorkflow.includes(`--cache-control "${immutableCache}"`)) {
+  throw new Error("Hashed frontend assets must retain immutable long cache");
+}
+for (const exclusion of [
+  "--exclude manifest.webmanifest",
+  '--exclude "favicon-*.png"',
+  "--exclude apple-touch-icon.png",
+  '--exclude "icons/*"',
+]) {
+  if (!deployWorkflow.includes(exclusion)) {
+    throw new Error(`Immutable deployment sync must exclude fixed PWA asset: ${exclusion}`);
+  }
+}
+if (!deployWorkflow.includes(`--cache-control "${shortCache}"`)) {
+  throw new Error("Fixed PWA assets must use a short cache policy");
+}
+for (const inclusion of [
+  "--include manifest.webmanifest",
+  '--include "favicon-*.png"',
+  "--include apple-touch-icon.png",
+  '--include "icons/*"',
+]) {
+  if (!deployWorkflow.includes(inclusion)) {
+    throw new Error(`Short-cache deployment sync must include fixed PWA asset: ${inclusion}`);
+  }
+}
+
 console.log(`PWA validation passed (${manifest.icons.length} manifest icons).`);
