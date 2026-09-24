@@ -45,6 +45,11 @@ for (const [device, viewport] of Object.entries(viewports)) {
       } else {
         await expect(page.locator(`[data-ui-inventory-state="${state}"]`)).toBeVisible();
         await expect(page.locator('[data-ui-inventory-ready="true"]')).toBeVisible();
+        await expect(page.locator(".experience-screen__brand")).toHaveCount(0);
+        await expect(page.locator("img.experience-screen__brand-logo")).toHaveAttribute(
+          "alt",
+          "Sake Sense",
+        );
       }
       await page.screenshot({
         path: path.join(outputDirectory, `${fileStem}.png`),

@@ -336,12 +336,11 @@ h4 {
   margin-bottom: clamp(40px, 8vh, 84px);
 }
 
-.experience-screen__brand {
-  color: var(--deep-green-dark);
-  font-family: "Noto Serif JP", "Yu Mincho", serif;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.experience-screen__brand-logo {
+  display: block;
+  width: clamp(100px, 12vw, 120px);
+  height: auto;
+  flex: 0 0 auto;
 }
 
 .experience-screen__header {
@@ -1170,7 +1169,7 @@ h4 {
 
 /* Voice and gesture */
 .voice-primary {
-  max-width: 760px;
+  width: 100%;
 }
 
 .experiment__grid {
