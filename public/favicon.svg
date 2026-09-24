@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title>Sake Sense</title>
-  <rect width="64" height="64" rx="14" fill="#f9f7f2"/>
-  <path d="M32 10c-5 7-8 11-8 16a8 8 0 0 0 16 0c0-5-3-9-8-16Z" fill="#c9a96a"/>
-  <path d="M12 39c10-5 22-5 34-1 3 1 5 1 7-1" fill="none" stroke="#556b56" stroke-linecap="round" stroke-width="5"/>
-  <path d="M18 47h28l-3 7H21l-3-7Z" fill="#405341"/>
-  <path d="M16 46h32" stroke="#c9a96a" stroke-linecap="round" stroke-width="3"/>
-</svg>

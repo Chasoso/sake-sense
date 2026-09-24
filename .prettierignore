@@ -1,3 +1,4 @@
 coverage
+scripts/generate-pwa-icons.py
 dist
 node_modules

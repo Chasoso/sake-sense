@@ -19,14 +19,16 @@
     "test": "vitest run",
     "test:e2e:gesture-calibration": "playwright test tests/e2e/gesture-calibration.spec.ts",
     "ui:inventory": "playwright test tests/e2e/ui-inventory.spec.ts",
+    "generate:pwa-icons": "python scripts/generate-pwa-icons.py",
     "test:coverage": "vitest run --coverage",
     "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
     "validate:sensory-expressions": "node scripts/quality/validate-sensory-expressions.mjs",
     "validate:sensory-support-cases": "node scripts/quality/validate-sensory-support-cases.mjs",
     "validate:sake-sample": "node scripts/quality/validate-sake-sample.mjs",
     "validate:domain-integrity": "node scripts/quality/validate-domain-integrity.mjs",
+    "validate:pwa": "node scripts/quality/validate-pwa.mjs",
     "secret-scan": "node scripts/quality/secret-scan.mjs",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run validate:sensory-expressions && npm run validate:sensory-support-cases && npm run validate:sake-sample && npm run validate:domain-integrity && npm run test:coverage && npm run build && npm run secret-scan",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run validate:dictionary && npm run validate:sensory-expressions && npm run validate:sensory-support-cases && npm run validate:sake-sample && npm run validate:domain-integrity && npm run validate:pwa && npm run test:coverage && npm run build && npm run secret-scan",
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
