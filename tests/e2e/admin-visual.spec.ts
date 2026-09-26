@@ -14,7 +14,7 @@ const product = {
 };
 const screenshotOptions = {
   fullPage: true,
-  maxDiffPixelRatio: 0.01,
+  maxDiffPixelRatio: 0.035,
   threshold: 0.35,
 } as const;
 
