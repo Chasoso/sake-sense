@@ -31,25 +31,26 @@ secret. Directly reachable admin routes are `/admin/login`, `/admin`, `/admin/pr
 4. After review, set the four table names and AWS region and run the same command with `--apply`. The script is idempotent by stable IDs and uses `PutItem`; Codex does not run this step.
 5. Verify public published counts, representative product/brewery/source records, and product evidence.
 6. Verify admin authentication and create/edit/publish/archive workflows.
-7. After API verification, configure these GitHub `production` environment variables for the frontend:
+7. Before the next `Deploy production` run, configure these GitHub `production` environment variables for the frontend:
    - `VITE_SAKE_DATA_API_BASE_URL`
    - `VITE_COGNITO_DOMAIN`
    - `VITE_COGNITO_CLIENT_ID`
-   - optionally `VITE_COGNITO_REDIRECT_URI` and `VITE_COGNITO_LOGOUT_URI`
+   - `VITE_COGNITO_REDIRECT_URI`
+   - `VITE_COGNITO_LOGOUT_URI`
 8. Manually run `Deploy production`. API failures remain visible errors; there is no silent JSON fallback after the API variable is set.
 9. Run the public Body, Voice, Gesture, Result, Sources, and Admin Human Experience checks.
 
-These frontend variables are optional until the data-admin stack, migration, and API verification
-are complete. If they are unset, the existing frontend deploy still succeeds and the app keeps its
-checked-in JSON runtime data. The Cognito redirect/logout values retain their `window.location.origin`
-fallback when not explicitly configured.
+The production frontend deployment requires these five variables once the frontend job runs. Set
+them after the data-admin stack, migration, and API verification are complete; the local application
+still retains its existing `window.location.origin` fallback for redirect/logout configuration when
+those values are not supplied outside the production workflow.
 
 ## Phase 1 manual deployment
 
-The repository includes `.github/workflows/deploy-data-admin.yml`. It is intentionally triggered
-only by `workflow_dispatch` in the GitHub `production` environment; merging to `main` does not
-deploy this stack. The data-admin stack does not reuse the semantic-bridge CloudFormation
-execution role.
+The repository includes `.github/workflows/deploy-data-admin.yml`. It supports both explicit
+`workflow_dispatch` redeploys and `workflow_call` from `.github/workflows/deploy-production.yml`.
+Relevant data-admin changes merged to `main` invoke it from the production flow. The data-admin
+stack does not reuse the semantic-bridge CloudFormation execution role.
 
 ### Bootstrap the execution role once
 
@@ -109,10 +110,12 @@ gate, executes only an allowed change set, waits for completion, and verifies La
 DynamoDB outputs. An empty DynamoDB table is a valid initial state. It never runs migration `--apply`,
 creates an admin user, or changes the frontend API configuration.
 
-Initial deploy steps are: configure variables, manually run `Deploy data admin`, review outputs,
-bootstrap the Cognito admin, run migration dry-run and apply manually, verify APIs, then perform the
-frontend cutover. Subsequent updates are also manual workflow dispatches; migration is never rerun
-automatically. Phase 2 main-merge-triggered data-admin deployment is explicitly not implemented.
+Initial deploy steps are: configure variables, manually run `Deploy data admin` (or the relevant
+`Deploy production` run), review outputs, bootstrap the Cognito admin, run migration dry-run and
+apply manually, verify APIs, then configure the frontend variables. Subsequent data-admin changes
+can deploy automatically through the main production flow or be redeployed with workflow dispatch;
+migration is never rerun automatically. Bootstrap, migration apply, and Cognito admin-user setup
+remain manual.
 
 ## Rollback
 
