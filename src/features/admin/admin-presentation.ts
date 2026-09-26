@@ -8,7 +8,7 @@ const LABELS: Record<string, string> = {
   seasonal: "季節限定",
   unknown: "不明",
   direct: "直接",
-  "accepted-variant": "承認済み変異",
+  "accepted-variant": "承認済み変形",
   weak: "弱い根拠",
   rejected: "却下",
 };

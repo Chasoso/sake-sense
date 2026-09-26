@@ -12,7 +12,7 @@ const product = {
   status: "published",
   updatedAt: "2026-09-24T00:00:00.000Z",
 };
-const screenshotOptions = { fullPage: true, maxDiffPixelRatio: 0.05 } as const;
+const screenshotOptions = { fullPage: true, maxDiffPixelRatio: 0.01 } as const;
 
 async function setup(page: import("@playwright/test").Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });

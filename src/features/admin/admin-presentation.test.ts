@@ -7,7 +7,7 @@ describe("admin presentation helpers", () => {
     ["draft", "下書き"],
     ["archived", "アーカイブ"],
     ["direct", "直接"],
-    ["accepted-variant", "承認済み変異"],
+    ["accepted-variant", "承認済み変形"],
     ["weak", "弱い根拠"],
     ["rejected", "却下"],
   ])("maps %s to a user-facing label", (value, label) => {

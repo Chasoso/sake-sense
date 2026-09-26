@@ -26,6 +26,13 @@ async function request(target, options = {}) {
   return response;
 }
 
+function headerTokens(response, name) {
+  return (response.headers.get(name) ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 await request(appUrl);
 await request(new URL("/api/products", publicApiUrl));
 
@@ -39,6 +46,12 @@ const preflight = await request(new URL("/admin/products", adminApiUrl), {
 });
 if (preflight.headers.get("access-control-allow-origin") !== allowedOrigin) {
   throw new Error("Admin preflight did not return the configured allow-origin");
+}
+if (!headerTokens(preflight, "access-control-allow-methods").includes("get")) {
+  throw new Error("Admin preflight did not allow GET");
+}
+if (!headerTokens(preflight, "access-control-allow-headers").includes("authorization")) {
+  throw new Error("Admin preflight did not allow authorization header");
 }
 
 const unauthenticated = await fetch(new URL("/admin/products", adminApiUrl));

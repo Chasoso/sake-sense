@@ -37,8 +37,7 @@ Cognito, or production network access. `npm run test:e2e:admin` covers CRUD and
 relation behavior; `npm run test:e2e:visual` covers a small fixed screenshot set.
 Update visual baselines only intentionally with `npm run test:e2e:visual -- --update-snapshots`
 and review the resulting PNGs.
-The visual assertions use a 5% cross-platform pixel-difference ceiling to absorb
-browser/OS font rasterization while still failing on substantial layout or missing-control changes.
+The visual assertions use a 1% pixel-difference ceiling in the fixed Ubuntu Chromium CI environment. This is intentionally tight enough to catch layout, wrapping, and missing-control regressions while allowing only small rasterization differences.
 
 Production deployment runs `npm run smoke:production` after successful relevant
 deployments. It performs only read/preflight checks: frontend and public API reachability,
