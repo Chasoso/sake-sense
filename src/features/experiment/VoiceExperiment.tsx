@@ -242,7 +242,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>最初に戻る</span>
           </button>
-          <ExperienceBrand />
+          <ExperienceBrand onHome={returnToStart} />
         </nav>
         <Result result={result} onTryAgain={reset} />
       </main>
@@ -255,6 +255,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
         features={voiceFeatures}
         waveHistory={waveHistory}
         onBack={returnToStart}
+        onHome={returnToStart}
       />
     );
   }
@@ -267,7 +268,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>戻る</span>
           </button>
-          <ExperienceBrand />
+          <ExperienceBrand onHome={returnToStart} />
         </nav>
       )}
       <header className="experience-screen__header">
