@@ -1,0 +1,285 @@
+{
+  "version": "0.1.0",
+  "fixtures": [
+    {
+      "id": "body-short-abrupt-control",
+      "modality": "body",
+      "intent": "short-abrupt",
+      "reviewPriority": "control",
+      "input": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "unknown",
+        "direction": "lateral",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-lingering-gradual",
+      "modality": "body",
+      "intent": "lingering-gradual",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "lingering",
+        "ending": "gradual",
+        "expansion": "unknown",
+        "direction": "upward",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-expanding",
+      "modality": "body",
+      "intent": "expanding",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "expanding",
+        "direction": "upward",
+        "repetition": "single",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-repeated-lateral",
+      "modality": "body",
+      "intent": "repeated-lateral",
+      "reviewPriority": "control",
+      "input": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-sustained-fast",
+      "modality": "body",
+      "intent": "sustained-fast",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "lingering",
+        "ending": "continued",
+        "expansion": "expanding",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "sustained-fast"
+      }
+    },
+    {
+      "id": "body-contracting",
+      "modality": "body",
+      "intent": "contracting",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "contracting",
+        "direction": "downward",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-ambiguous-mixed",
+      "modality": "body",
+      "intent": "ambiguous-mixed",
+      "reviewPriority": "control",
+      "input": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "expanding",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "sustained-fast"
+      }
+    },
+    {
+      "id": "body-low-signal",
+      "modality": "body",
+      "intent": "low-signal",
+      "reviewPriority": "control",
+      "input": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "unknown",
+        "repetition": "unknown",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-neutral-short",
+      "modality": "body",
+      "intent": "short-neutral",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "short",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "unknown",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "body-broad-gradual",
+      "modality": "body",
+      "intent": "broad-gradual",
+      "reviewPriority": "representative",
+      "input": {
+        "duration": "lingering",
+        "ending": "gradual",
+        "expansion": "expanding",
+        "direction": "upward",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "unknown"
+      }
+    },
+    {
+      "id": "voice-fading-long",
+      "modality": "voice",
+      "intent": "fading",
+      "reviewPriority": "control",
+      "input": {
+        "durationMs": 1800,
+        "averageIntensity": 0.5,
+        "pauseCount": 1,
+        "endingBehavior": "fading"
+      }
+    },
+    {
+      "id": "voice-maintained-long",
+      "modality": "voice",
+      "intent": "maintained",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 1800,
+        "averageIntensity": 0.5,
+        "pauseCount": 1,
+        "endingBehavior": "maintained"
+      }
+    },
+    {
+      "id": "voice-short-weak",
+      "modality": "voice",
+      "intent": "short-weak",
+      "reviewPriority": "control",
+      "input": {
+        "durationMs": 400,
+        "averageIntensity": 0.12,
+        "pauseCount": 0,
+        "endingBehavior": "fading"
+      }
+    },
+    {
+      "id": "voice-ambiguous-ending",
+      "modality": "voice",
+      "intent": "ambiguous-ending",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 1200,
+        "averageIntensity": 0.45,
+        "pauseCount": 2,
+        "endingBehavior": "unknown"
+      }
+    },
+    {
+      "id": "voice-low-signal-zero",
+      "modality": "voice",
+      "intent": "low-signal",
+      "reviewPriority": "control",
+      "input": {
+        "durationMs": 0,
+        "averageIntensity": 0,
+        "pauseCount": 0,
+        "endingBehavior": "unknown"
+      }
+    },
+    {
+      "id": "voice-fading-medium",
+      "modality": "voice",
+      "intent": "fading-medium",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 900,
+        "averageIntensity": 0.35,
+        "pauseCount": 1,
+        "endingBehavior": "fading"
+      }
+    },
+    {
+      "id": "voice-maintained-short",
+      "modality": "voice",
+      "intent": "maintained-short",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 500,
+        "averageIntensity": 0.6,
+        "pauseCount": 0,
+        "endingBehavior": "maintained"
+      }
+    },
+    {
+      "id": "voice-fading-quiet",
+      "modality": "voice",
+      "intent": "fading-quiet",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 1400,
+        "averageIntensity": 0.18,
+        "pauseCount": 3,
+        "endingBehavior": "fading"
+      }
+    },
+    {
+      "id": "voice-maintained-strong",
+      "modality": "voice",
+      "intent": "maintained-strong",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 2200,
+        "averageIntensity": 0.8,
+        "pauseCount": 0,
+        "endingBehavior": "maintained"
+      }
+    },
+    {
+      "id": "voice-uncertain-medium",
+      "modality": "voice",
+      "intent": "uncertain-medium",
+      "reviewPriority": "representative",
+      "input": {
+        "durationMs": 700,
+        "averageIntensity": 0.4,
+        "pauseCount": 4,
+        "endingBehavior": "unknown"
+      }
+    }
+  ]
+}
