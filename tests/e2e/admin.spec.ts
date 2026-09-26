@@ -51,12 +51,17 @@ test.describe("Admin deterministic browser flows", () => {
 
     await page.goto("/admin/products");
     await expect(page.getByText("Sake Sense Admin")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "商品" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByText(product.name)).toBeVisible();
     await expect(page.getByText(product.breweryName)).toBeVisible();
     await expect(page.getByText(product.availabilityStatus)).toBeVisible();
     await expect(page.getByText(product.status)).toBeVisible();
     await expect(page.getByText(product.updatedAt)).toBeVisible();
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    await page.getByRole("button", { name: product.name }).click();
+    await expect(page.getByText(`${product.name}を編集`)).toBeVisible();
+    await expect(page.getByText("基本情報")).toBeVisible();
   });
 
   test("creates a product with POST and a server-generated id", async ({ page }) => {
@@ -68,6 +73,10 @@ test.describe("Admin deterministic browser flows", () => {
       const pathname = apiPath(route);
       if (pathname === "/admin/products" && request.method() === "GET")
         return fulfillJson(route, 200, { items: products });
+      if (pathname === "/admin/breweries" && request.method() === "GET")
+        return fulfillJson(route, 200, { items: [{ id: "brewery-1", name: "E2E Brewery" }] });
+      if (pathname === "/admin/sources" && request.method() === "GET")
+        return fulfillJson(route, 200, { items: [{ id: "source-1", sourceName: "E2E Source" }] });
       if (pathname === "/admin/products" && request.method() === "POST") {
         const body = request.postDataJSON() as Record<string, string>;
         createRequest = { method: request.method(), url: request.url(), body };
@@ -79,17 +88,13 @@ test.describe("Admin deterministic browser flows", () => {
 
     await page.goto("/admin/products");
     await page.getByRole("button", { name: "Create new record" }).click();
-    for (const [field, value] of Object.entries({
-      name: "Created product",
-      breweryId: "brewery-1",
-      region: "Ishikawa",
-      descriptionSummary: "Created in E2E",
-      availabilityStatus: "available",
-      primarySourceId: "source-1",
-      status: "draft",
-    })) {
-      await page.getByLabel(field, { exact: true }).fill(value);
-    }
+    await page.getByLabel("name", { exact: true }).fill("Created product");
+    await page.getByLabel("breweryId", { exact: true }).selectOption("brewery-1");
+    await page.getByLabel("region", { exact: true }).fill("Ishikawa");
+    await page.getByLabel("descriptionSummary", { exact: true }).fill("Created in E2E");
+    await page.getByLabel("availabilityStatus", { exact: true }).selectOption("regular");
+    await page.getByLabel("primarySourceId", { exact: true }).selectOption("source-1");
+    await page.getByLabel("status", { exact: true }).selectOption("draft");
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => createRequest?.method).toBe("POST");
     expect(createRequest?.url).toMatch(/\/admin\/products$/);
