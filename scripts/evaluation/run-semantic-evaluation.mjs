@@ -358,7 +358,12 @@ export async function runSemanticEvaluation({
       groundingOutcome,
       // Deprecated compatibility alias: this is now the semantic outcome only.
       interpretationOutcome,
-      wording: Array.isArray(result.sensoryExpressions) ? result.sensoryExpressions : [],
+      semanticWording: result.sensoryInterpretation?.sensoryExpression ?? null,
+      presentationWording: Array.isArray(result.sensoryExpressions)
+        ? result.sensoryExpressions
+        : [],
+      // Deprecated compatibility alias: wording now means semantic wording.
+      wording: result.sensoryInterpretation?.sensoryExpression ?? null,
       semanticProfile: result.sensoryInterpretation?.semanticProfile ?? null,
       authorizedTermIds,
       semanticAuthorizedTermIds,
@@ -446,7 +451,8 @@ export async function runSemanticEvaluation({
       semanticInterpretationOutcome: entry.semanticInterpretationOutcome,
       groundingOutcome: entry.groundingOutcome,
       interpretationOutcome: entry.interpretationOutcome,
-      wording: entry.wording,
+      semanticWording: entry.semanticWording,
+      presentationWording: entry.presentationWording,
       semanticProfile: entry.semanticProfile,
       evaluator: entry.evaluator,
       deterministicContract: entry.deterministicContract,

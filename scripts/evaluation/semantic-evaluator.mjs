@@ -115,7 +115,7 @@ export function buildEvaluatorPrompt(record) {
       modality: record.modality,
       observableInput: record.input,
       interpretationOutcome: record.semanticInterpretationOutcome,
-      wording: record.wording,
+      semanticWording: record.semanticWording,
       semanticProfile: record.semanticProfile,
     }),
   ].join("\n");

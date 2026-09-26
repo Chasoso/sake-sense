@@ -54,14 +54,20 @@ Each case separates the layers that produce an outcome:
 - `semanticInterpretationOutcome` is the provider's `sensoryInterpretation.outcome`.
 - `groundingOutcome` is the reviewed support-case result derived from
   `interpretationStateId` and `groundingExpressionIds`.
+- `semanticWording` is the provider's `sensoryInterpretation.sensoryExpression`.
+- `presentationWording` is the reviewed grounding presentation output in
+  `sensoryExpressions`.
 - `interpretationOutcome` is retained only as a compatibility alias for the
   semantic outcome; it is never the grounding outcome.
+- `wording` is retained only as a compatibility alias for `semanticWording`.
 
 Offline runs have no provider semantic outcome, so their semantic outcome fields
 are `null` while grounding metrics remain observable. Live semantic counts,
 evaluator input, interpreted reach metrics, and baseline outcome comparison use
-`semanticInterpretationOutcome`. Grounding counts and grounding-outcome changes
-are reported separately.
+`semanticInterpretationOutcome`. Evaluator profile/text consistency uses
+`semanticInterpretationOutcome`, `semanticProfile`, and `semanticWording` from
+the same semantic layer. Grounding counts, grounding-outcome changes, and
+`presentationWording` are reported separately.
 
 ## Production-equivalent live baseline and optional evaluator
 
@@ -149,8 +155,9 @@ this is current behavior for #89 review, not a successful interpretation metric.
 
 The report also includes `contractFailureByCodePath`, evaluator fail/review case
 counts, and a compact `humanReviewSummary` containing structured fixture input,
-outcome, wording, profile, evaluator statuses/rationales, contract metadata, and
-term source. It excludes raw provider and evaluator responses.
+both semantic/presentation wording values, outcome, profile, evaluator
+statuses/rationales, contract metadata, and term source. It excludes raw
+provider and evaluator responses.
 
 ## Workflow for semantic changes
 

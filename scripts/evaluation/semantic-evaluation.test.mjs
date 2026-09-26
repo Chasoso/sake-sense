@@ -78,6 +78,7 @@ describe("semantic evaluation harness", () => {
       roundness: "rounded",
     };
     const evaluatorInputs = [];
+    const evaluatorWordings = [];
     const report = await runSemanticEvaluation({
       provider: async (_request, fixture) =>
         fixture.id === "body-sustained-fast"
@@ -99,6 +100,7 @@ describe("semantic evaluation harness", () => {
             },
       judge: async (record) => {
         evaluatorInputs.push(record.interpretationOutcome);
+        evaluatorWordings.push(record.semanticWording);
         return {
           dimensions: Object.fromEntries(
             [
@@ -117,12 +119,15 @@ describe("semantic evaluation harness", () => {
       semanticInterpretationOutcome: "interpreted",
       groundingOutcome: "ambiguous",
       interpretationOutcome: "interpreted",
+      semanticWording: "短く切れる印象",
+      presentationWording: [],
       semanticAuthorizedTermIds: ["kire", "nameraka", "marui", "tanrei"],
       nonInterpretedTermReach: false,
     });
     expect(report.summary.ambiguousWithAuthorizedTermsCount).toBe(0);
     expect(report.summary.interpretedAuthorizedTermReachCount).toBe(1);
     expect(evaluatorInputs).toContain("interpreted");
+    expect(evaluatorWordings).toContain("短く切れる印象");
     expect(report.humanReviewSummary).toEqual([]);
   });
 
