@@ -7,6 +7,7 @@ import {
   startAdminLogin,
   type AdminSession,
 } from "./admin-auth";
+import { displayName as presentationDisplayName } from "./admin-presentation";
 
 type AdminCollection = "products" | "breweries" | "sources" | "evidence";
 type RecordItem = Record<string, unknown> & { id?: string; status?: string; updatedAt?: string };
@@ -72,9 +73,7 @@ function apiBase(): string {
 }
 
 function displayName(item: RecordItem, fallback = "-"): string {
-  return String(
-    item.displayName ?? item.name ?? item.sourceName ?? item.title ?? item.id ?? fallback,
-  );
+  return presentationDisplayName(item, fallback);
 }
 
 function statusLabel(value: string): string {

@@ -352,3 +352,39 @@ jobs:
           echo "StackStatus: ${stack_status}"
           echo "SemanticBridgeApiEndpoint: ${api_endpoint}"
           printf '%s\n' "$function_status"
+
+  production-smoke:
+    name: Production post-deploy smoke
+    needs: [changes, deploy-frontend, deploy-data-admin, deploy-semantic-bridge]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      (
+        (needs.changes.outputs.frontend == 'true' && needs.deploy-frontend.result == 'success') ||
+        (needs.changes.outputs.data_admin == 'true' && needs.deploy-data-admin.result == 'success') ||
+        (needs.changes.outputs.backend == 'true' && needs.deploy-semantic-bridge.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      SMOKE_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+      SMOKE_PUBLIC_API_URL: ${{ vars.VITE_SAKE_DATA_API_BASE_URL }}
+      SMOKE_ADMIN_API_URL: ${{ vars.VITE_SAKE_DATA_API_BASE_URL }}
+      SMOKE_ALLOWED_ORIGIN: ${{ vars.DATA_ADMIN_ALLOWED_ORIGIN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run production smoke checks
+        run: npm run smoke:production

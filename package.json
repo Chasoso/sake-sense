@@ -23,6 +23,8 @@
     "test": "vitest run",
     "test:e2e:gesture-calibration": "playwright test tests/e2e/gesture-calibration.spec.ts",
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts tests/e2e/admin.spec.ts",
+    "test:e2e:visual": "playwright test --config playwright.admin.config.ts tests/e2e/admin-visual.spec.ts",
+    "smoke:production": "node scripts/smoke-production.mjs",
     "ui:inventory": "playwright test tests/e2e/ui-inventory.spec.ts",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "test:coverage": "vitest run --coverage",
