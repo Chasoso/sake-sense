@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const session = { accessToken: "visual-admin-token", expiresAt: Date.now() + 3_600_000 };
+const session = { accessToken: "visual-token", expiresAt: Date.now() + 3_600_000 };
 const product = {
   id: "visual-product",
   name: "菊鶴",
