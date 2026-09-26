@@ -290,11 +290,14 @@ test.describe("Admin deterministic browser flows", () => {
     let items: Record<string, unknown>[] = [];
     let postBody: Record<string, unknown> | null = null;
     let patchBody: Record<string, unknown> | null = null;
+    let sourceListGets = 0;
     await mockAdminApi(page, async (route) => {
       const request = route.request();
       const pathname = apiPath(route);
-      if (pathname === "/admin/sources" && request.method() === "GET")
+      if (pathname === "/admin/sources" && request.method() === "GET") {
+        sourceListGets += 1;
         return fulfillJson(route, 200, { items });
+      }
       if (pathname === "/admin/sources" && request.method() === "POST") {
         postBody = request.postDataJSON() as Record<string, unknown>;
         items = [{ id: "created-source", ...postBody }];
@@ -316,6 +319,7 @@ test.describe("Admin deterministic browser flows", () => {
     await page.getByLabel("status", { exact: true }).selectOption("draft");
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => postBody?.sourceName).toBe("Created Source");
+    await expect.poll(() => sourceListGets).toBeGreaterThan(1);
     const titleField = page.getByLabel("title", { exact: true });
     await expect(titleField).toHaveValue("Created Source Title");
     await titleField.fill("Edited Source Title");
