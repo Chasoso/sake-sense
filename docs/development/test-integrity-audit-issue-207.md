@@ -19,10 +19,11 @@
 ### Resolved — visual baseline の cross-platform 差分許容
 
 - Area: `tests/e2e/admin-visual.spec.ts`, `playwright.visual.config.ts`, `docs/development/validation-policy.md`
-- Evidence: `1934dcf` で別OS由来の snapshot 名を共通名へ移し、`4228844` で `maxDiffPixelRatio` を 5% に設定。その後 `f59b5c8` で 3.5% へ下げ、`69f2244` で per-pixel `threshold: 0.35` を追加している。現行baselineはCIと異なるOSで生成されたことがドキュメントに明記されている。
+- Evidence: `1934dcf` で別OS由来の snapshot 名を共通名へ移し、`4228844` で `maxDiffPixelRatio` を 5% に設定。その後 `f59b5c8` で 3.5% へ下げ、`69f2244` で per-pixel `threshold: 0.35` を追加している。今回の追跡で、CI相当のUbuntu/Chromium baselineへ移行した。
 - False-green risk: 監査前は、低頻度の小さなレイアウト差分や文字の欠落が、既知のfont rasterization差分に埋もれる可能性があった。
 - Production behavior: likely correct。visual gateは大きな幅崩れ、wrapping、主要control欠落を検知するが、pixel-levelの厳密性は限定的。
-- Action: fixed in this PR。CI run `36236383405` のUbuntu 24.04 / Playwright Chromiumで3枚を再生成し、既存PNGとSHA-256が一致することを確認した。`maxDiffPixelRatio` を `0.035` から `0.01`、per-pixel `threshold` を `0.35` から `0.1` へ変更した。baseline更新手順と同一環境要件をvalidation policyへ明記した。
+- Action: fixed in this PR。CI run `36237125019` のUbuntu 24.04 / Playwright Chromiumで3枚を再生成し、生成画像を確認したうえで、CI環境由来のPNGへ置き換えた。`maxDiffPixelRatio` を `0.035` から `0.01`、per-pixel `threshold` を `0.35` から `0.1` へ変更した。baseline更新手順と同一環境要件をvalidation policyへ明記した。
+- Baseline SHA-256: `admin-products-desktop.png` = `29EE3E587CAC57734918095A27C7AAF45173A3809E88165143C184ED4D5600EC`、`admin-breweries-mobile.png` = `0931AA434BBE09FA4A3AC5516E43AF320BAD2F1A416A2F5DCA513A942E683227`、`admin-evidence-desktop.png` = `DEBADDFC33F990D86A536B7AC975201F2821E9339FA5520CC19B831FB9251438`。
 
 ### Low — Gesture calibration fixture のCI安定化
 
@@ -62,7 +63,7 @@
 
 重点確認したcommit:
 
-- `1934dcf` — visual snapshot pathをOS非依存名へ変更。baselineの生成OS差分を解消したものではないため、上記visual follow-upを記録。
+- `1934dcf` — visual snapshot pathをOS非依存名へ変更。baseline生成OS差分は今回のCI相当環境での再生成により解消した。
 - `4228844` — visual差分許容を5%へ変更。
 - `69f2244` — per-pixel antialiasing thresholdを追加。
 - `f59b5c8` — aggregate visual ceilingを3.5%へ変更。

@@ -37,7 +37,7 @@ Cognito, or production network access. `npm run test:e2e:admin` covers CRUD and
 relation behavior; `npm run test:e2e:visual` covers a small fixed screenshot set.
 Update visual baselines only intentionally with `npm run test:e2e:visual -- --update-snapshots`
 and review the resulting PNGs.
-The visual assertions use a 1% pixel-difference ceiling and a 0.1 per-pixel color threshold in the fixed Ubuntu Chromium CI environment. The three checked-in baselines were regenerated in that same CI environment during the Issue #207 audit; their SHA-256 values matched the committed PNGs, so no binary snapshot replacement was necessary. Keep the viewport and mocked data deterministic. Update baselines only intentionally with `npm run test:e2e:visual -- --update-snapshots` in the CI-equivalent Ubuntu/Chromium environment, and review the PNGs. Never update snapshots or relax thresholds just to hide a failed comparison.
+The visual assertions use a 1% pixel-difference ceiling and a 0.1 per-pixel color threshold in the fixed Ubuntu Chromium CI environment. The three checked-in baselines were regenerated in that same CI environment during the Issue #207 follow-up and reviewed as the canonical Ubuntu/Chromium output. Keep the viewport and mocked data deterministic. Update baselines only intentionally with `npm run test:e2e:visual -- --update-snapshots` in the CI-equivalent Ubuntu/Chromium environment, and review the PNGs. Never update snapshots or relax thresholds just to hide a failed comparison.
 
 Production deployment runs `npm run smoke:production` after successful relevant
 deployments. It performs only read/preflight checks: frontend and public API reachability,
