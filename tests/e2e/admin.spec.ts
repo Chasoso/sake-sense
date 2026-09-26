@@ -16,6 +16,34 @@ const product = {
   status: "published",
   updatedAt: "2026-09-24T00:00:00.000Z",
 };
+const brewery = {
+  id: "brewery-1",
+  name: "E2E Brewery",
+  displayName: "E2E Brewery Display",
+  region: "Ishikawa",
+  status: "published",
+  updatedAt: "2026-09-24T00:00:00.000Z",
+};
+const source = {
+  id: "source-1",
+  sourceName: "E2E Source",
+  title: "E2E Source Title",
+  sourceType: "official",
+  reviewedAt: "2026-09-24",
+  status: "published",
+  updatedAt: "2026-09-24T00:00:00.000Z",
+};
+const evidence = {
+  id: "evidence-1",
+  productId: product.id,
+  termId: "nameraka",
+  sourceId: source.id,
+  sourceWording: "smooth and clean",
+  evidenceStatus: "direct",
+  rationale: "deterministic fixture",
+  status: "published",
+  updatedAt: "2026-09-24T00:00:00.000Z",
+};
 
 async function authenticate(page: Page): Promise<void> {
   await page.addInitScript((session) => {
@@ -180,5 +208,70 @@ test.describe("Admin deterministic browser flows", () => {
     await page.getByRole("button", { name: "Create new record" }).click();
     await expect(page.getByLabel("name", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save record" })).toBeVisible();
+  });
+
+  test("renders breweries as a table and opens the sectioned editor", async ({ page }) => {
+    await authenticate(page);
+    await mockAdminApi(page, async (route) => {
+      if (route.request().method() === "GET" && apiPath(route) === "/admin/breweries")
+        return fulfillJson(route, 200, { items: [brewery] });
+      return fulfillJson(route, 404, { error: "not_found" });
+    });
+
+    await page.goto("/admin/breweries");
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("button", { name: brewery.name, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: brewery.displayName, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: brewery.name }).click();
+    await expect(page.getByLabel("officialUrl", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("status", { exact: true })).toHaveValue("published");
+  });
+
+  test("renders sources as a table and opens the sectioned editor", async ({ page }) => {
+    await authenticate(page);
+    await mockAdminApi(page, async (route) => {
+      if (route.request().method() === "GET" && apiPath(route) === "/admin/sources")
+        return fulfillJson(route, 200, { items: [source] });
+      return fulfillJson(route, 404, { error: "not_found" });
+    });
+
+    await page.goto("/admin/sources");
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("button", { name: source.sourceName, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: source.title, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: source.sourceName }).click();
+    await expect(page.getByLabel("url", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("status", { exact: true })).toHaveValue("published");
+  });
+
+  test("resolves evidence relations and preserves IDs in the edit payload", async ({ page }) => {
+    await authenticate(page);
+    let patchBody: Record<string, unknown> | null = null;
+    await mockAdminApi(page, async (route) => {
+      const request = route.request();
+      const pathname = apiPath(route);
+      if (pathname === "/admin/evidence" && request.method() === "GET")
+        return fulfillJson(route, 200, { items: [evidence] });
+      if (pathname === "/admin/products" && request.method() === "GET")
+        return fulfillJson(route, 200, { items: [product] });
+      if (pathname === "/admin/sources" && request.method() === "GET")
+        return fulfillJson(route, 200, { items: [source] });
+      if (pathname === "/admin/evidence/evidence-1" && request.method() === "PATCH") {
+        patchBody = request.postDataJSON() as Record<string, unknown>;
+        return fulfillJson(route, 200, { ...evidence, ...patchBody });
+      }
+      return fulfillJson(route, 404, { error: "not_found" });
+    });
+
+    await page.goto("/admin/evidence");
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByText(product.name)).toBeVisible();
+    await expect(page.getByText(source.sourceName)).toBeVisible();
+    await page.getByRole("button", { name: product.name }).click();
+    await page.getByLabel("productId", { exact: true }).selectOption(product.id);
+    await page.getByLabel("sourceId", { exact: true }).selectOption(source.id);
+    await page.getByRole("button", { name: "Save record" }).click();
+    await expect.poll(() => patchBody?.productId).toBe(product.id);
+    expect(patchBody).toMatchObject({ sourceId: source.id, termId: evidence.termId });
   });
 });

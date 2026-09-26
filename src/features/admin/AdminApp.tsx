@@ -87,12 +87,22 @@ function statusLabel(value: string): string {
         regular: "通常",
         seasonal: "季節限定",
         unknown: "不明",
+        direct: "直接",
+        "accepted-variant": "承認済み変形",
+        weak: "弱い根拠",
+        rejected: "却下",
       } as Record<string, string>
     )[value] ?? value
   );
 }
 
-function StatusBadge({ value, kind }: { value: unknown; kind: "status" | "availability" }) {
+function StatusBadge({
+  value,
+  kind,
+}: {
+  value: unknown;
+  kind: "status" | "availability" | "evidence";
+}) {
   const normalized = String(value ?? "unknown");
   return (
     <span className={`admin-badge admin-badge--${kind}-${normalized}`}>
@@ -410,7 +420,298 @@ function ProductEditor({
   );
 }
 
-function GenericEditor({
+const lifecycleOptions = [
+  { value: "draft", label: "下書き" },
+  { value: "published", label: "公開中" },
+  { value: "archived", label: "アーカイブ" },
+];
+
+function CollectionTable({
+  collection,
+  items,
+  products,
+  sources,
+  selectedId,
+  onSelect,
+}: {
+  collection: AdminCollection;
+  items: readonly RecordItem[];
+  products: readonly RecordItem[];
+  sources: readonly RecordItem[];
+  selectedId?: string;
+  onSelect: (item: RecordItem) => void;
+}) {
+  const productLabels = new Map(
+    products.filter((item) => item.id).map((item) => [String(item.id), displayName(item)]),
+  );
+  const sourceLabels = new Map(
+    sources.filter((item) => item.id).map((item) => [String(item.id), displayName(item)]),
+  );
+  const columns =
+    collection === "breweries"
+      ? ["酒蔵名", "表示名", "地域", "公開状態", "更新日時"]
+      : collection === "sources"
+        ? ["出典名", "タイトル", "出典種別", "確認日", "公開状態", "更新日時"]
+        : ["商品", "用語", "出典", "Evidence状態", "公開状態", "更新日時"];
+  return (
+    <div className="admin-table-wrap">
+      <table className="admin-table">
+        <caption className="sr-only">{COLLECTION_LABELS[collection]}一覧</caption>
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th scope="col" key={column}>
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => {
+            const cells =
+              collection === "breweries"
+                ? [
+                    displayName({ name: item.name, id: item.id }),
+                    String(item.displayName ?? "-"),
+                    String(item.region ?? "-"),
+                    <StatusBadge key="status" value={item.status} kind="status" />,
+                    String(item.updatedAt ?? "-"),
+                  ]
+                : collection === "sources"
+                  ? [
+                      String(item.sourceName ?? "-"),
+                      String(item.title ?? "-"),
+                      String(item.sourceType ?? "-"),
+                      String(item.reviewedAt ?? "-"),
+                      <StatusBadge key="status" value={item.status} kind="status" />,
+                      String(item.updatedAt ?? "-"),
+                    ]
+                  : [
+                      productLabels.get(String(item.productId ?? "")) ??
+                        String(item.productId ?? "-"),
+                      String(item.termId ?? "-"),
+                      sourceLabels.get(String(item.sourceId ?? "")) ?? String(item.sourceId ?? "-"),
+                      <StatusBadge key="evidence" value={item.evidenceStatus} kind="evidence" />,
+                      <StatusBadge key="status" value={item.status} kind="status" />,
+                      String(item.updatedAt ?? "-"),
+                    ];
+            return (
+              <tr
+                className={
+                  selectedId === String(item.id) ? "admin-table__row--selected" : undefined
+                }
+                key={String(item.id)}
+              >
+                <td>
+                  <button
+                    className="admin-table__select"
+                    type="button"
+                    onClick={() => onSelect(item)}
+                  >
+                    {cells[0]}
+                  </button>
+                </td>
+                {cells.slice(1).map((cell, index) => (
+                  <td key={`${String(item.id)}-${index}`}>{cell}</td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {items.length === 0 && <p className="admin-empty">該当する記録がありません。</p>}
+    </div>
+  );
+}
+
+function CollectionEditor({
+  collection,
+  selected,
+  products,
+  sources,
+  onChange,
+  onSave,
+}: {
+  collection: "breweries" | "sources" | "evidence";
+  selected: RecordItem;
+  products: readonly RecordItem[];
+  sources: readonly RecordItem[];
+  onChange: (field: string, value: string) => void;
+  onSave: () => void;
+}) {
+  const heading = selected.id
+    ? `${COLLECTION_LABELS[collection]}を編集`
+    : `新しい${COLLECTION_LABELS[collection]}`;
+  const productOptions = products.map((item) => ({
+    value: String(item.id ?? ""),
+    label: displayName(item),
+  }));
+  const sourceOptions = sources.map((item) => ({
+    value: String(item.id ?? ""),
+    label: displayName(item),
+  }));
+  const editor =
+    collection === "breweries" ? (
+      <>
+        <AdminSection title="基本情報">
+          <Field field="id" value={String(selected.id ?? "（保存時に発行）")} disabled />
+          <Field
+            field="name"
+            value={String(selected.name ?? "")}
+            onChange={(value) => onChange("name", value)}
+          />
+          <Field
+            field="displayName"
+            value={String(selected.displayName ?? "")}
+            onChange={(value) => onChange("displayName", value)}
+          />
+        </AdminSection>
+        <AdminSection title="地域">
+          <Field
+            field="region"
+            value={String(selected.region ?? "")}
+            onChange={(value) => onChange("region", value)}
+          />
+        </AdminSection>
+        <AdminSection title="公式情報">
+          <Field
+            field="officialUrl"
+            value={String(selected.officialUrl ?? "")}
+            onChange={(value) => onChange("officialUrl", value)}
+          />
+        </AdminSection>
+        <AdminSection title="公開設定">
+          <SelectField
+            field="status"
+            value={String(selected.status ?? "draft")}
+            options={lifecycleOptions}
+            onChange={(value) => onChange("status", value)}
+          />
+        </AdminSection>
+      </>
+    ) : collection === "sources" ? (
+      <>
+        <AdminSection title="基本情報">
+          <Field field="id" value={String(selected.id ?? "（保存時に発行）")} disabled />
+          <Field
+            field="sourceName"
+            value={String(selected.sourceName ?? "")}
+            onChange={(value) => onChange("sourceName", value)}
+          />
+          <Field
+            field="title"
+            value={String(selected.title ?? "")}
+            onChange={(value) => onChange("title", value)}
+          />
+        </AdminSection>
+        <AdminSection title="URL・種別">
+          <Field
+            field="url"
+            value={String(selected.url ?? "")}
+            onChange={(value) => onChange("url", value)}
+          />
+          <Field
+            field="sourceType"
+            value={String(selected.sourceType ?? "")}
+            onChange={(value) => onChange("sourceType", value)}
+          />
+        </AdminSection>
+        <AdminSection title="確認情報">
+          <Field
+            field="reviewedAt"
+            value={String(selected.reviewedAt ?? "")}
+            onChange={(value) => onChange("reviewedAt", value)}
+          />
+        </AdminSection>
+        <AdminSection title="公開設定">
+          <SelectField
+            field="status"
+            value={String(selected.status ?? "draft")}
+            options={lifecycleOptions}
+            onChange={(value) => onChange("status", value)}
+          />
+        </AdminSection>
+      </>
+    ) : (
+      <>
+        <AdminSection title="基本情報">
+          <Field field="id" value={String(selected.id ?? "（保存時に発行）")} disabled />
+          <SelectField
+            field="productId"
+            value={String(selected.productId ?? "")}
+            options={productOptions}
+            onChange={(value) => onChange("productId", value)}
+          />
+          <Field
+            field="termId"
+            value={String(selected.termId ?? "")}
+            onChange={(value) => onChange("termId", value)}
+          />
+          <SelectField
+            field="sourceId"
+            value={String(selected.sourceId ?? "")}
+            options={sourceOptions}
+            onChange={(value) => onChange("sourceId", value)}
+          />
+        </AdminSection>
+        <AdminSection title="Evidence内容">
+          <Field
+            field="sourceWording"
+            value={String(selected.sourceWording ?? "")}
+            multiline
+            onChange={(value) => onChange("sourceWording", value)}
+          />
+          <SelectField
+            field="evidenceStatus"
+            value={String(selected.evidenceStatus ?? "")}
+            options={[
+              { value: "direct", label: "直接" },
+              { value: "accepted-variant", label: "承認済み変形" },
+              { value: "weak", label: "弱い根拠" },
+              { value: "rejected", label: "却下" },
+            ]}
+            onChange={(value) => onChange("evidenceStatus", value)}
+          />
+          <Field
+            field="rationale"
+            value={String(selected.rationale ?? "")}
+            multiline
+            onChange={(value) => onChange("rationale", value)}
+          />
+        </AdminSection>
+        <AdminSection title="公開設定">
+          <SelectField
+            field="status"
+            value={String(selected.status ?? "draft")}
+            options={lifecycleOptions}
+            onChange={(value) => onChange("status", value)}
+          />
+        </AdminSection>
+      </>
+    );
+  return (
+    <section className="admin-editor">
+      <div className="admin-editor__heading">
+        <div>
+          <p className="eyebrow">{COLLECTION_LABELS[collection]} editor</p>
+          <h2>{heading}</h2>
+        </div>
+        <button
+          className="button button--primary"
+          type="button"
+          aria-label="Save record"
+          onClick={onSave}
+        >
+          <Save size={16} />
+          保存
+        </button>
+      </div>
+      {editor}
+    </section>
+  );
+}
+
+export function GenericEditor({
   collection,
   selected,
   onChange,
@@ -467,12 +768,13 @@ function AdminCollectionPage({
 }) {
   const [items, setItems] = useState<RecordItem[]>([]);
   const [selected, setSelected] = useState<RecordItem | null>(null);
+  const [products, setProducts] = useState<RecordItem[]>([]);
   const [breweries, setBreweries] = useState<RecordItem[]>([]);
   const [sources, setSources] = useState<RecordItem[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const loadOptions = useCallback(
-    async (optionCollection: "breweries" | "sources") => {
+    async (optionCollection: "products" | "breweries" | "sources") => {
       try {
         const response = await fetch(`${apiBase()}/admin/${optionCollection}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -498,13 +800,18 @@ function AdminCollectionPage({
       });
       if (detailResponse.ok) setSelected((await detailResponse.json()) as RecordItem);
     }
-    if (collection === "products") {
-      const [nextBreweries, nextSources] = await Promise.all([
-        loadOptions("breweries"),
-        loadOptions("sources"),
-      ]);
-      setBreweries(nextBreweries);
-      setSources(nextSources);
+    const optionCollections =
+      collection === "products"
+        ? (["breweries", "sources"] as const)
+        : collection === "evidence"
+          ? (["products", "sources"] as const)
+          : ([] as const);
+    const optionResults = await Promise.all(optionCollections.map(loadOptions));
+    for (const [index, optionCollection] of optionCollections.entries()) {
+      const result = optionResults[index];
+      if (optionCollection === "products") setProducts(result);
+      if (optionCollection === "breweries") setBreweries(result);
+      if (optionCollection === "sources") setSources(result);
     }
   }, [collection, detailId, loadOptions, token]);
   useEffect(() => {
@@ -596,19 +903,14 @@ function AdminCollectionPage({
               onSelect={setSelected}
             />
           ) : (
-            <div className="admin-list__legacy">
-              {filtered.map((item) => (
-                <button
-                  className={`admin-list__item${selected?.id === item.id ? " admin-list__item--selected" : ""}`}
-                  type="button"
-                  key={String(item.id)}
-                  onClick={() => setSelected(item)}
-                >
-                  <strong>{displayName(item)}</strong>
-                  <span>{String(item.status ?? "-")}</span>
-                </button>
-              ))}
-            </div>
+            <CollectionTable
+              collection={collection}
+              items={filtered}
+              products={products}
+              sources={sources}
+              selectedId={selected?.id}
+              onSelect={setSelected}
+            />
           )}
         </section>
         {selected &&
@@ -621,9 +923,11 @@ function AdminCollectionPage({
               onSave={() => void save()}
             />
           ) : (
-            <GenericEditor
+            <CollectionEditor
               collection={collection}
               selected={selected}
+              products={products}
+              sources={sources}
               onChange={updateSelected}
               onSave={() => void save()}
             />
