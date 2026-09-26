@@ -220,8 +220,8 @@ test.describe("Admin deterministic browser flows", () => {
 
     await page.goto("/admin/breweries");
     await expect(page.getByRole("table")).toBeVisible();
-    await expect(page.getByText(brewery.name)).toBeVisible();
-    await expect(page.getByText(brewery.displayName)).toBeVisible();
+    await expect(page.getByRole("button", { name: brewery.name, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: brewery.displayName, exact: true })).toBeVisible();
     await page.getByRole("button", { name: brewery.name }).click();
     await expect(page.getByLabel("officialUrl", { exact: true })).toBeVisible();
     await expect(page.getByLabel("status", { exact: true })).toHaveValue("published");
@@ -237,8 +237,8 @@ test.describe("Admin deterministic browser flows", () => {
 
     await page.goto("/admin/sources");
     await expect(page.getByRole("table")).toBeVisible();
-    await expect(page.getByText(source.sourceName)).toBeVisible();
-    await expect(page.getByText(source.title)).toBeVisible();
+    await expect(page.getByRole("button", { name: source.sourceName, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: source.title, exact: true })).toBeVisible();
     await page.getByRole("button", { name: source.sourceName }).click();
     await expect(page.getByLabel("url", { exact: true })).toBeVisible();
     await expect(page.getByLabel("status", { exact: true })).toHaveValue("published");
