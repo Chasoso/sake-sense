@@ -15,6 +15,7 @@ import {
 } from "../../domain/sensory-bridge";
 import { evaluateGestureSensorySupport } from "../../domain/sensory-support-cases";
 import { ExperienceBrand } from "./ExperienceBrand";
+import { ExpressionTransform } from "./ExpressionTransform";
 import { useScreenScrollReset } from "./use-screen-scroll-reset";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
@@ -46,7 +47,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [error, setError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const capturedPointerId = useRef<number | null>(null);
-  useScreenScrollReset(result);
+  useScreenScrollReset(result ?? (isAnalyzing ? "gesture-processing" : null));
 
   const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     if (capturedPointerId.current !== event.pointerId) return;
@@ -163,6 +164,28 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
             })}
           </pre>
         )}
+      </main>
+    );
+  }
+
+  if (isAnalyzing) {
+    return (
+      <main
+        className="experience-screen experience-screen--gesture-transform"
+        aria-labelledby="gesture-transform-title"
+      >
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={returnToStart}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>戻る</span>
+          </button>
+          <ExperienceBrand />
+        </nav>
+        <ExpressionTransform
+          mode="gesture"
+          features={extractGestureFeatures(strokes)}
+          strokes={strokes}
+        />
       </main>
     );
   }

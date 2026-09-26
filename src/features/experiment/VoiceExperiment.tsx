@@ -47,7 +47,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  useScreenScrollReset(result);
+  useScreenScrollReset(result ?? (isAnalyzing ? "voice-processing" : null));
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
   const voiceAnalyser = useRef<AnalyserNode | null>(null);
@@ -249,6 +249,24 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
     );
   }
 
+  if (isAnalyzing && voiceFeatures) {
+    return (
+      <main
+        className="experience-screen experience-screen--voice-transform"
+        aria-labelledby="voice-transform-title"
+      >
+        <nav className="experience-screen__nav" aria-label="画面の移動">
+          <button className="icon-text-button" type="button" onClick={returnToStart}>
+            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+            <span>戻る</span>
+          </button>
+          <ExperienceBrand />
+        </nav>
+        <ExpressionTransform mode="voice" features={voiceFeatures} waveHistory={waveHistory} />
+      </main>
+    );
+  }
+
   return (
     <main className="experience-screen" aria-labelledby="experiment-title">
       {onBack && (
@@ -330,9 +348,6 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
           </div>
         </div>
       </section>
-      {isAnalyzing && (
-        <ExpressionTransform mode="voice" features={voiceFeatures!} waveHistory={waveHistory} />
-      )}
       {!isAnalyzing && (
         <div className="experiment__actions">
           <button

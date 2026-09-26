@@ -12,6 +12,7 @@ import {
   type SyntheticWavePoint,
   type VoiceFeatures,
 } from "../../domain/voice";
+import { createGesturePath, type GestureFeatures, type GestureStroke } from "../../domain/gesture";
 import {
   getBodyDisplayWords,
   getBodyDissolveOpacity,
@@ -48,10 +49,25 @@ type ExpressionTransformProps =
       frames?: never;
       voiceFeatures?: never;
       decorative?: boolean;
+      strokes?: never;
+    }
+  | {
+      mode: "gesture";
+      features: GestureFeatures;
+      strokes: GestureStroke[];
+      frames?: never;
+      waveHistory?: never;
+      voiceFeatures?: never;
+      decorative?: boolean;
     };
 
-function stageCopy(mode: "body" | "voice", stage: TransformStage): string {
-  if (stage === 0) return mode === "body" ? "あなたの動きから" : "あなたの声から";
+function stageCopy(mode: "body" | "voice" | "gesture", stage: TransformStage): string {
+  if (stage === 0)
+    return mode === "body"
+      ? "あなたの動きから"
+      : mode === "voice"
+        ? "あなたの声から"
+        : "あなたの線から";
   if (stage === 1) return "輪郭をたどる";
   if (stage === 2) return "感覚の形へ";
   return "ことばの入口へ";
@@ -92,13 +108,11 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   const bodyScreen = props.mode === "body" && props.presentation === "body-screen";
   const stage = getTransformStage(elapsed);
   const progress = bodyScreen ? getBodyTransformProgress(elapsed) : getTransformProgress(elapsed);
-  const words = useMemo(
-    () =>
-      props.mode === "body"
-        ? getBodyDisplayWords(props.features)
-        : getVoiceIntermediateWords(props.features),
-    [props.mode, props.features],
-  );
+  const words = useMemo(() => {
+    if (props.mode === "body") return getBodyDisplayWords(props.features);
+    if (props.mode === "voice") return getVoiceIntermediateWords(props.features);
+    return [];
+  }, [props.mode, props.features]);
   const bodyHybrid = props.mode === "body" ? props.hybridSnapshot : null;
   const bodyHybridTransform = bodyHybrid
     ? getAspectPreservingTransform(
@@ -250,7 +264,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                 ) : null}
               </g>
             </svg>
-          ) : (
+          ) : props.mode === "voice" ? (
             <svg viewBox="0 0 320 64" role="presentation">
               <path
                 className="expression-transform__abstract-line"
@@ -264,6 +278,21 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                 r={10 + progress * 4}
                 style={{ opacity: voiceOpacity * 0.65 }}
               />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 320 160" role="presentation">
+              <g
+                className="expression-transform__gesture-paths"
+                style={{ opacity: voiceOpacity, transform: `scale(${0.96 + progress * 0.04})` }}
+              >
+                {props.strokes.map((stroke, index) => (
+                  <path
+                    key={index}
+                    className="expression-transform__gesture-path"
+                    d={createGesturePath(stroke)}
+                  />
+                ))}
+              </g>
             </svg>
           )}
         </div>
