@@ -206,8 +206,8 @@ describe("experiment integration boundaries", () => {
     );
     expect("error" in mapped).toBe(false);
     if ("error" in mapped) return;
-    expect(mapped.candidates.map((candidate) => candidate.entry.id)).toEqual(["kire"]);
-    expect(mapped.sakeProducts.every((match) => match.matchedTermIds.includes("kire"))).toBe(true);
+    expect(mapped.candidates).toEqual([]);
+    expect(mapped.sakeProducts).toEqual([]);
 
     const unsupported = await runBodySemanticExperiment(bodyFeatures, {
       kind: "ai",

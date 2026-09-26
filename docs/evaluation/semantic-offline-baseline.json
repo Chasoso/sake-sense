@@ -24,18 +24,19 @@
       "presentationWording": ["すっと引いていく感じ"],
       "wording": null,
       "semanticProfile": null,
-      "authorizedTermIds": ["kire"],
+      "authorizedTermIds": [],
       "semanticAuthorizedTermIds": [],
-      "legacyGroundingTermIds": ["kire"],
-      "termAuthorizationSource": "reviewed-support-grounding",
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
       "nonInterpretedTermReach": false,
-      "productMatchCount": 7,
-      "resultCategory": "product-match",
-      "fallbackReason": null,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-short-abrupt-clean-fade"],
-        "groundingExpressionIds": ["clean-fade"]
+        "groundingExpressionIds": ["clean-fade"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -74,7 +75,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-lingering-gradual-soft-settle"],
-        "groundingExpressionIds": ["soft-settle"]
+        "groundingExpressionIds": ["soft-settle"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -113,7 +115,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-insufficient-movement"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "insufficient-expression"
       },
       "evaluator": {
         "status": "not-run"
@@ -152,7 +155,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-insufficient-movement"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "insufficient-expression"
       },
       "evaluator": {
         "status": "not-run"
@@ -195,7 +199,8 @@
           "body-lateral-repeated-wavering",
           "body-sustained-fast-unmapped"
         ],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "ambiguous-mixed"
       },
       "evaluator": {
         "status": "not-run"
@@ -223,18 +228,19 @@
       "presentationWording": ["すっと引いていく感じ"],
       "wording": null,
       "semanticProfile": null,
-      "authorizedTermIds": ["kire"],
+      "authorizedTermIds": [],
       "semanticAuthorizedTermIds": [],
-      "legacyGroundingTermIds": ["kire"],
-      "termAuthorizationSource": "reviewed-support-grounding",
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
       "nonInterpretedTermReach": false,
-      "productMatchCount": 7,
-      "resultCategory": "product-match",
-      "fallbackReason": null,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-short-abrupt-clean-fade"],
-        "groundingExpressionIds": ["clean-fade"]
+        "groundingExpressionIds": ["clean-fade"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -273,7 +279,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-ambiguous-short-abrupt-expanding"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "ambiguous-mixed"
       },
       "evaluator": {
         "status": "not-run"
@@ -312,7 +319,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["body-insufficient-movement"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "insufficient-expression"
       },
       "evaluator": {
         "status": "not-run"
@@ -351,7 +359,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": [],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -393,7 +402,8 @@
           "body-lingering-gradual-soft-settle",
           "body-expanding-spreading-outward"
         ],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "ambiguous-mixed"
       },
       "evaluator": {
         "status": "not-run"
@@ -428,7 +438,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-long-fading-soft-settle"],
-        "groundingExpressionIds": ["soft-settle"]
+        "groundingExpressionIds": ["soft-settle"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -463,7 +474,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-long-maintained-unmapped"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -498,7 +510,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": [],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -533,7 +546,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": [],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -568,7 +582,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-insufficient-observation"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": "insufficient-expression"
       },
       "evaluator": {
         "status": "not-run"
@@ -603,7 +618,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-long-fading-soft-settle"],
-        "groundingExpressionIds": ["soft-settle"]
+        "groundingExpressionIds": ["soft-settle"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -638,7 +654,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": [],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -673,7 +690,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-long-fading-soft-settle"],
-        "groundingExpressionIds": ["soft-settle"]
+        "groundingExpressionIds": ["soft-settle"],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -708,7 +726,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": ["voice-long-maintained-unmapped"],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -743,7 +762,8 @@
       "deterministicContract": {
         "status": "passed",
         "groundingCaseIds": [],
-        "groundingExpressionIds": []
+        "groundingExpressionIds": [],
+        "legacyInterpretationStateId": null
       },
       "evaluator": {
         "status": "not-run"
@@ -759,8 +779,8 @@
     "groundingInterpretedCount": 6,
     "groundingInsufficientCount": 11,
     "groundingAmbiguousCount": 3,
-    "authorizedTermReachCount": 2,
-    "productReachCount": 2,
+    "authorizedTermReachCount": 0,
+    "productReachCount": 0,
     "interpretedAuthorizedTermReachCount": 0,
     "interpretedProductReachCount": 0,
     "ambiguousWithAuthorizedTermsCount": 0,
@@ -772,7 +792,7 @@
     },
     "contractFailureByCodePath": {},
     "semanticAuthorizationReachCount": 0,
-    "reviewedGroundingFallbackReachCount": 2,
+    "reviewedGroundingFallbackReachCount": 0,
     "nonInterpretedLegacyTermReachCount": 0,
     "evaluatorFailCaseCount": 0,
     "evaluatorReviewCaseCount": 0,

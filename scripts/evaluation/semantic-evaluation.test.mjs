@@ -28,6 +28,9 @@ describe("semantic evaluation harness", () => {
     expect(first.summary.totalFixtureCount).toBe(20);
     expect(first.baselineKind).toBe("offline-deterministic-grounding");
     expect(first.baselineNote).toContain("not production-equivalent");
+    expect(first.summary.groundingInterpretedCount).toBe(6);
+    expect(first.summary.groundingInsufficientCount).toBe(11);
+    expect(first.summary.groundingAmbiguousCount).toBe(3);
     expect(first.summary.deterministicContractFailureCount).toBe(0);
     expect(
       first.summary.groundingInsufficientCount + first.summary.groundingAmbiguousCount,
@@ -38,7 +41,7 @@ describe("semantic evaluation harness", () => {
       semanticInterpretationOutcome: null,
       groundingOutcome: "interpreted",
       interpretationOutcome: null,
-      authorizedTermIds: ["kire"],
+      authorizedTermIds: [],
     });
   });
 
@@ -120,7 +123,7 @@ describe("semantic evaluation harness", () => {
       groundingOutcome: "ambiguous",
       interpretationOutcome: "interpreted",
       semanticWording: "短く切れる印象",
-      presentationWording: [],
+      presentationWording: ["短く切れる印象"],
       semanticAuthorizedTermIds: ["kire", "nameraka", "marui", "tanrei"],
       nonInterpretedTermReach: false,
     });

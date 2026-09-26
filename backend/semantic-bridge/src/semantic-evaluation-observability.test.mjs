@@ -74,6 +74,7 @@ describe("semantic evaluation observability", () => {
       {
         sensoryInterpretation: interpreted,
         sensoryClassProposals: ["clean-fade"],
+        groundingCaseIds: ["legacy-case-for-diagnostics"],
         authorization: [
           { termId: "kire", sensoryClass: "clean-fade", level: "strong", supportCount: 3 },
         ],
@@ -93,6 +94,9 @@ describe("semantic evaluation observability", () => {
       authorizedTermIds: ["kire"],
       productMatchCount: 1,
       authorization: [{ termId: "kire", level: "strong", supportCount: 3 }],
+      legacyGroundingInvolvement: "diagnostic-only",
+      semanticAuthorizationSource: "primary-semantic-profile",
+      fallbackCategory: "semantic-authorization",
     });
     expect(result.semanticProfile).toEqual(interpreted.semanticProfile);
     expect(result.experimentalProfile).toEqual(interpreted.experimentalProfile);
@@ -109,6 +113,16 @@ describe("semantic evaluation observability", () => {
     expect(result.semanticOutcome).toBe(outcome);
     expect(result).not.toHaveProperty("semanticProfile");
     expect(result).not.toHaveProperty("experimentalProfile");
+  });
+
+  it("marks responses without semantic interpretation as non-authoritative", () => {
+    const result = evaluation({
+      sensoryExpressions: ["legacy presentation"],
+      candidateTermIds: [],
+    });
+    expect(result.legacyGroundingInvolvement).toBe("none");
+    expect(result.semanticAuthorizationSource).toBe("none");
+    expect(result.fallbackCategory).toBe("no-semantic-interpretation");
   });
 
   it("preserves authorization level, support count, and conflict metadata", () => {

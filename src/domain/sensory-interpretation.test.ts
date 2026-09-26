@@ -136,7 +136,7 @@ describe("AI sensory interpretation contract", () => {
     expect(response.sensoryInterpretation?.outcome).toBe("interpreted");
   });
 
-  it("keeps legacy output and product reachability stable across shadow variants", () => {
+  it("keeps semantic wording and product reachability stable across shadow variants", () => {
     const request = {
       modality: "body" as const,
       input: {
@@ -165,8 +165,11 @@ describe("AI sensory interpretation contract", () => {
     expect(first.sensoryInterpretation?.sensoryExpression).not.toBe(
       second.sensoryInterpretation?.sensoryExpression,
     );
-    expect(first.sensoryExpressions).toEqual(second.sensoryExpressions);
-    expect(first.reason).toBe(second.reason);
+    expect(first.sensoryExpressions).not.toEqual(second.sensoryExpressions);
+    expect(first.sensoryExpressions).toEqual([first.sensoryInterpretation?.sensoryExpression]);
+    expect(second.sensoryExpressions).toEqual([second.sensoryInterpretation?.sensoryExpression]);
+    expect(first.reason).toBe("AI reason: " + first.sensoryInterpretation?.sensoryExpression);
+    expect(second.reason).toBe("AI reason: " + second.sensoryInterpretation?.sensoryExpression);
     expect(first.candidateTermIds).toEqual(second.candidateTermIds);
     expect(findSakeProductMatches(first.candidateTermIds)).toEqual(
       findSakeProductMatches(second.candidateTermIds),

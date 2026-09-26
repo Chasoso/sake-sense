@@ -130,8 +130,10 @@ describe("shadow AI sensory interpretation", () => {
     expect(first.sensoryInterpretation.sensoryExpression).not.toBe(
       second.sensoryInterpretation.sensoryExpression,
     );
-    expect(first.sensoryExpressions).toEqual(second.sensoryExpressions);
-    expect(first.reason).toBe(second.reason);
+    expect(first.sensoryExpressions).not.toEqual(second.sensoryExpressions);
+    expect(first.sensoryExpressions).toEqual([first.sensoryInterpretation.sensoryExpression]);
+    expect(second.sensoryExpressions).toEqual([second.sensoryInterpretation.sensoryExpression]);
+    expect(first.reason).not.toBe(second.reason);
     expect(first.candidateTermIds).toEqual(second.candidateTermIds);
     expect(first.candidateTermIds).toEqual([]);
   });

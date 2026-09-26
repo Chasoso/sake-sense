@@ -296,7 +296,7 @@ describe("backend AI sensory interpretation contract", () => {
       noLegacyMatchRequest,
     );
     expect(result.candidateTermIds).toEqual(["nameraka"]);
-    expect(result.sensoryExpressions).toEqual([]);
+    expect(result.sensoryExpressions).toEqual([interpreted.sensoryExpression]);
     expect(result.reason).not.toBe("隴・ｽｰ邵ｺ蜉ｱ・櫁ｫ｢貅伉ｧ");
     expect(result.reason).toEqual(expect.any(String));
     expect(result.authorization).toMatchObject([

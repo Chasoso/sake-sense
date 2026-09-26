@@ -2,7 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import dictionaryData from "../../src/domain/data/sensory-dictionary.v0.1.json" with { type: "json" };
 import fixtureData from "../../backend/semantic-bridge/eval/body-voice-evaluation.v0.1.json" with { type: "json" };
-import { applyReviewedGrounding } from "../../backend/semantic-bridge/src/grounding.mjs";
+import {
+  applyReviewedGrounding,
+  getLegacyGroundingObservation,
+} from "../../backend/semantic-bridge/src/grounding.mjs";
 import { invokeBedrock } from "../../backend/semantic-bridge/src/bedrock.mjs";
 import { countRenderableProductMatches } from "../../backend/semantic-bridge/src/product-match-count.mjs";
 import {
@@ -65,12 +68,6 @@ export function validateEvaluationFixtures(fixtures = fixtureData.fixtures) {
   return { count: fixtures.length, allowedTermIds };
 }
 
-function outcomeFor(result) {
-  if (result.interpretationStateId === "ambiguous-mixed") return "ambiguous";
-  if (result.interpretationStateId) return "insufficient";
-  return result.groundingExpressionIds?.length ? "interpreted" : "insufficient";
-}
-
 function resultCategory(outcome, termIds, productMatchCount) {
   if (outcome === "ambiguous") return "ambiguous";
   if (outcome === "insufficient") return "insufficient";
@@ -79,8 +76,13 @@ function resultCategory(outcome, termIds, productMatchCount) {
   return "unmapped";
 }
 
-function fallbackReason(result, termIds) {
-  if (result.interpretationStateId) return result.interpretationStateId;
+function fallbackReason(result, termIds, legacyGrounding) {
+  if (!result.sensoryInterpretation && legacyGrounding.interpretationStateId) {
+    return legacyGrounding.interpretationStateId;
+  }
+  if (result.sensoryInterpretation && result.sensoryInterpretation.outcome !== "interpreted") {
+    return result.sensoryInterpretation.outcome;
+  }
   if (!termIds.length) return "no-reviewed-term-path";
   return null;
 }
@@ -298,6 +300,7 @@ export async function runSemanticEvaluation({
     const request = parseAndValidateRequest(
       JSON.stringify({ modality: fixture.modality, input: fixture.input, allowedTermIds }),
     ).value;
+    const legacyGrounding = getLegacyGroundingObservation(request);
     let result;
     let contractFailure = null;
     try {
@@ -347,7 +350,7 @@ export async function runSemanticEvaluation({
       classifyTermAuthorization(result, authorizedTermIds, allowedIdSet);
     const productMatchCount = countRenderableProductMatches(authorizedTermIds);
     const semanticInterpretationOutcome = result.sensoryInterpretation?.outcome ?? null;
-    const groundingOutcome = outcomeFor(result);
+    const groundingOutcome = legacyGrounding.groundingOutcome;
     const interpretationOutcome = semanticInterpretationOutcome;
     const entry = {
       fixtureId: fixture.id,
@@ -379,11 +382,12 @@ export async function runSemanticEvaluation({
         authorizedTermIds,
         productMatchCount,
       ),
-      fallbackReason: fallbackReason(result, authorizedTermIds),
+      fallbackReason: fallbackReason(result, authorizedTermIds, legacyGrounding),
       deterministicContract: {
         status: contractFailure ? "failed" : "passed",
-        groundingCaseIds: result.groundingCaseIds ?? [],
-        groundingExpressionIds: result.groundingExpressionIds ?? [],
+        groundingCaseIds: legacyGrounding.groundingCaseIds,
+        groundingExpressionIds: legacyGrounding.groundingExpressionIds,
+        legacyInterpretationStateId: legacyGrounding.interpretationStateId,
         ...(contractFailure ? contractFailure : {}),
       },
       evaluator: contractFailure

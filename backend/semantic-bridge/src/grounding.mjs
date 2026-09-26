@@ -92,6 +92,23 @@ function evaluateSupport(request) {
   return { evaluation: evaluateMatchedCases(matches), matches };
 }
 
+export function getLegacyGroundingObservation(request) {
+  const { evaluation } = evaluateSupport(request);
+  return {
+    interpretationStateId: evaluation.interpretationStateId ?? null,
+    groundingOutcome:
+      evaluation.interpretationStateId === "ambiguous-mixed"
+        ? "ambiguous"
+        : evaluation.interpretationStateId
+          ? "insufficient"
+          : evaluation.expressionIds.length
+            ? "interpreted"
+            : "insufficient",
+    groundingCaseIds: evaluation.matchedCaseIds,
+    groundingExpressionIds: evaluation.expressionIds,
+  };
+}
+
 function legacyPresentation(evaluation) {
   if (evaluation.resultKind === "expression") {
     return {
@@ -116,7 +133,8 @@ function legacyPresentation(evaluation) {
 
 /**
  * The model may translate wording, but reviewed support cases and approved
- * expression links are the only source of normal term candidates.
+ * expression links remain diagnostic/fixture data for Body and Voice. Gesture
+ * keeps its pre-cutover compatibility path.
  */
 export function applyReviewedGrounding(modelResponse, request, allowedIds) {
   const { evaluation, matches } = evaluateSupport(request);
@@ -140,12 +158,6 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
   const observedFeatures = featureList(request.input);
   const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
   const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
-  const candidateTermIds = evaluation.expressionIds
-    .flatMap((expressionId) => {
-      const expression = expressionById.get(expressionId);
-      return expression?.termLinkStatus === "approved" ? expression.candidateTermIds : [];
-    })
-    .filter((id, index, ids) => allowedIds.has(id) && ids.indexOf(id) === index);
   const semanticAuthorization = modelResponse.sensoryInterpretation
     ? authorizeSensoryTerms(
         modelResponse.sensoryInterpretation,
@@ -153,14 +165,33 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
         [...allowedIds],
       )
     : null;
+  const hasSemanticInterpretation = Boolean(modelResponse.sensoryInterpretation);
+  const semanticExpressions =
+    typeof modelResponse.sensoryInterpretation?.sensoryExpression === "string"
+      ? [modelResponse.sensoryInterpretation.sensoryExpression]
+      : [];
+  const legacyCandidateTermIds = evaluation.expressionIds
+    .flatMap((expressionId) => {
+      const expression = expressionById.get(expressionId);
+      return expression?.termLinkStatus === "approved" ? expression.candidateTermIds : [];
+    })
+    .filter((id, index, ids) => allowedIds.has(id) && ids.indexOf(id) === index);
+  const useSemanticAuthority = hasSemanticInterpretation && request.modality !== "gesture";
+  const candidateTermIds = useSemanticAuthority
+    ? (semanticAuthorization?.authorizedTermIds ?? [])
+    : request.modality === "gesture"
+      ? (semanticAuthorization?.authorizedTermIds ?? legacyCandidateTermIds)
+      : [];
 
   return {
     ...(modelResponse.sensoryInterpretation
       ? { sensoryInterpretation: modelResponse.sensoryInterpretation }
       : {}),
     sensoryClassProposals: modelResponse.sensoryClassProposals ?? [],
-    sensoryExpressions: presentation.sensoryExpressions,
-    candidateTermIds: semanticAuthorization?.authorizedTermIds ?? candidateTermIds,
+    sensoryExpressions: useSemanticAuthority
+      ? semanticExpressions
+      : presentation.sensoryExpressions,
+    candidateTermIds,
     ...(semanticAuthorization
       ? {
           authorization: semanticAuthorization.authorization,
@@ -175,9 +206,15 @@ export function applyReviewedGrounding(modelResponse, request, allowedIds) {
         : unmappedFeatures,
     unusedFeatures:
       evaluation.resultKind === "unmapped" && !unmappedFeatures.length ? [] : unusedFeatures,
-    interpretationStateId: evaluation.interpretationStateId ?? null,
+    interpretationStateId:
+      request.modality === "gesture" ? (evaluation.interpretationStateId ?? null) : null,
     groundingCaseIds: evaluation.matchedCaseIds,
     groundingExpressionIds: evaluation.expressionIds,
-    reason: presentation.reason,
+    reason:
+      useSemanticAuthority || request.modality !== "gesture"
+        ? modelResponse.sensoryInterpretation
+          ? modelResponse.reason
+          : presentation.reason
+        : presentation.reason,
   };
 }
