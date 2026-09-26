@@ -33,7 +33,11 @@ const allTerms = ["atoaji", "kire", "nameraka", "marui", "tanrei", "nojun"];
 
 describe("AI-first deterministic sensory authorization", () => {
   it.each([
-    ["atoaji", "lingering-after-feel", { persistence: "lingering", timeQuality: "sustained" }],
+    [
+      "atoaji",
+      "lingering-after-feel",
+      { persistence: "lingering", timeQuality: "sustained", continuity: "continuous" },
+    ],
     ["kire", "clean-fade", { persistence: "brief", timeQuality: "sudden", resolution: "abrupt" }],
     ["nameraka", "smooth-flow", { smoothness: "smooth", continuity: "continuous" }],
     ["marui", "rounded-enveloping", { roundness: "rounded", spread: "enclosing" }],
@@ -63,12 +67,11 @@ describe("AI-first deterministic sensory authorization", () => {
     ["marui", "rounded-enveloping", { roundness: "rounded", smoothness: "smooth" }],
     ["tanrei", "light-delicate", { weightQuality: "light", persistence: "moderate" }],
     ["nojun", "rich-full", { weightQuality: "strong", persistence: "moderate" }],
-  ])("authorizes %s with proposal plus Anchor and Support", (termId, sensoryClass, values) => {
-    const result = authorizeSensoryTerms(interpretation(values), [sensoryClass], allTerms);
-    expect(result.authorization.find((entry) => entry.termId === termId)).toMatchObject({
-      level: ["atoaji", "nameraka", "marui"].includes(termId) ? "strong" : "supported",
-      supportCount: 1,
-    });
+  ])("does not let proposals promote %s", (termId, sensoryClass, values) => {
+    const withoutProposal = authorizeSensoryTerms(interpretation(values), [], allTerms);
+    const withProposal = authorizeSensoryTerms(interpretation(values), [sensoryClass], allTerms);
+    expect(withProposal).toEqual(withoutProposal);
+    expect(withProposal.authorization.every((entry) => entry.level === "strong")).toBe(true);
   });
 
   it.each([
@@ -114,7 +117,11 @@ describe("AI-first deterministic sensory authorization", () => {
   });
 
   it.each([
-    ["atoaji", "kire", { persistence: "moderate", resolution: "abrupt", timeQuality: "sustained" }],
+    [
+      "kire",
+      "marui",
+      { resolution: "abrupt", timeQuality: "sudden", roundness: "rounded", spread: "enclosing" },
+    ],
     [
       "nameraka",
       "marui",
@@ -148,33 +155,33 @@ describe("AI-first deterministic sensory authorization", () => {
     expect(result.authorizedTermIds).toEqual(expect.arrayContaining([first, second]));
   });
 
-  it.each([
-    [
-      { termId: "tanrei", sensoryClass: "light-delicate", level: "strong", supportCount: 2 },
-      { termId: "nojun", sensoryClass: "rich-full", level: "supported", supportCount: 1 },
-    ],
-    [
-      { termId: "tanrei", sensoryClass: "light-delicate", level: "supported", supportCount: 1 },
-      { termId: "nojun", sensoryClass: "rich-full", level: "strong", supportCount: 2 },
-    ],
-  ])("keeps the stronger tanrei/nojun route", (first, second) => {
+  it("removes both sides of a same-level tanrei/nojun conflict", () => {
+    const first = {
+      termId: "tanrei",
+      sensoryClass: "light-delicate",
+      level: "strong",
+      supportCount: 2,
+    };
+    const second = {
+      termId: "nojun",
+      sensoryClass: "rich-full",
+      level: "strong",
+      supportCount: 2,
+    };
     const result = resolveAuthorizationConflicts([first, second]);
-    expect(result.retained).toEqual([first.level === "strong" ? first : second]);
-    expect(result.conflicts[0]).toMatchObject({ resolution: "strong_wins" });
+    expect(result.retained).toEqual([]);
+    expect(result.conflicts[0]).toMatchObject({ resolution: "same_level_conflict" });
   });
 
-  it.each(["strong", "supported"])(
-    "records same-level tanrei/nojun conflict without proposal-order winner",
-    (level) => {
-      const candidates = [
-        { termId: "tanrei", sensoryClass: "light-delicate", level, supportCount: 1 },
-        { termId: "nojun", sensoryClass: "rich-full", level, supportCount: 1 },
-      ];
-      const result = resolveAuthorizationConflicts(candidates);
-      expect(result.retained).toEqual([]);
-      expect(result.conflicts[0]).toMatchObject({ resolution: "same_level_conflict" });
-    },
-  );
+  it("never returns a supported authorization level", () => {
+    const result = authorizeSensoryTerms(
+      interpretation({ weightQuality: "light", persistence: "moderate" }),
+      ["light-delicate"],
+      allTerms,
+    );
+    expect(result.authorization).toEqual([]);
+    expect(result.authorization.every((entry) => entry.level === "strong")).toBe(true);
+  });
 
   it.each([
     [{ outcome: "ambiguous" }, ["smooth-flow"]],
@@ -194,17 +201,13 @@ describe("AI-first deterministic sensory authorization", () => {
     ).toEqual([]);
   });
 
-  it("lets an explicit unmapped proposal override a strong route", () => {
+  it("keeps proposals non-authoritative even when they say unmapped", () => {
     const result = authorizeSensoryTerms(
       interpretation({ smoothness: "smooth", continuity: "continuous" }),
       ["unmapped"],
       allTerms,
     );
-    expect(result).toEqual({
-      authorizedTermIds: [],
-      authorization: [],
-      authorizationConflicts: [],
-    });
+    expect(result.authorizedTermIds).toEqual(["nameraka"]);
   });
 
   it.each([
@@ -242,5 +245,153 @@ describe("AI-first deterministic sensory authorization", () => {
       rejected: true,
       rejectionCategory: "explicit_reject",
     });
+  });
+
+  it("requires two supports for atoaji after the policy review", () => {
+    expect(
+      authorizeSensoryTerms(
+        interpretation({ persistence: "moderate", continuity: "continuous" }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).not.toContain("atoaji");
+    expect(
+      authorizeSensoryTerms(
+        interpretation({
+          persistence: "moderate",
+          timeQuality: "sustained",
+          continuity: "continuous",
+        }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).toContain("atoaji");
+  });
+
+  it.each([
+    [
+      "body-expanding",
+      { persistence: "moderate", continuity: "continuous", expansion: "expansive" },
+    ],
+    ["voice-ambiguous-ending", { persistence: "moderate", timeQuality: "sustained" }],
+    [
+      "voice-uncertain-medium",
+      { persistence: "moderate", timeQuality: "sustained", smoothness: "rough" },
+    ],
+  ])("does not authorize atoaji for the reviewed one-support case %s", (_fixtureId, values) => {
+    expect(
+      authorizeSensoryTerms(interpretation(values), [], allTerms).authorizedTermIds,
+    ).not.toContain("atoaji");
+  });
+
+  it.each([
+    [
+      "body-sustained-fast",
+      {
+        persistence: "lingering",
+        timeQuality: "sustained",
+        resolution: "unresolved",
+        continuity: "continuous",
+      },
+    ],
+    [
+      "body-broad-gradual",
+      {
+        persistence: "lingering",
+        timeQuality: "sustained",
+        resolution: "gradual",
+        continuity: "continuous",
+      },
+    ],
+  ])("keeps atoaji for the reviewed two-support case %s", (_fixtureId, values) => {
+    expect(authorizeSensoryTerms(interpretation(values), [], allTerms).authorizedTermIds).toContain(
+      "atoaji",
+    );
+  });
+
+  it("keeps nameraka at threshold one without allowing smoothness alone", () => {
+    expect(
+      authorizeSensoryTerms(interpretation({ smoothness: "smooth" }), [], allTerms)
+        .authorizedTermIds,
+    ).not.toContain("nameraka");
+    expect(
+      authorizeSensoryTerms(
+        interpretation({ smoothness: "smooth", continuity: "continuous" }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).toContain("nameraka");
+    expect(
+      authorizeSensoryTerms(
+        interpretation({ smoothness: "smooth", flowQuality: "free" }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).toContain("nameraka");
+    expect(
+      authorizeSensoryTerms(interpretation({ smoothness: "rough" }), [], allTerms)
+        .authorizedTermIds,
+    ).not.toContain("nameraka");
+  });
+
+  it("keeps marui on Primary supports only and ignores experimentalProfile", () => {
+    const primaryOnly = authorizeSensoryTerms(
+      interpretation({ roundness: "rounded" }),
+      [],
+      allTerms,
+    );
+    const withExperimental = authorizeSensoryTerms(
+      {
+        ...interpretation({ roundness: "rounded" }),
+        experimentalProfile: { softness: "soft" },
+      },
+      [],
+      allTerms,
+    );
+    expect(primaryOnly.authorizedTermIds).not.toContain("marui");
+    expect(withExperimental).toEqual(primaryOnly);
+    expect(
+      authorizeSensoryTerms(
+        interpretation({ roundness: "rounded", smoothness: "smooth" }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).toContain("marui");
+    expect(
+      authorizeSensoryTerms(
+        interpretation({ roundness: "rounded", spread: "enclosing" }),
+        [],
+        allTerms,
+      ).authorizedTermIds,
+    ).toContain("marui");
+    expect(
+      authorizeSensoryTerms(interpretation({ roundness: "angular" }), [], allTerms)
+        .authorizedTermIds,
+    ).not.toContain("marui");
+  });
+
+  it("keeps sensoryExpression non-authoritative", () => {
+    const withoutText = authorizeSensoryTerms(
+      interpretation({
+        persistence: "moderate",
+        timeQuality: "sustained",
+        continuity: "continuous",
+      }),
+      [],
+      allTerms,
+    );
+    const withText = authorizeSensoryTerms(
+      {
+        ...interpretation({
+          persistence: "moderate",
+          timeQuality: "sustained",
+          continuity: "continuous",
+        }),
+        sensoryExpression: "全く別の表現",
+      },
+      [],
+      allTerms,
+    );
+    expect(withText).toEqual(withoutText);
   });
 });

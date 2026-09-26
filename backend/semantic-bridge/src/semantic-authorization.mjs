@@ -18,7 +18,7 @@ const routeDefinitions = [
       ["resolution", ["gradual", "unresolved"]],
       ["continuity", ["continuous"]],
     ],
-    strongSupportCount: 1,
+    strongSupportCount: 2,
     reject: (profile) => profile.persistence === "brief" && profile.resolution === "abrupt",
   },
   {
@@ -51,7 +51,6 @@ const routeDefinitions = [
     supports: [
       ["spread", ["enclosing"]],
       ["smoothness", ["smooth"]],
-      ["experimental.softness", ["soft"]],
     ],
     strongSupportCount: 1,
     reject: (profile) => profile.roundness === "angular",
@@ -108,7 +107,7 @@ function anchorSatisfied(profile, conditions) {
   return conditions.every((condition) => conditionSatisfied(profile, condition));
 }
 
-export function evaluateSemanticRoute(route, profile, proposed) {
+export function evaluateSemanticRoute(route, profile) {
   const anchorSatisfiedValue = anchorSatisfied(profile, route.anchor);
   const satisfiedSupports = route.supports.filter((support) =>
     conditionSatisfied(profile, support),
@@ -116,12 +115,10 @@ export function evaluateSemanticRoute(route, profile, proposed) {
   const rejected = route.reject(profile);
   const strong =
     anchorSatisfiedValue && satisfiedSupports.length >= route.strongSupportCount && !rejected;
-  const supported =
-    !strong && proposed && anchorSatisfiedValue && satisfiedSupports.length >= 1 && !rejected;
   return {
     termId: route.termId,
     sensoryClass: route.sensoryClass,
-    level: strong ? "strong" : supported ? "supported" : null,
+    level: strong ? "strong" : null,
     supportCount: satisfiedSupports.length,
     anchorSatisfied: anchorSatisfiedValue,
     rejected,
@@ -135,20 +132,20 @@ export function evaluateSemanticRoute(route, profile, proposed) {
   };
 }
 
-export function authorizeSensoryTerms(interpretation, proposals = [], allowedIds = []) {
+/**
+ * Authorize selectable terms from the validated Primary semanticProfile only.
+ *
+ * sensoryClassProposals, sensoryExpression, and experimentalProfile remain
+ * provider/evaluation metadata but are intentionally non-authoritative here.
+ */
+export function authorizeSensoryTerms(interpretation, _proposals = [], allowedIds = []) {
   const empty = { authorizedTermIds: [], authorization: [], authorizationConflicts: [] };
   if (!interpretation || interpretation.outcome !== "interpreted") return empty;
-  if (proposals.length === 1 && proposals[0] === "unmapped") return empty;
+  // Keep the provider-facing argument for compatibility; proposals are diagnostic-only.
+  void _proposals;
 
-  const proposalSet = new Set(proposals);
   const candidates = routeDefinitions
-    .map((route) =>
-      evaluateSemanticRoute(
-        route,
-        interpretation.semanticProfile,
-        proposalSet.has(route.sensoryClass),
-      ),
-    )
+    .map((route) => evaluateSemanticRoute(route, interpretation.semanticProfile))
     .filter((route) => route.level && allowedIds.includes(route.termId));
   const { retained, conflicts } = resolveAuthorizationConflicts(candidates);
   return {
