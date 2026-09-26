@@ -53,6 +53,16 @@ function jitterFrame(t: number, phase: number): BodyPoseFrame {
   return { t, landmarks };
 }
 
+function stationaryPoseJitterFrame(t: number, phase: number): BodyPoseFrame {
+  const direction = phase >= 0 ? 1 : -1;
+  return shapeFrame(t, {
+    13: { x: -0.25 + direction * 0.1, y: -0.2 },
+    14: { x: 0.25 - direction * 0.1, y: -0.2 },
+    15: { x: -0.4 + direction * 0.1, y: -0.5 },
+    16: { x: 0.4 - direction * 0.1, y: -0.5 },
+  });
+}
+
 function nearStillWithOffscreenNoiseFrame(t: number, phase: number): BodyPoseFrame {
   const landmarks: BodyLandmark[] = Array.from({ length: 33 }, (_, index) => ({
     x: (index % 5) * 0.001 * phase,
@@ -247,6 +257,33 @@ describe("body movement features", () => {
       participation: "unknown",
     });
     expect(features.hasSustainedFastMovement).toBe(false);
+  });
+
+  it("A: rejects stationary pose jitter as meaningful repeated or continued motion", () => {
+    const features = extractBodyMovementFeatures(
+      Array.from({ length: 31 }, (_, index) =>
+        stationaryPoseJitterFrame(index * 100, index % 2 ? -1 : 1),
+      ),
+    );
+
+    expect(features.hasMeaningfulMovement).toBe(false);
+    expect(features.activeDurationMs).toBe(0);
+    expect(features.motionShape.repetition).not.toBe("repeated");
+    expect(features.endingBehavior).not.toBe("continued");
+  });
+
+  it("B: keeps one large deliberate movement as a single motion that ends", () => {
+    const features = extractBodyMovementFeatures([
+      frame(0, -0.4),
+      frame(300, 0.2),
+      frame(600, 0.8),
+      frame(900, 1.2),
+      frame(3000, 1.2),
+    ]);
+
+    expect(features.hasMeaningfulMovement).toBe(true);
+    expect(features.motionShape.repetition).toBe("single");
+    expect(features.endingBehavior).not.toBe("continued");
   });
 
   it("ignores off-screen and low-visibility landmark noise in production movement", () => {
@@ -505,7 +542,7 @@ describe("body movement features", () => {
     expect(features.motionShape.dominantDirection).toBe("upward");
   });
 
-  it("detects meaningful repetition but ignores tiny movement", () => {
+  it("C: preserves deliberate repeated motion while ignoring tiny movement", () => {
     const repeated = extractBodyMovementFeatures([
       frame(0, 0),
       frame(100, 0.4),
