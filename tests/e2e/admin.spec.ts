@@ -129,7 +129,7 @@ test.describe("Admin deterministic browser flows", () => {
     expect(createRequest?.url).toMatch(/\/admin\/products$/);
     expect(createRequest?.url).not.toContain("/new");
     expect(createRequest?.body).toMatchObject({ name: "Created product", breweryId: "brewery-1" });
-    await expect(page.getByText("Created product")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Created product", exact: true })).toBeVisible();
   });
 
   test("loads and edits a product from a direct detail route", async ({ page }) => {
