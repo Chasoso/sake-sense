@@ -16,13 +16,13 @@
 
 ## Findings
 
-### Medium — visual baseline の cross-platform 差分許容
+### Resolved — visual baseline の cross-platform 差分許容
 
 - Area: `tests/e2e/admin-visual.spec.ts`, `playwright.visual.config.ts`, `docs/development/validation-policy.md`
 - Evidence: `1934dcf` で別OS由来の snapshot 名を共通名へ移し、`4228844` で `maxDiffPixelRatio` を 5% に設定。その後 `f59b5c8` で 3.5% へ下げ、`69f2244` で per-pixel `threshold: 0.35` を追加している。現行baselineはCIと異なるOSで生成されたことがドキュメントに明記されている。
-- False-green risk: 低頻度の小さなレイアウト差分や文字の欠落が、既知のfont rasterization差分に埋もれる可能性がある。
+- False-green risk: 監査前は、低頻度の小さなレイアウト差分や文字の欠落が、既知のfont rasterization差分に埋もれる可能性があった。
 - Production behavior: likely correct。visual gateは大きな幅崩れ、wrapping、主要control欠落を検知するが、pixel-levelの厳密性は限定的。
-- Action: follow-up recommended。CIと同じUbuntu/Chromiumでbaselineを再生成できる手順またはCI専用baselineを確立してから、閾値をさらに厳格化する。今回、Windows環境からsnapshotを更新したり、根拠なく閾値を下げたりはしない。
+- Action: fixed in this PR。CI run `36236383405` のUbuntu 24.04 / Playwright Chromiumで3枚を再生成し、既存PNGとSHA-256が一致することを確認した。`maxDiffPixelRatio` を `0.035` から `0.01`、per-pixel `threshold` を `0.35` から `0.1` へ変更した。baseline更新手順と同一環境要件をvalidation policyへ明記した。
 
 ### Low — Gesture calibration fixture のCI安定化
 
@@ -68,4 +68,4 @@
 
 ## Conclusion
 
-今回の監査で、直ちにproduction codeを変更すべきHigh/Mediumのfalse-greenは見つからなかった。変更は監査記録のみとし、visual baselineのCI同一環境化と未定義Admin mock route検知を、実環境またはAPI contract変更時のfollow-upとする。
+今回の監査で確認したvisual false-green riskは、CI同一環境でのbaseline再生成、差分閾値の厳格化、deterministicな再生成手順の文書化で解消した。未定義Admin mock route検知は引き続き低優先度のfollow-upとする。

@@ -14,8 +14,8 @@ const product = {
 };
 const screenshotOptions = {
   fullPage: true,
-  maxDiffPixelRatio: 0.035,
-  threshold: 0.35,
+  maxDiffPixelRatio: 0.01,
+  threshold: 0.1,
 } as const;
 
 async function setup(page: import("@playwright/test").Page) {
