@@ -21,9 +21,9 @@ import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
-import { ExpressionTransform } from "./ExpressionTransform";
 import { Result } from "./Experiment";
 import { ExperienceBrand } from "./ExperienceBrand";
+import { VoiceProcessingScreen } from "./processing-screens";
 import {
   classifyVoiceAudioInitializationError,
   classifyVoiceCaptureError,
@@ -251,19 +251,11 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
 
   if (isAnalyzing && voiceFeatures) {
     return (
-      <main
-        className="experience-screen experience-screen--voice-transform"
-        aria-labelledby="voice-transform-title"
-      >
-        <nav className="experience-screen__nav" aria-label="画面の移動">
-          <button className="icon-text-button" type="button" onClick={returnToStart}>
-            <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
-            <span>戻る</span>
-          </button>
-          <ExperienceBrand />
-        </nav>
-        <ExpressionTransform mode="voice" features={voiceFeatures} waveHistory={waveHistory} />
-      </main>
+      <VoiceProcessingScreen
+        features={voiceFeatures}
+        waveHistory={waveHistory}
+        onBack={returnToStart}
+      />
     );
   }
 

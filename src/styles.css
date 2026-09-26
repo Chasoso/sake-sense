@@ -2131,6 +2131,12 @@ input {
   stroke-width: 4;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .expression-transform__gesture-paths {
+    transform: none !important;
+  }
+}
+
 .gesture-pad {
   display: block;
   width: 100%;
