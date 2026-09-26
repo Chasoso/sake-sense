@@ -27,7 +27,9 @@ const required = [
   "AWS::Cognito::UserPoolClient",
   "AWS::Cognito::UserPoolGroup",
   "DataApiAuthorizer:",
-  'RouteKey: "ANY /admin/{proxy+}"',
+  'RouteKey: "GET /admin/{proxy+}"',
+  'RouteKey: "POST /admin/{proxy+}"',
+  'RouteKey: "PATCH /admin/{proxy+}"',
   "productId-index",
   "BillingMode: PAY_PER_REQUEST",
   "CognitoCallbackUrl:",
@@ -42,6 +44,8 @@ const required = [
 ];
 const missing = required.filter((value) => !template.includes(value));
 if (missing.length) throw new Error(`data-admin infrastructure is missing: ${missing.join(", ")}`);
+if (template.includes('RouteKey: "ANY /admin/{proxy+}"'))
+  throw new Error("authenticated admin ANY route must not expose unsupported methods or OPTIONS");
 if (
   template.includes("AdminOptionsRoute:") ||
   template.includes('RouteKey: "OPTIONS /admin/{proxy+}"')
@@ -49,14 +53,24 @@ if (
   throw new Error(
     "data-admin must rely on HTTP API CORS instead of an explicit admin OPTIONS route",
   );
-const adminRouteStart = template.indexOf("AdminRoute:");
 const dataApiStageStart = template.indexOf("DataApiStage:");
-const adminRoute = template.slice(adminRouteStart, dataApiStageStart);
-if (
-  !adminRoute.includes("AuthorizationType: JWT") ||
-  !adminRoute.includes("AuthorizerId: !Ref DataApiAuthorizer")
-)
-  throw new Error("authenticated admin route must retain the JWT authorizer");
+const adminRoutes = ["AdminGetRoute:", "AdminPostRoute:", "AdminPatchRoute:"];
+for (const routeName of adminRoutes) {
+  const routeStart = template.indexOf(routeName);
+  const nextRouteStart = adminRoutes
+    .filter((candidate) => candidate !== routeName)
+    .map((candidate) => template.indexOf(candidate, routeStart + routeName.length))
+    .filter((index) => index >= 0)
+    .concat(dataApiStageStart)
+    .sort((a, b) => a - b)[0];
+  const route = template.slice(routeStart, nextRouteStart);
+  if (
+    !route.includes("AuthorizationType: JWT") ||
+    !route.includes("AuthorizerId: !Ref DataApiAuthorizer") ||
+    !route.includes("Target: !Sub integrations/${AdminIntegration}")
+  )
+    throw new Error(`${routeName} must retain the JWT authorizer and AdminIntegration`);
+}
 for (const forbidden of [
   "SmsConfiguration:",
   "AWS::SNS",
