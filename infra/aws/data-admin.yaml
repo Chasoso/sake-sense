@@ -298,6 +298,13 @@ Resources:
       AuthorizerId: !Ref DataApiAuthorizer
       Target: !Sub integrations/${AdminIntegration}
 
+  AdminOptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref DataApi
+      RouteKey: "OPTIONS /admin/{proxy+}"
+      Target: !Sub integrations/${AdminIntegration}
+
   DataApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
