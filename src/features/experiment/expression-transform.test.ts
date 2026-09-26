@@ -7,6 +7,7 @@ import {
   getBodyAbsorbedPoint,
   getBodyIntermediateWords,
   getBodyLightProgress,
+  getBodyProcessingDots,
   getBodySkeletonGeometry,
   getBodyTransformProgress,
   getBodyVisualModel,
@@ -62,6 +63,14 @@ describe("expression transformation", () => {
     expect(getTransformStage(1500)).toBe(1);
     expect(getTransformStage(3000)).toBe(2);
     expect(getTransformStage(4500)).toBe(3);
+  });
+
+  it("cycles Body processing dots every 500ms", () => {
+    expect(getBodyProcessingDots(0)).toBe(".");
+    expect(getBodyProcessingDots(499)).toBe(".");
+    expect(getBodyProcessingDots(500)).toBe("..");
+    expect(getBodyProcessingDots(1000)).toBe("...");
+    expect(getBodyProcessingDots(1500)).toBe(".");
   });
 
   it("uses a continuous bounded progress value and holds for slow responses", () => {
