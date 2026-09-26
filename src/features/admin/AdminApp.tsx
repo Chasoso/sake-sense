@@ -104,14 +104,13 @@ function StatusBadge({ value, kind }: { value: unknown; kind: "status" | "availa
 
 function AdminTabs({ collection }: { collection: AdminCollection }) {
   return (
-    <nav className="admin-tabs" aria-label="Admin sections" role="tablist">
+    <nav className="admin-tabs" aria-label="Admin sections">
       {(Object.keys(COLLECTION_LABELS) as AdminCollection[]).map((section) => (
         <a
           className={`admin-tabs__tab${collection === section ? " admin-tabs__tab--active" : ""}`}
           key={section}
           href={`/admin/${section}`}
           aria-current={collection === section ? "page" : undefined}
-          role="tab"
         >
           {COLLECTION_LABELS[section]}
         </a>
@@ -241,13 +240,20 @@ function AdminLogin({
 
 function ProductTable({
   items,
+  breweries,
   selectedId,
   onSelect,
 }: {
   items: readonly RecordItem[];
+  breweries: readonly RecordItem[];
   selectedId?: string;
   onSelect: (item: RecordItem) => void;
 }) {
+  const breweryLabels = new Map(
+    breweries
+      .filter((brewery) => brewery.id)
+      .map((brewery) => [String(brewery.id), displayName(brewery)]),
+  );
   return (
     <div className="admin-table-wrap">
       <table className="admin-table">
@@ -276,7 +282,9 @@ function ProductTable({
                   {displayName(item)}
                 </button>
               </td>
-              <td>{String(item.breweryName ?? item.breweryId ?? "-")}</td>
+              <td>
+                {breweryLabels.get(String(item.breweryId ?? "")) ?? String(item.breweryId ?? "-")}
+              </td>
               <td>
                 <StatusBadge value={item.availabilityStatus} kind="availability" />
               </td>
@@ -582,7 +590,12 @@ function AdminCollectionPage({
         <section className="admin-list">
           <h2>{COLLECTION_LABELS[collection]}一覧</h2>
           {collection === "products" ? (
-            <ProductTable items={filtered} selectedId={selected?.id} onSelect={setSelected} />
+            <ProductTable
+              items={filtered}
+              breweries={breweries}
+              selectedId={selected?.id}
+              onSelect={setSelected}
+            />
           ) : (
             <div className="admin-list__legacy">
               {filtered.map((item) => (

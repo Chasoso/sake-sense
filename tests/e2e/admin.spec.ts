@@ -8,7 +8,6 @@ const adminSession = {
 const product = {
   id: "product-1",
   name: "E2E Product",
-  breweryName: "E2E Brewery",
   breweryId: "brewery-1",
   region: "Ishikawa",
   descriptionSummary: "A deterministic product fixture",
@@ -46,15 +45,17 @@ test.describe("Admin deterministic browser flows", () => {
     await mockAdminApi(page, async (route) => {
       if (route.request().method() === "GET" && apiPath(route) === "/admin/products")
         return fulfillJson(route, 200, { items: [product] });
+      if (route.request().method() === "GET" && apiPath(route) === "/admin/breweries")
+        return fulfillJson(route, 200, { items: [{ id: "brewery-1", name: "E2E Brewery" }] });
       return fulfillJson(route, 404, { error: "not_found" });
     });
 
     await page.goto("/admin/products");
     await expect(page.getByText("Sake Sense Admin")).toBeVisible();
-    await expect(page.getByRole("tab", { name: "商品" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "商品" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByText(product.name)).toBeVisible();
-    await expect(page.getByText(product.breweryName)).toBeVisible();
+    await expect(page.getByText("E2E Brewery")).toBeVisible();
     await expect(page.getByText(product.availabilityStatus)).toBeVisible();
     await expect(page.getByText(product.status)).toBeVisible();
     await expect(page.getByText(product.updatedAt)).toBeVisible();
