@@ -240,6 +240,10 @@ for (const forbidden of [
 }
 if (workflow.includes("vars.CLOUDFORMATION_EXECUTION_ROLE_ARN"))
   throw new Error("data-admin workflow must use its dedicated execution role variable");
+for (const requiredTrigger of ["workflow_dispatch:", "workflow_call:"]) {
+  if (!workflow.includes(requiredTrigger))
+    throw new Error(`data-admin workflow must support ${requiredTrigger}`);
+}
 if (semanticBridgeWorkflow.includes("vars.DATA_ADMIN_CLOUDFORMATION_EXECUTION_ROLE_ARN"))
   throw new Error("semantic-bridge deployment must not use the data-admin execution role variable");
 const frontendPassThrough = [
@@ -257,6 +261,44 @@ if (missingFrontendPassThrough.length)
     `frontend deploy is missing optional data-admin env pass-through: ${missingFrontendPassThrough.join(", ")}`,
   );
 const requiredFrontendLine = frontendWorkflow.match(/for variable in ([^\n]+)/)?.[1] ?? "";
-if (frontendPassThrough.some((value) => requiredFrontendLine.includes(value.split(":")[0])))
-  throw new Error("data-admin frontend env pass-through must remain optional");
+const missingRequiredFrontendVariables = frontendPassThrough.filter(
+  (value) => !requiredFrontendLine.includes(value.split(":")[0]),
+);
+if (missingRequiredFrontendVariables.length)
+  throw new Error(
+    `frontend deploy is missing required data-admin variables: ${missingRequiredFrontendVariables.join(", ")}`,
+  );
+for (const requiredProductionWorkflowText of [
+  "data_admin: ${{ steps.paths.outputs.data_admin }}",
+  "data_admin=true",
+  "uses: ./.github/workflows/deploy-data-admin.yml",
+  "needs.deploy-data-admin.result == 'success'",
+  "backend/data-platform/",
+  "infra/aws/data-admin\\.yaml",
+  "scripts/package-data-platform\\.mjs",
+  "scripts/check-cloudformation-change-set\\.mjs",
+  "scripts/quality/validate-data-admin\\.mjs",
+]) {
+  if (!frontendWorkflow.includes(requiredProductionWorkflowText))
+    throw new Error(
+      `Deploy production workflow is missing data-admin integration: ${requiredProductionWorkflowText}`,
+    );
+}
+const deployDataAdminJobStart = frontendWorkflow.indexOf("  deploy-data-admin:");
+const deployFrontendJobStart = frontendWorkflow.indexOf("  deploy-frontend:");
+const deployDataAdminJob = frontendWorkflow.slice(deployDataAdminJobStart, deployFrontendJobStart);
+if (
+  deployDataAdminJobStart < 0 ||
+  deployFrontendJobStart < deployDataAdminJobStart ||
+  !deployDataAdminJob.includes("permissions:") ||
+  !deployDataAdminJob.includes("contents: read") ||
+  !deployDataAdminJob.includes("id-token: write")
+)
+  throw new Error(
+    "data-admin reusable workflow caller must grant contents: read and id-token: write",
+  );
+if (frontendWorkflow.includes("infra/aws/data-admin\\.yaml$|infra/aws/data-admin-bootstrap"))
+  throw new Error("data-admin bootstrap changes must not trigger automatic stack deployment");
+if (frontendWorkflow.includes("migrate:sake-data -- --apply"))
+  throw new Error("Deploy production workflow must not apply migration data");
 console.log("Data-admin infrastructure validation passed.");

@@ -19,6 +19,7 @@ jobs:
     outputs:
       frontend: ${{ steps.paths.outputs.frontend }}
       backend: ${{ steps.paths.outputs.backend }}
+      data_admin: ${{ steps.paths.outputs.data_admin }}
     steps:
       - name: Check out repository history
         uses: actions/checkout@v5
@@ -37,24 +38,44 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
             frontend=true
             backend=true
+            data_admin=true
           else
             changed_files="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
             frontend=false
             backend=false
+            data_admin=false
             if printf '%s\n' "$changed_files" | grep -Eq '^(src/|public/|index.html|package.json|package-lock.json|\.nvmrc$|vite\.config\.[^/]+$|tsconfig[^/]*\.json$)'; then
               frontend=true
             fi
             if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|infra/aws/ai-semantic-bridge\.yaml$|scripts/package-semantic-bridge\.mjs$|package.json|package-lock.json|\.nvmrc$)'; then
               backend=true
             fi
+            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/data-platform/|infra/aws/data-admin\.yaml$|scripts/package-data-platform\.mjs$|scripts/check-cloudformation-change-set\.mjs$|scripts/quality/validate-data-admin\.mjs|\.github/workflows/deploy-data-admin\.yml$|package\.json|package-lock\.json|\.nvmrc$)'; then
+              data_admin=true
+            fi
           fi
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "data_admin=$data_admin" >> "$GITHUB_OUTPUT"
+
+  deploy-data-admin:
+    name: Deploy data-admin infrastructure
+    needs: changes
+    if: needs.changes.outputs.data_admin == 'true'
+    uses: ./.github/workflows/deploy-data-admin.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
 
   deploy-frontend:
     name: Build and deploy frontend
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: [changes, deploy-data-admin]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.frontend == 'true' &&
+      (needs.changes.outputs.data_admin != 'true' || needs.deploy-data-admin.result == 'success')
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -93,7 +114,7 @@ jobs:
       - name: Check deployment configuration
         run: |
           set -euo pipefail
-          for variable in AWS_REGION AWS_ROLE_ARN S3_BUCKET_NAME CLOUDFRONT_DISTRIBUTION_ID VITE_SENSORY_BRIDGE_API_URL; do
+          for variable in AWS_REGION AWS_ROLE_ARN S3_BUCKET_NAME CLOUDFRONT_DISTRIBUTION_ID VITE_SENSORY_BRIDGE_API_URL VITE_SAKE_DATA_API_BASE_URL VITE_COGNITO_DOMAIN VITE_COGNITO_CLIENT_ID VITE_COGNITO_REDIRECT_URI VITE_COGNITO_LOGOUT_URI; do
             if [ -z "${!variable}" ]; then
               echo "Missing GitHub production variable: ${variable}" >&2
               exit 1
