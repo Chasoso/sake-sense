@@ -438,6 +438,10 @@
     "ambiguousCount": 3,
     "authorizedTermReachCount": 2,
     "productReachCount": 2,
+    "interpretedAuthorizedTermReachCount": 2,
+    "interpretedProductReachCount": 2,
+    "ambiguousWithAuthorizedTermsCount": 0,
+    "insufficientWithAuthorizedTermsCount": 0,
     "deterministicContractFailureCount": 0,
     "evaluator": {
       "status": "not-run",

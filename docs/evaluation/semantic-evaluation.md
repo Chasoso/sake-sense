@@ -91,6 +91,20 @@ reach. These changes are added to each affected case's `humanReviewReasons` and 
 the queue count; they are not merely emitted as a separate comparison summary.
 Keep the queue human-reviewed rather than optimizing only for match rate.
 
+The report keeps global reach counts for compatibility, but they include any
+outcome that produced authorized terms or product matches. They must not be read
+as interpreted success rates. Outcome-specific metrics are provided separately:
+
+- `interpretedAuthorizedTermReachCount`
+- `interpretedProductReachCount`
+- `ambiguousWithAuthorizedTermsCount`
+- `insufficientWithAuthorizedTermsCount`
+
+Provider contract failures retain a sanitized validation `code` and `path` for
+diagnosis. Provider responses themselves are never written to the report. A
+malformed evaluator response records only sanitized shape metadata such as
+top-level keys and dimension keys.
+
 ## Workflow for semantic changes
 
 Before and after a semantic change such as #89:

@@ -176,6 +176,27 @@ function reviewReasons(fixture, entry) {
   return [...new Set(reasons)];
 }
 
+export function summarizeReachMetrics(cases) {
+  return {
+    authorizedTermReachCount: cases.filter((entry) => entry.authorizedTermIds.length > 0).length,
+    productReachCount: cases.filter((entry) => entry.productMatchCount > 0).length,
+    interpretedAuthorizedTermReachCount: cases.filter(
+      (entry) =>
+        entry.interpretationOutcome === "interpreted" && entry.authorizedTermIds.length > 0,
+    ).length,
+    interpretedProductReachCount: cases.filter(
+      (entry) => entry.interpretationOutcome === "interpreted" && entry.productMatchCount > 0,
+    ).length,
+    ambiguousWithAuthorizedTermsCount: cases.filter(
+      (entry) => entry.interpretationOutcome === "ambiguous" && entry.authorizedTermIds.length > 0,
+    ).length,
+    insufficientWithAuthorizedTermsCount: cases.filter(
+      (entry) =>
+        entry.interpretationOutcome === "insufficient" && entry.authorizedTermIds.length > 0,
+    ).length,
+  };
+}
+
 export async function runSemanticEvaluation({
   fixtures = fixtureData.fixtures,
   provider,
@@ -203,7 +224,11 @@ export async function runSemanticEvaluation({
         );
       }
     } catch (error) {
-      contractFailure = error instanceof Error ? error.message : "semantic contract failure";
+      contractFailure = {
+        code: error?.code ?? "semantic_contract_failure",
+        path: error?.path ?? "$",
+        reason: error instanceof Error ? error.message : "semantic contract failure",
+      };
       result = {
         sensoryExpressions: [],
         candidateTermIds: [],
@@ -233,7 +258,7 @@ export async function runSemanticEvaluation({
         status: contractFailure ? "failed" : "passed",
         groundingCaseIds: result.groundingCaseIds ?? [],
         groundingExpressionIds: result.groundingExpressionIds ?? [],
-        ...(contractFailure ? { reason: contractFailure } : {}),
+        ...(contractFailure ? contractFailure : {}),
       },
       evaluator: { status: "not-run" },
     };
@@ -249,8 +274,7 @@ export async function runSemanticEvaluation({
     insufficientCount: cases.filter((entry) => entry.interpretationOutcome === "insufficient")
       .length,
     ambiguousCount: cases.filter((entry) => entry.interpretationOutcome === "ambiguous").length,
-    authorizedTermReachCount: cases.filter((entry) => entry.authorizedTermIds.length > 0).length,
-    productReachCount: cases.filter((entry) => entry.productMatchCount > 0).length,
+    ...summarizeReachMetrics(cases),
     deterministicContractFailureCount: cases.filter(
       (entry) => entry.deterministicContract.status === "failed",
     ).length,

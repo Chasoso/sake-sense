@@ -4,6 +4,7 @@ import {
   compareEvaluationReports,
   integrateComparisonReviewQueue,
   runSemanticEvaluation,
+  summarizeReachMetrics,
   validateEvaluationFixtures,
 } from "./run-semantic-evaluation.mjs";
 import {
@@ -63,6 +64,12 @@ describe("semantic evaluation harness", () => {
     expect(Object.values(result.dimensions).every((dimension) => dimension.status === "fail")).toBe(
       true,
     );
+    expect(result.responseShape).toMatchObject({
+      topLevelType: "object",
+      topLevelKeys: ["dimensions"],
+      hasDimensions: true,
+      dimensionsKeys: [],
+    });
   });
 
   it("accepts plain and fenced JSON evaluator responses", () => {
@@ -100,6 +107,46 @@ describe("semantic evaluation harness", () => {
         Object.values(normalized.dimensions).every((dimension) => dimension.status === "fail"),
       ).toBe(true);
     }
+  });
+
+  it("reports provider contract code and path without storing provider output", async () => {
+    const report = await runSemanticEvaluation({
+      provider: async () => {
+        const error = new Error("invalid ambiguous sensory interpretation");
+        error.code = "invalid_ambiguous_interpretation";
+        error.path = "sensoryInterpretation.outcome";
+        throw error;
+      },
+    });
+    const failed = report.cases.find((entry) => entry.fixtureId === "body-expanding");
+    expect(failed.deterministicContract).toMatchObject({
+      status: "failed",
+      code: "invalid_ambiguous_interpretation",
+      path: "sensoryInterpretation.outcome",
+    });
+    expect(JSON.stringify(failed)).not.toContain("provider output");
+  });
+
+  it("separates global and outcome-specific reach metrics", () => {
+    expect(
+      summarizeReachMetrics([
+        { interpretationOutcome: "interpreted", authorizedTermIds: ["kire"], productMatchCount: 1 },
+        { interpretationOutcome: "ambiguous", authorizedTermIds: ["kire"], productMatchCount: 1 },
+        {
+          interpretationOutcome: "insufficient",
+          authorizedTermIds: ["atoaji"],
+          productMatchCount: 1,
+        },
+        { interpretationOutcome: "interpreted", authorizedTermIds: [], productMatchCount: 0 },
+      ]),
+    ).toEqual({
+      authorizedTermReachCount: 3,
+      productReachCount: 3,
+      interpretedAuthorizedTermReachCount: 1,
+      interpretedProductReachCount: 1,
+      ambiguousWithAuthorizedTermsCount: 1,
+      insufficientWithAuthorizedTermsCount: 1,
+    });
   });
 
   it("distinguishes semantic changes from deterministic contract failures", () => {

@@ -8,6 +8,24 @@ export const evaluatorDimensions = [
 
 const evaluatorStatuses = ["pass", "review", "fail"];
 
+function valueType(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+export function summarizeEvaluatorResponseShape(value) {
+  const topLevelKeys = isRecord(value) ? Object.keys(value) : [];
+  const dimensions = isRecord(value?.dimensions) ? value.dimensions : null;
+  return {
+    topLevelType: valueType(value),
+    topLevelKeys,
+    hasDimensions: Boolean(dimensions),
+    dimensionsType: valueType(value?.dimensions),
+    dimensionsKeys: dimensions ? Object.keys(dimensions) : [],
+  };
+}
+
 export function parseEvaluatorResponse(text) {
   if (typeof text !== "string" || text.trim().length === 0) return null;
   const trimmed = text.trim();
@@ -63,7 +81,12 @@ export function normalizeEvaluatorResult(value) {
       },
     ]),
   );
-  return { status: "malformed", dimensions, error: validation.error };
+  return {
+    status: "malformed",
+    dimensions,
+    error: validation.error,
+    responseShape: summarizeEvaluatorResponseShape(value),
+  };
 }
 
 export function summarizeEvaluatorResults(results) {
@@ -83,8 +106,9 @@ export function summarizeEvaluatorResults(results) {
 export function buildEvaluatorPrompt(record) {
   return [
     "Review this sensory interpretation as a cautious assistant, not as a source of semantic truth.",
-    "Return JSON only with dimensions semanticConsistency, unsupportedInference, ambiguityHandling, profileTextConsistency, wordingQuality.",
-    "Each dimension must contain status pass, review, or fail and a short rationale.",
+    "Return one JSON object only. Do not include Markdown code fences or additional keys.",
+    'Expected schema: {"dimensions":{"semanticConsistency":{"status":"pass|review|fail","rationale":"short"},"unsupportedInference":{"status":"pass|review|fail","rationale":"short"},"ambiguityHandling":{"status":"pass|review|fail","rationale":"short"},"profileTextConsistency":{"status":"pass|review|fail","rationale":"short"},"wordingQuality":{"status":"pass|review|fail","rationale":"short"}}}',
+    "Each dimension is required and must contain only status and rationale.",
     "Do not select sake terms, products, rankings, recommendations, or provenance decisions.",
     "Prefer review when evidence is insufficient rather than rewarding confident guessing.",
     JSON.stringify({
