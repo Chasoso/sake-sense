@@ -275,9 +275,13 @@ h4 {
 }
 
 .admin-search input {
+  display: block;
+  align-self: center;
+  height: 24px;
   padding: 0;
   border: 0;
   outline: 0;
+  line-height: 24px;
   background: transparent;
 }
 
@@ -387,11 +391,6 @@ h4 {
 
 .admin-badge--availability-seasonal {
   background: #f7e5b9;
-}
-
-.admin-badge__value {
-  font-weight: 500;
-  opacity: 0.78;
 }
 
 .admin-empty {

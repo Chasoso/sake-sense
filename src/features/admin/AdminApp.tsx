@@ -97,7 +97,6 @@ function StatusBadge({ value, kind }: { value: unknown; kind: "status" | "availa
   return (
     <span className={`admin-badge admin-badge--${kind}-${normalized}`}>
       {statusLabel(normalized)}
-      <span className="admin-badge__value">{normalized}</span>
     </span>
   );
 }
