@@ -41,6 +41,15 @@ jobs:
       - name: Run admin visual regression E2E
         run: npm run test:e2e:visual
 
+      - name: Generate Ubuntu visual baselines for Issue 207 audit
+        run: npm run test:e2e:visual -- --update-snapshots
+
+      - name: Upload Ubuntu visual baselines for Issue 207 audit
+        uses: actions/upload-artifact@v6
+        with:
+          name: visual-baselines-ubuntu
+          path: tests/e2e/admin-visual-snapshots/
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v6
