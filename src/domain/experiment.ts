@@ -393,7 +393,8 @@ export async function runGestureSemanticExperiment(
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
     if (validation.ok)
       response = applyReviewedSemanticGrounding(request, validation.value, {
-        allowLegacyGrounding: provider.kind === "fixture",
+        allowLegacyGrounding: true,
+        useSemanticAuthority: false,
       });
     else {
       response = createFallbackSensoryBridgeResponse(request.input, validation.error);

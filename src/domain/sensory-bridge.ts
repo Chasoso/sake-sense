@@ -528,7 +528,7 @@ function patternFeatureList(pattern: Record<string, unknown>): string[] {
 export function applyReviewedSemanticGrounding(
   request: SensoryBridgeRequest,
   response: SensoryBridgeResponse,
-  options: { allowLegacyGrounding?: boolean } = {},
+  options: { allowLegacyGrounding?: boolean; useSemanticAuthority?: boolean } = {},
 ): SensoryBridgeResponse {
   const support =
     request.modality === "body"
@@ -558,8 +558,10 @@ export function applyReviewedSemanticGrounding(
   const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
   const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
   const hasSemanticInterpretation = Boolean(response.sensoryInterpretation);
+  const useSemanticAuthority = options.useSemanticAuthority ?? true;
+  const semanticAuthorityActive = hasSemanticInterpretation && useSemanticAuthority;
   const allowLegacyGrounding = options.allowLegacyGrounding ?? true;
-  const approvedCandidateTermIds = hasSemanticInterpretation
+  const approvedCandidateTermIds = semanticAuthorityActive
     ? (response.authorization
         ?.map((entry) => entry.termId)
         .filter((id) => request.allowedTermIds.includes(id)) ?? [])
@@ -576,7 +578,7 @@ export function applyReviewedSemanticGrounding(
     typeof response.sensoryInterpretation?.sensoryExpression === "string"
       ? [response.sensoryInterpretation.sensoryExpression]
       : [];
-  const legacySensoryExpressions = hasSemanticInterpretation
+  const legacySensoryExpressions = semanticAuthorityActive
     ? semanticSensoryExpressions
     : allowLegacyGrounding
       ? request.modality === "gesture"
@@ -609,18 +611,18 @@ export function applyReviewedSemanticGrounding(
     unusedFeatures:
       support.resultKind === "unmapped" && !unmappedFeatures.length ? [] : unusedFeatures,
     interpretationStateId:
-      hasSemanticInterpretation || !allowLegacyGrounding
+      semanticAuthorityActive || !allowLegacyGrounding
         ? null
         : (support.interpretationStateId ?? null),
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
     reason:
-      hasSemanticInterpretation || !allowLegacyGrounding
+      semanticAuthorityActive || !allowLegacyGrounding
         ? response.reason
         : request.modality === "gesture"
           ? response.reason
           : legacyReason,
-    ...(hasSemanticInterpretation || (allowLegacyGrounding && request.modality === "gesture")
+    ...(semanticAuthorityActive || (allowLegacyGrounding && request.modality === "gesture")
       ? { authorization: approvedAuthorization }
       : {}),
   };
