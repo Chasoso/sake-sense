@@ -217,6 +217,49 @@ describe("semantic evaluation harness", () => {
     expect(JSON.stringify(failed)).not.toContain("provider output");
   });
 
+  it("separates provider request failures and skips evaluator execution", async () => {
+    let judgeCalls = 0;
+    const report = await runSemanticEvaluation({
+      provider: async () => {
+        const error = new Error("schema is not supported");
+        error.name = "ValidationException";
+        error.$metadata = { httpStatusCode: 400, requestId: "redacted-request-id" };
+        error.converseRequestSummary = {
+          modelId: "test-model",
+          hasOutputConfig: true,
+          textFormatType: "json_schema",
+          schemaTopLevelKeys: ["type", "properties"],
+          rawPrompt: "must not persist",
+        };
+        throw error;
+      },
+      judge: async () => {
+        judgeCalls += 1;
+        return null;
+      },
+    });
+    const failed = report.cases[0];
+    expect(failed.deterministicContract).toMatchObject({
+      status: "failed",
+      failureKind: "provider-request",
+      code: "provider_request_failure",
+      providerErrorName: "ValidationException",
+      httpStatusCode: 400,
+      converseRequestSummary: {
+        modelId: "test-model",
+        hasOutputConfig: true,
+        textFormatType: "json_schema",
+        schemaTopLevelKeys: ["type", "properties"],
+      },
+    });
+    expect(failed.deterministicContract.converseRequestSummary).not.toHaveProperty("rawPrompt");
+    expect(failed.evaluator).toEqual({ status: "skipped", reason: "contract-failure" });
+    expect(report.summary.evaluatorSkippedCaseCount).toBe(20);
+    expect(report.summary.evaluator.status).toBe("not-run");
+    expect(judgeCalls).toBe(0);
+    expect(JSON.stringify(report)).not.toContain("must not persist");
+  });
+
   it("provides a compact human review summary for evaluator failures", async () => {
     const report = await runSemanticEvaluation({
       judge: async () => ({

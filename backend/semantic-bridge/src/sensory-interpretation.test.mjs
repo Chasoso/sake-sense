@@ -58,8 +58,9 @@ describe("backend AI sensory interpretation contract", () => {
   });
 
   it("encodes profile fields only for interpreted schema branches", () => {
-    const branches = responseSchema.properties.sensoryInterpretation.oneOf;
+    const branches = responseSchema.properties.sensoryInterpretation.anyOf;
     expect(branches).toHaveLength(3);
+    expect(JSON.stringify(responseSchema)).not.toContain('"oneOf"');
     expect(branches[0].required).toEqual(["outcome", "sensoryExpression", "semanticProfile"]);
     expect(branches[1].required).toEqual(["outcome", "sensoryExpression"]);
     expect(branches[1].properties).not.toHaveProperty("semanticProfile");

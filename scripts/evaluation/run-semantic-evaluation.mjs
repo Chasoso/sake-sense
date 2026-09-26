@@ -210,10 +210,37 @@ function contractFailureCounts(cases) {
   const counts = {};
   for (const entry of cases) {
     if (entry.deterministicContract.status !== "failed") continue;
-    const key = `${entry.deterministicContract.code}:${entry.deterministicContract.path}`;
+    const key = `${entry.deterministicContract.failureKind}:${entry.deterministicContract.code}:${entry.deterministicContract.path}`;
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
+}
+
+function sanitizeConverseRequestSummary(summary) {
+  if (!isRecord(summary)) return undefined;
+  const safe = {};
+  for (const key of [
+    "modelId",
+    "hasSystem",
+    "messageCount",
+    "contentBlockTypes",
+    "hasInferenceConfig",
+    "hasOutputConfig",
+    "textFormatType",
+    "schemaTopLevelKeys",
+  ]) {
+    if (summary[key] !== undefined) safe[key] = summary[key];
+  }
+  return Object.keys(safe).length ? safe : undefined;
+}
+
+function providerRequestFailure(error) {
+  return Boolean(
+    error?.converseRequestSummary ||
+      error?.$metadata ||
+      error?.name === "ValidationException" ||
+      error?.name === "ThrottlingException",
+  );
 }
 
 export function classifyTermAuthorization(result, authorizedTermIds, allowedIdSet) {
@@ -285,10 +312,24 @@ export async function runSemanticEvaluation({
         );
       }
     } catch (error) {
+      const isProviderFailure = providerRequestFailure(error);
       contractFailure = {
-        code: error?.code ?? "semantic_contract_failure",
+        failureKind: isProviderFailure ? "provider-request" : "semantic-contract",
+        code: isProviderFailure
+          ? "provider_request_failure"
+          : (error?.code ?? "semantic_contract_failure"),
         path: error?.path ?? "$",
         reason: error instanceof Error ? error.message : "semantic contract failure",
+        ...(typeof error?.name === "string" ? { providerErrorName: error.name } : {}),
+        ...(Number.isInteger(error?.$metadata?.httpStatusCode)
+          ? { httpStatusCode: error.$metadata.httpStatusCode }
+          : {}),
+        ...(typeof error?.providerOutputKind === "string"
+          ? { providerOutputKind: error.providerOutputKind }
+          : {}),
+        ...(sanitizeConverseRequestSummary(error?.converseRequestSummary)
+          ? { converseRequestSummary: sanitizeConverseRequestSummary(error.converseRequestSummary) }
+          : {}),
       };
       result = {
         sensoryExpressions: [],
@@ -340,14 +381,20 @@ export async function runSemanticEvaluation({
         groundingExpressionIds: result.groundingExpressionIds ?? [],
         ...(contractFailure ? contractFailure : {}),
       },
-      evaluator: { status: "not-run" },
+      evaluator: contractFailure
+        ? { status: "skipped", reason: "contract-failure" }
+        : { status: "not-run" },
     };
-    if (judge) entry.evaluator = normalizeEvaluatorResult(await judge({ ...fixture, ...entry }));
+    if (judge && !contractFailure) {
+      entry.evaluator = normalizeEvaluatorResult(await judge({ ...fixture, ...entry }));
+    }
     entry.humanReviewReasons = reviewReasons(fixture, entry);
     cases.push(entry);
   }
 
-  const evaluatorResults = cases.filter((entry) => entry.evaluator.status !== "not-run");
+  const evaluatorResults = cases.filter((entry) =>
+    ["completed", "malformed"].includes(entry.evaluator.status),
+  );
   const summary = {
     totalFixtureCount: cases.length,
     semanticInterpretedCount: cases.filter(
@@ -385,6 +432,7 @@ export async function runSemanticEvaluation({
       const status = evaluatorCaseStatus(entry);
       return status.hasReview && !status.hasFail;
     }).length,
+    evaluatorSkippedCaseCount: cases.filter((entry) => entry.evaluator.status === "skipped").length,
     humanReviewQueueCount: cases.filter((entry) => entry.humanReviewReasons.length > 0).length,
   };
   const humanReviewSummary = cases

@@ -736,6 +736,7 @@
     "nonInterpretedLegacyTermReachCount": 0,
     "evaluatorFailCaseCount": 0,
     "evaluatorReviewCaseCount": 0,
+    "evaluatorSkippedCaseCount": 0,
     "humanReviewQueueCount": 7,
     "baselineChangedCaseCount": 0
   },

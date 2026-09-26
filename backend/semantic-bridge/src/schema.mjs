@@ -84,7 +84,7 @@ const experimentalSemanticProfileSchema = {
 };
 
 const sensoryInterpretationSchema = {
-  oneOf: [
+  anyOf: [
     {
       type: "object",
       additionalProperties: false,

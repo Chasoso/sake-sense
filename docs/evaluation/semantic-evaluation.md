@@ -128,9 +128,17 @@ The separate outcome counts are `semanticInterpretedCount`,
 `groundingInsufficientCount`.
 
 Provider contract failures retain a sanitized validation `code` and `path` for
-diagnosis. Provider responses themselves are never written to the report. A
-malformed evaluator response records only sanitized shape metadata such as
-top-level keys and dimension keys.
+diagnosis. Provider request failures are classified separately from semantic
+contract failures and may include only safe structural metadata such as failure
+kind, provider error name, HTTP status, provider output kind, and a sanitized
+Converse request summary. Provider responses themselves are never written to the
+report. A malformed evaluator response records only sanitized shape metadata
+such as top-level keys and dimension keys.
+
+Provider or deterministic contract failures skip the AI evaluator with
+`{ status: "skipped", reason: "contract-failure" }`; skipped cases are not
+included in evaluator pass/review/fail aggregates but remain in the human review
+queue.
 
 Term reach is also attributed by source. `semantic-authorization` means the
 reviewed semantic profile authorization path produced the term. A
