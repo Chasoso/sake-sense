@@ -313,7 +313,9 @@ test.describe("Admin deterministic browser flows", () => {
     await page.getByLabel("status", { exact: true }).selectOption("draft");
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => postBody?.sourceName).toBe("Created Source");
-    await page.getByLabel("title", { exact: true }).fill("Edited Source Title");
+    const titleField = page.getByLabel("title", { exact: true });
+    await expect(titleField).toHaveValue("Created Source Title");
+    await titleField.fill("Edited Source Title");
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => patchBody?.title).toBe("Edited Source Title");
   });
