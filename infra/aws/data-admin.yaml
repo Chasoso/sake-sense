@@ -293,7 +293,25 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref DataApi
-      RouteKey: "ANY /admin/{proxy+}"
+      RouteKey: "GET /admin/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref DataApiAuthorizer
+      Target: !Sub integrations/${AdminIntegration}
+
+  AdminPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref DataApi
+      RouteKey: "POST /admin/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref DataApiAuthorizer
+      Target: !Sub integrations/${AdminIntegration}
+
+  AdminPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref DataApi
+      RouteKey: "PATCH /admin/{proxy+}"
       AuthorizationType: JWT
       AuthorizerId: !Ref DataApiAuthorizer
       Target: !Sub integrations/${AdminIntegration}
