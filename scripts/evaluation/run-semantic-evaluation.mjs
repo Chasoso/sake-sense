@@ -176,6 +176,44 @@ function reviewReasons(fixture, entry) {
   return [...new Set(reasons)];
 }
 
+function evaluatorCaseStatus(entry) {
+  const statuses = Object.values(entry.evaluator?.dimensions ?? {}).map(
+    (dimension) => dimension.status,
+  );
+  return {
+    hasFail: statuses.includes("fail"),
+    hasReview: statuses.includes("review"),
+  };
+}
+
+function contractFailureCounts(cases) {
+  const counts = {};
+  for (const entry of cases) {
+    if (entry.deterministicContract.status !== "failed") continue;
+    const key = `${entry.deterministicContract.code}:${entry.deterministicContract.path}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function classifyTermAuthorization(result, authorizedTermIds, allowedIdSet) {
+  const semanticAuthorizedTermIds = Array.isArray(result.authorization)
+    ? result.authorization
+        .map((authorization) => authorization.termId)
+        .filter((id) => allowedIdSet.has(id))
+    : [];
+  const legacyGroundingTermIds = result.sensoryInterpretation ? [] : authorizedTermIds;
+  return {
+    semanticAuthorizedTermIds,
+    legacyGroundingTermIds,
+    termAuthorizationSource: semanticAuthorizedTermIds.length
+      ? "semantic-authorization"
+      : legacyGroundingTermIds.length
+        ? "reviewed-support-grounding"
+        : "none",
+  };
+}
+
 export function summarizeReachMetrics(cases) {
   return {
     authorizedTermReachCount: cases.filter((entry) => entry.authorizedTermIds.length > 0).length,
@@ -241,16 +279,24 @@ export async function runSemanticEvaluation({
     const authorizedTermIds = Array.isArray(result.candidateTermIds)
       ? result.candidateTermIds.filter((id) => allowedIdSet.has(id))
       : [];
+    const { semanticAuthorizedTermIds, legacyGroundingTermIds, termAuthorizationSource } =
+      classifyTermAuthorization(result, authorizedTermIds, allowedIdSet);
     const productMatchCount = countRenderableProductMatches(authorizedTermIds);
     const interpretationOutcome = outcomeFor(result);
     const entry = {
       fixtureId: fixture.id,
       modality: fixture.modality,
       intent: fixture.intent,
+      observableInput: fixture.input,
       interpretationOutcome,
       wording: Array.isArray(result.sensoryExpressions) ? result.sensoryExpressions : [],
       semanticProfile: result.sensoryInterpretation?.semanticProfile ?? null,
       authorizedTermIds,
+      semanticAuthorizedTermIds,
+      legacyGroundingTermIds,
+      termAuthorizationSource,
+      nonInterpretedTermReach:
+        interpretationOutcome !== "interpreted" && authorizedTermIds.length > 0,
       productMatchCount,
       resultCategory: resultCategory(interpretationOutcome, authorizedTermIds, productMatchCount),
       fallbackReason: fallbackReason(result, authorizedTermIds),
@@ -281,8 +327,39 @@ export async function runSemanticEvaluation({
     evaluator: evaluatorResults.length
       ? summarizeEvaluatorResults(evaluatorResults.map((entry) => entry.evaluator))
       : { status: "not-run", dimensions: null },
+    contractFailureByCodePath: contractFailureCounts(cases),
+    semanticAuthorizationReachCount: cases.filter(
+      (entry) => entry.semanticAuthorizedTermIds.length > 0,
+    ).length,
+    reviewedGroundingFallbackReachCount: cases.filter(
+      (entry) => entry.legacyGroundingTermIds.length > 0,
+    ).length,
+    nonInterpretedLegacyTermReachCount: cases.filter((entry) => entry.nonInterpretedTermReach)
+      .length,
+    evaluatorFailCaseCount: cases.filter((entry) => evaluatorCaseStatus(entry).hasFail).length,
+    evaluatorReviewCaseCount: cases.filter((entry) => {
+      const status = evaluatorCaseStatus(entry);
+      return status.hasReview && !status.hasFail;
+    }).length,
     humanReviewQueueCount: cases.filter((entry) => entry.humanReviewReasons.length > 0).length,
   };
+  const humanReviewSummary = cases
+    .filter((entry) => {
+      const status = evaluatorCaseStatus(entry);
+      return entry.deterministicContract.status === "failed" || status.hasFail || status.hasReview;
+    })
+    .map((entry) => ({
+      fixtureId: entry.fixtureId,
+      observableInput: entry.observableInput,
+      interpretationOutcome: entry.interpretationOutcome,
+      wording: entry.wording,
+      semanticProfile: entry.semanticProfile,
+      evaluator: entry.evaluator,
+      deterministicContract: entry.deterministicContract,
+      termAuthorizationSource: entry.termAuthorizationSource,
+      semanticAuthorizedTermIds: entry.semanticAuthorizedTermIds,
+      legacyGroundingTermIds: entry.legacyGroundingTermIds,
+    }));
   return {
     version: "0.1.0",
     baselineKind: mode,
@@ -292,6 +369,7 @@ export async function runSemanticEvaluation({
         : "Offline deterministic reviewed-grounding observation; not production-equivalent and not ground truth.",
     cases,
     summary,
+    humanReviewSummary,
   };
 }
 

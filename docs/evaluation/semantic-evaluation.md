@@ -105,6 +105,18 @@ diagnosis. Provider responses themselves are never written to the report. A
 malformed evaluator response records only sanitized shape metadata such as
 top-level keys and dimension keys.
 
+Term reach is also attributed by source. `semantic-authorization` means the
+reviewed semantic profile authorization path produced the term. A
+`reviewed-support-grounding` result is the legacy support-case fallback and is
+reported, not removed, by this harness. `nonInterpretedLegacyTermReachCount`
+tracks ambiguous/insufficient cases that still reach terms through that fallback;
+this is current behavior for #89 review, not a successful interpretation metric.
+
+The report also includes `contractFailureByCodePath`, evaluator fail/review case
+counts, and a compact `humanReviewSummary` containing structured fixture input,
+outcome, wording, profile, evaluator statuses/rationales, contract metadata, and
+term source. It excludes raw provider and evaluator responses.
+
 ## Workflow for semantic changes
 
 Before and after a semantic change such as #89:

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fixtureData from "../../backend/semantic-bridge/eval/body-voice-evaluation.v0.1.json" with { type: "json" };
 import {
   compareEvaluationReports,
+  classifyTermAuthorization,
   integrateComparisonReviewQueue,
   runSemanticEvaluation,
   summarizeReachMetrics,
@@ -55,6 +56,27 @@ describe("semantic evaluation harness", () => {
     expect(
       report.cases.every((entry) => entry.authorizedTermIds.every((id) => id !== "injected")),
     ).toBe(true);
+  });
+
+  it("attributes semantic and reviewed-grounding term reach separately", () => {
+    const allowedIds = new Set(["kire", "atoaji"]);
+    expect(
+      classifyTermAuthorization(
+        { authorization: [{ termId: "kire" }], sensoryInterpretation: { outcome: "interpreted" } },
+        ["kire"],
+        allowedIds,
+      ),
+    ).toEqual({
+      semanticAuthorizedTermIds: ["kire"],
+      legacyGroundingTermIds: [],
+      termAuthorizationSource: "semantic-authorization",
+    });
+    expect(classifyTermAuthorization({}, ["atoaji"], allowedIds)).toEqual({
+      semanticAuthorizedTermIds: [],
+      legacyGroundingTermIds: ["atoaji"],
+      termAuthorizationSource: "reviewed-support-grounding",
+    });
+    expect(classifyTermAuthorization({}, [], allowedIds).termAuthorizationSource).toBe("none");
   });
 
   it("fails safely on malformed evaluator output", () => {
@@ -125,6 +147,27 @@ describe("semantic evaluation harness", () => {
       path: "sensoryInterpretation.outcome",
     });
     expect(JSON.stringify(failed)).not.toContain("provider output");
+  });
+
+  it("provides a compact human review summary for evaluator failures", async () => {
+    const report = await runSemanticEvaluation({
+      judge: async () => ({
+        dimensions: Object.fromEntries(
+          [
+            "semanticConsistency",
+            "unsupportedInference",
+            "ambiguityHandling",
+            "profileTextConsistency",
+            "wordingQuality",
+          ].map((dimension) => [dimension, { status: "fail", rationale: "needs review" }]),
+        ),
+      }),
+    });
+    expect(report.summary.evaluatorFailCaseCount).toBe(20);
+    expect(report.summary.evaluatorReviewCaseCount).toBe(0);
+    expect(report.humanReviewSummary).toHaveLength(20);
+    expect(report.humanReviewSummary[0]).toHaveProperty("observableInput");
+    expect(JSON.stringify(report.humanReviewSummary)).not.toContain("raw provider response");
   });
 
   it("separates global and outcome-specific reach metrics", () => {

@@ -57,6 +57,18 @@ describe("backend AI sensory interpretation contract", () => {
     expect(responseKeys).toEqual(Object.keys(responseSchema.properties));
   });
 
+  it("encodes profile fields only for interpreted schema branches", () => {
+    const branches = responseSchema.properties.sensoryInterpretation.oneOf;
+    expect(branches).toHaveLength(3);
+    expect(branches[0].required).toEqual(["outcome", "sensoryExpression", "semanticProfile"]);
+    expect(branches[1].required).toEqual(["outcome", "sensoryExpression"]);
+    expect(branches[1].properties).not.toHaveProperty("semanticProfile");
+    expect(branches[1].properties).not.toHaveProperty("experimentalProfile");
+    expect(branches[2].required).toEqual(["outcome"]);
+    expect(branches[2].properties).not.toHaveProperty("semanticProfile");
+    expect(branches[2].properties).not.toHaveProperty("experimentalProfile");
+  });
+
   it("validates finite sensory class proposals and uses the reviewed route result", () => {
     const result = validateModelResponse(
       {
@@ -147,6 +159,22 @@ describe("backend AI sensory interpretation contract", () => {
       }).ok,
     ).toBe(true);
     expect(validateSensoryInterpretation({ outcome: "insufficient" }).ok).toBe(true);
+  });
+
+  it("rejects profiles on ambiguous and insufficient outcomes", () => {
+    expect(
+      validateSensoryInterpretation({
+        outcome: "ambiguous",
+        sensoryExpression: "曖昧な印象",
+        semanticProfile: primaryProfile,
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateSensoryInterpretation({
+        outcome: "insufficient",
+        semanticProfile: primaryProfile,
+      }).ok,
+    ).toBe(false);
   });
 
   it("keeps AI terms and presentation prose out of reviewed grounding", () => {
