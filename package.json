@@ -28,6 +28,8 @@
     "ui:inventory": "playwright test tests/e2e/ui-inventory.spec.ts",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "test:coverage": "vitest run --coverage",
+    "eval:semantic": "node scripts/evaluation/eval-semantic.mjs",
+    "eval:semantic:live": "node scripts/evaluation/eval-semantic.mjs --live --output artifacts/semantic-live-baseline.json",
     "validate:dictionary": "node scripts/quality/validate-dictionary.mjs",
     "validate:sensory-expressions": "node scripts/quality/validate-sensory-expressions.mjs",
     "validate:sensory-support-cases": "node scripts/quality/validate-sensory-support-cases.mjs",

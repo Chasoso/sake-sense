@@ -1,0 +1,790 @@
+{
+  "version": "0.1.0",
+  "baselineKind": "offline-deterministic-grounding",
+  "baselineNote": "Offline deterministic reviewed-grounding observation; not production-equivalent and not ground truth.",
+  "cases": [
+    {
+      "fixtureId": "body-short-abrupt-control",
+      "modality": "body",
+      "intent": "short-abrupt",
+      "observableInput": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "unknown",
+        "direction": "lateral",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["すっと引いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": ["kire"],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": ["kire"],
+      "termAuthorizationSource": "reviewed-support-grounding",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 7,
+      "resultCategory": "product-match",
+      "fallbackReason": null,
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-short-abrupt-clean-fade"],
+        "groundingExpressionIds": ["clean-fade"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "body-lingering-gradual",
+      "modality": "body",
+      "intent": "lingering-gradual",
+      "observableInput": {
+        "duration": "lingering",
+        "ending": "gradual",
+        "expansion": "unknown",
+        "direction": "upward",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["ゆっくり落ち着いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-lingering-gradual-soft-settle"],
+        "groundingExpressionIds": ["soft-settle"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "body-expanding",
+      "modality": "body",
+      "intent": "expanding",
+      "observableInput": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "expanding",
+        "direction": "upward",
+        "repetition": "single",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "insufficient-expression",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-insufficient-movement"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "body-repeated-lateral",
+      "modality": "body",
+      "intent": "repeated-lateral",
+      "observableInput": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "insufficient-expression",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-insufficient-movement"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "body-sustained-fast",
+      "modality": "body",
+      "intent": "sustained-fast",
+      "observableInput": {
+        "duration": "lingering",
+        "ending": "continued",
+        "expansion": "expanding",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "sustained-fast"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "ambiguous",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "ambiguous",
+      "fallbackReason": "ambiguous-mixed",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [
+          "body-expanding-spreading-outward",
+          "body-lateral-repeated-wavering",
+          "body-sustained-fast-unmapped"
+        ],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "body-contracting",
+      "modality": "body",
+      "intent": "contracting",
+      "observableInput": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "contracting",
+        "direction": "downward",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["すっと引いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": ["kire"],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": ["kire"],
+      "termAuthorizationSource": "reviewed-support-grounding",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 7,
+      "resultCategory": "product-match",
+      "fallbackReason": null,
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-short-abrupt-clean-fade"],
+        "groundingExpressionIds": ["clean-fade"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "body-ambiguous-mixed",
+      "modality": "body",
+      "intent": "ambiguous-mixed",
+      "observableInput": {
+        "duration": "short",
+        "ending": "abrupt",
+        "expansion": "expanding",
+        "direction": "lateral",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "sustained-fast"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "ambiguous",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "ambiguous",
+      "fallbackReason": "ambiguous-mixed",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-ambiguous-short-abrupt-expanding"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "body-low-signal",
+      "modality": "body",
+      "intent": "low-signal",
+      "observableInput": {
+        "duration": "unknown",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "unknown",
+        "repetition": "unknown",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "insufficient-expression",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["body-insufficient-movement"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "body-neutral-short",
+      "modality": "body",
+      "intent": "short-neutral",
+      "observableInput": {
+        "duration": "short",
+        "ending": "unknown",
+        "expansion": "unknown",
+        "direction": "unknown",
+        "repetition": "single",
+        "participation": "localized",
+        "spread": "compact",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "body-broad-gradual",
+      "modality": "body",
+      "intent": "broad-gradual",
+      "observableInput": {
+        "duration": "lingering",
+        "ending": "gradual",
+        "expansion": "expanding",
+        "direction": "upward",
+        "repetition": "repeated",
+        "participation": "broad",
+        "spread": "broad",
+        "speed": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "ambiguous",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "ambiguous",
+      "fallbackReason": "ambiguous-mixed",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [
+          "body-lingering-gradual-soft-settle",
+          "body-expanding-spreading-outward"
+        ],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-fading-long",
+      "modality": "voice",
+      "intent": "fading",
+      "observableInput": {
+        "durationMs": 1800,
+        "averageIntensity": 0.5,
+        "pauseCount": 1,
+        "endingBehavior": "fading"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["ゆっくり落ち着いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-long-fading-soft-settle"],
+        "groundingExpressionIds": ["soft-settle"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "voice-maintained-long",
+      "modality": "voice",
+      "intent": "maintained",
+      "observableInput": {
+        "durationMs": 1800,
+        "averageIntensity": 0.5,
+        "pauseCount": 1,
+        "endingBehavior": "maintained"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-long-maintained-unmapped"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-short-weak",
+      "modality": "voice",
+      "intent": "short-weak",
+      "observableInput": {
+        "durationMs": 400,
+        "averageIntensity": 0.12,
+        "pauseCount": 0,
+        "endingBehavior": "fading"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "voice-ambiguous-ending",
+      "modality": "voice",
+      "intent": "ambiguous-ending",
+      "observableInput": {
+        "durationMs": 1200,
+        "averageIntensity": 0.45,
+        "pauseCount": 2,
+        "endingBehavior": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-low-signal-zero",
+      "modality": "voice",
+      "intent": "low-signal",
+      "observableInput": {
+        "durationMs": 0,
+        "averageIntensity": 0,
+        "pauseCount": 0,
+        "endingBehavior": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "insufficient-expression",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-insufficient-observation"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": ["stable-control"]
+    },
+    {
+      "fixtureId": "voice-fading-medium",
+      "modality": "voice",
+      "intent": "fading-medium",
+      "observableInput": {
+        "durationMs": 900,
+        "averageIntensity": 0.35,
+        "pauseCount": 1,
+        "endingBehavior": "fading"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["ゆっくり落ち着いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-long-fading-soft-settle"],
+        "groundingExpressionIds": ["soft-settle"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-maintained-short",
+      "modality": "voice",
+      "intent": "maintained-short",
+      "observableInput": {
+        "durationMs": 500,
+        "averageIntensity": 0.6,
+        "pauseCount": 0,
+        "endingBehavior": "maintained"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-fading-quiet",
+      "modality": "voice",
+      "intent": "fading-quiet",
+      "observableInput": {
+        "durationMs": 1400,
+        "averageIntensity": 0.18,
+        "pauseCount": 3,
+        "endingBehavior": "fading"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "interpreted",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": ["ゆっくり落ち着いていく感じ"],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "unmapped",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-long-fading-soft-settle"],
+        "groundingExpressionIds": ["soft-settle"]
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-maintained-strong",
+      "modality": "voice",
+      "intent": "maintained-strong",
+      "observableInput": {
+        "durationMs": 2200,
+        "averageIntensity": 0.8,
+        "pauseCount": 0,
+        "endingBehavior": "maintained"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": ["voice-long-maintained-unmapped"],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    },
+    {
+      "fixtureId": "voice-uncertain-medium",
+      "modality": "voice",
+      "intent": "uncertain-medium",
+      "observableInput": {
+        "durationMs": 700,
+        "averageIntensity": 0.4,
+        "pauseCount": 4,
+        "endingBehavior": "unknown"
+      },
+      "semanticInterpretationOutcome": null,
+      "groundingOutcome": "insufficient",
+      "interpretationOutcome": null,
+      "semanticWording": null,
+      "presentationWording": [],
+      "wording": null,
+      "semanticProfile": null,
+      "authorizedTermIds": [],
+      "semanticAuthorizedTermIds": [],
+      "legacyGroundingTermIds": [],
+      "termAuthorizationSource": "none",
+      "nonInterpretedTermReach": false,
+      "productMatchCount": 0,
+      "resultCategory": "insufficient",
+      "fallbackReason": "no-reviewed-term-path",
+      "deterministicContract": {
+        "status": "passed",
+        "groundingCaseIds": [],
+        "groundingExpressionIds": []
+      },
+      "evaluator": {
+        "status": "not-run"
+      },
+      "humanReviewReasons": []
+    }
+  ],
+  "summary": {
+    "totalFixtureCount": 20,
+    "semanticInterpretedCount": 0,
+    "semanticInsufficientCount": 0,
+    "semanticAmbiguousCount": 0,
+    "groundingInterpretedCount": 6,
+    "groundingInsufficientCount": 11,
+    "groundingAmbiguousCount": 3,
+    "authorizedTermReachCount": 2,
+    "productReachCount": 2,
+    "interpretedAuthorizedTermReachCount": 0,
+    "interpretedProductReachCount": 0,
+    "ambiguousWithAuthorizedTermsCount": 0,
+    "insufficientWithAuthorizedTermsCount": 0,
+    "deterministicContractFailureCount": 0,
+    "evaluator": {
+      "status": "not-run",
+      "dimensions": null
+    },
+    "contractFailureByCodePath": {},
+    "semanticAuthorizationReachCount": 0,
+    "reviewedGroundingFallbackReachCount": 2,
+    "nonInterpretedLegacyTermReachCount": 0,
+    "evaluatorFailCaseCount": 0,
+    "evaluatorReviewCaseCount": 0,
+    "evaluatorSkippedCaseCount": 0,
+    "humanReviewQueueCount": 7,
+    "baselineChangedCaseCount": 0
+  },
+  "humanReviewSummary": [],
+  "comparison": {
+    "baselineAvailable": false,
+    "baselineCompatible": false,
+    "changedCases": [],
+    "contractFailures": []
+  }
+}
