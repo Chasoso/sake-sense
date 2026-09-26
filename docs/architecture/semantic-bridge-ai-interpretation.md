@@ -7,7 +7,30 @@ profile schema or any new sake-term mapping.
 Related: [Issue #88](https://github.com/Chasoso/sake-sense/issues/88),
 [Issue #59](https://github.com/Chasoso/sake-sense/issues/59).
 
-## 1. Current production flow
+## Issue #214 production routing status
+
+Issue #214 moves production final authority to the validated AI semantic
+interpretation. The runtime flow is now:
+
+Body / Voice observable features
+-> AI sensory interpretation
+-> structural validation
+-> reviewed deterministic strong authorization from Primary semanticProfile
+-> selectable sake-term IDs
+-> existing provenance-backed product matching
+-> Result UI
+
+The support-case table remains available for deterministic fixtures, evaluation,
+regression comparison, Human Experience control cases, and sanitized
+diagnostics. It is no longer allowed to create production term candidates,
+restore terms for `ambiguous` or `insufficient` semantic outcomes, or replace
+the semantic wording of a valid interpreted response. Provider and contract
+failures remain safe failures and do not force terms or products.
+
+The detailed flow below documents the pre-cutover design and its rationale;
+the Issue #214 routing is the production behavior.
+
+## 1. Pre-cutover production flow
 
 The current implementation has two distinct deterministic boundaries: local
 feature extraction in the browser and reviewed grounding after the provider

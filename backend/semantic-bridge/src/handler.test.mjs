@@ -61,6 +61,21 @@ const emptyResponse = {
   reason: "観測だけでは候補を無理なく絞り込めませんでした。",
 };
 
+const semanticKireProfile = {
+  timeQuality: "sudden",
+  weightQuality: "light",
+  flowQuality: "free",
+  directness: "direct",
+  persistence: "brief",
+  resolution: "abrupt",
+  continuity: "continuous",
+  rhythmicity: "singular",
+  expansion: "neutral",
+  spread: "neutral",
+  smoothness: "smooth",
+  roundness: "rounded",
+};
+
 function testHandler(invoke = vi.fn(async () => emptyResponse)) {
   return createHandler({ env, invoke, logger: { info: vi.fn(), error: vi.fn() } });
 }
@@ -423,7 +438,7 @@ describe("production semantic bridge Lambda", () => {
     expect(JSON.stringify(log)).not.toContain("bodyInput");
   });
 
-  it("rebuilds canonical dictionary grounding on the backend", async () => {
+  it("keeps legacy support matches diagnostic-only on the backend", async () => {
     const invoke = vi.fn(async (request) => {
       expect(request.dictionaryContext).toHaveLength(1);
       expect(request.dictionaryContext[0]).toMatchObject({
@@ -441,7 +456,7 @@ describe("production semantic bridge Lambda", () => {
     const response = await handler({ body: JSON.stringify(request) });
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toMatchObject({
-      candidateTermIds: ["kire"],
+      candidateTermIds: [],
       observedFeatures: [
         "duration:short",
         "ending:abrupt",
@@ -461,7 +476,7 @@ describe("production semantic bridge Lambda", () => {
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 
-  it("returns cautious Japanese output for a grounded short abrupt case", async () => {
+  it("does not promote a legacy grounded short abrupt case without semantic output", async () => {
     const handler = testHandler(
       vi.fn(async () => ({
         sensoryExpressions: ["すっと切れるような印象"],
@@ -471,7 +486,7 @@ describe("production semantic bridge Lambda", () => {
     );
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toMatchObject({ candidateTermIds: ["kire"] });
+    expect(JSON.parse(response.body)).toMatchObject({ candidateTermIds: [] });
     expect(JSON.parse(response.body).interpretationEvidence).toEqual([
       "duration:short",
       "ending:abrupt",
@@ -502,7 +517,7 @@ describe("production semantic bridge Lambda", () => {
     const response = await handler({ body: bodyRequest });
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toMatchObject({
-      candidateTermIds: ["kire"],
+      candidateTermIds: [],
       groundingExpressionIds: ["clean-fade"],
     });
   });
@@ -547,7 +562,7 @@ describe("production semantic bridge Lambda", () => {
       });
       const result = JSON.parse((await handler({ body: request })).body);
       expect(result.candidateTermIds).toEqual([]);
-      if (case_.state) expect(result.interpretationStateId).toBe(case_.state);
+      expect(result.interpretationStateId).toBeNull();
     }
   });
 
@@ -560,12 +575,63 @@ describe("production semantic bridge Lambda", () => {
     });
     const result = JSON.parse((await handler({ body: request })).body);
     expect(result).toMatchObject({
-      candidateTermIds: ["kire"],
+      candidateTermIds: [],
       interpretationEvidence: ["duration:short", "ending:abrupt"],
       unmappedFeatures: ["speed:sustained-fast"],
     });
     expect(result.unmappedFeatures).not.toContain("direction:unknown");
   });
+
+  it("uses semantic authorization when legacy grounding disagrees", async () => {
+    const handler = testHandler(
+      vi.fn(async () => ({
+        sensoryInterpretation: {
+          outcome: "interpreted",
+          sensoryExpression: "繧・▲縺上ｊ蠎・′繧区─縺・",
+          semanticProfile: semanticKireProfile,
+        },
+        sensoryExpressions: ["繝ｬ繧ｬ繧ｷ繝ｼ陦ｨ迴ｾ"],
+        candidateTermIds: ["atoaji"],
+        reason: "譁ｰ縺励＞諢溯ｦ夊｡ｨ迴ｾ",
+      })),
+    );
+    const result = JSON.parse(
+      (
+        await handler({
+          body: JSON.stringify({
+            modality: "body",
+            input: { ...bodyInput, duration: "unknown", ending: "unknown" },
+            allowedTermIds: ["kire", "atoaji"],
+          }),
+        })
+      ).body,
+    );
+    expect(result.candidateTermIds).toEqual(["kire"]);
+    expect(result.sensoryExpressions).toEqual(["繧・▲縺上ｊ蠎・′繧区─縺・"]);
+    expect(result.interpretationStateId).toBeNull();
+    expect(result.groundingCaseIds).toEqual(["body-insufficient-movement"]);
+  });
+
+  it.each(["ambiguous", "insufficient"])(
+    "does not revive legacy terms for semantic %s output",
+    async (outcome) => {
+      const handler = testHandler(
+        vi.fn(async () => ({
+          sensoryInterpretation: {
+            outcome,
+            sensoryExpression: "譖匁乂縺ｪ蜊ｰ雎｡",
+          },
+          sensoryExpressions: ["繝ｬ繧ｬ繧ｷ繝ｼ陦ｨ迴ｾ"],
+          candidateTermIds: ["kire"],
+          reason: "譁ｰ縺励＞諢溯ｦ夊｡ｨ迴ｾ",
+        })),
+      );
+      const result = JSON.parse((await handler({ body: bodyRequest })).body);
+      expect(result.candidateTermIds).toEqual([]);
+      expect(result.sensoryExpressions).toEqual(["譖匁乂縺ｪ蜊ｰ雎｡"]);
+      expect(result.interpretationStateId).toBeNull();
+    },
+  );
 
   it("rejects browser-supplied dictionary metadata", async () => {
     const request = JSON.parse(bodyRequest);

@@ -38,7 +38,7 @@ describe("semantic evaluation harness", () => {
       semanticInterpretationOutcome: null,
       groundingOutcome: "interpreted",
       interpretationOutcome: null,
-      authorizedTermIds: ["kire"],
+      authorizedTermIds: [],
     });
   });
 
@@ -117,10 +117,10 @@ describe("semantic evaluation harness", () => {
     const divergent = report.cases.find((entry) => entry.fixtureId === "body-sustained-fast");
     expect(divergent).toMatchObject({
       semanticInterpretationOutcome: "interpreted",
-      groundingOutcome: "ambiguous",
+      groundingOutcome: "insufficient",
       interpretationOutcome: "interpreted",
       semanticWording: "短く切れる印象",
-      presentationWording: [],
+      presentationWording: ["短く切れる印象"],
       semanticAuthorizedTermIds: ["kire", "nameraka", "marui", "tanrei"],
       nonInterpretedTermReach: false,
     });

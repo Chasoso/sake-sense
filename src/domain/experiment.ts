@@ -283,7 +283,10 @@ export async function runBodySemanticExperiment(
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
-    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
+    if (validation.ok)
+      response = applyReviewedSemanticGrounding(request, validation.value, {
+        allowLegacyGrounding: provider.kind === "fixture",
+      });
     else {
       response = createFallbackSensoryBridgeResponse(input, validation.error);
       providerStatus = "fallback";
@@ -339,7 +342,10 @@ export async function runVoiceSemanticExperiment(
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
-    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
+    if (validation.ok)
+      response = applyReviewedSemanticGrounding(request, validation.value, {
+        allowLegacyGrounding: provider.kind === "fixture",
+      });
     else {
       response = createFallbackSensoryBridgeResponse(request.input, validation.error);
       providerStatus = "fallback";
@@ -385,7 +391,10 @@ export async function runGestureSemanticExperiment(
   let providerStatus: SensoryBridgeProviderKind = provider.kind;
   try {
     const validation = validateSensoryBridgeResponse(await provider.interpret(request));
-    if (validation.ok) response = applyReviewedSemanticGrounding(request, validation.value);
+    if (validation.ok)
+      response = applyReviewedSemanticGrounding(request, validation.value, {
+        allowLegacyGrounding: provider.kind === "fixture",
+      });
     else {
       response = createFallbackSensoryBridgeResponse(request.input, validation.error);
       providerStatus = "fallback";

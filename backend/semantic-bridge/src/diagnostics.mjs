@@ -209,7 +209,7 @@ function summarizeAuthorization(value) {
       if (
         typeof entry.termId !== "string" ||
         typeof entry.sensoryClass !== "string" ||
-        (entry.level !== "strong" && entry.level !== "supported") ||
+        entry.level !== "strong" ||
         !Number.isInteger(entry.supportCount) ||
         entry.supportCount < 1
       ) {
@@ -290,6 +290,16 @@ export function buildSemanticEvaluationDiagnostics({
     authorizedTermIds,
     productMatchCount:
       Number.isInteger(productMatchCount) && productMatchCount >= 0 ? productMatchCount : 0,
+    legacyGroundingInvolvement:
+      Array.isArray(response?.groundingCaseIds) && response.groundingCaseIds.length > 0
+        ? "diagnostic-only"
+        : "none",
+    semanticAuthorizationSource: interpretation ? "primary-semantic-profile" : "none",
+    fallbackCategory: interpretation
+      ? interpretation.outcome === "interpreted"
+        ? "semantic-authorization"
+        : "semantic-no-authorization"
+      : "no-semantic-interpretation",
   };
   if (interpretation?.outcome === "interpreted") {
     const semanticProfile = summarizeValidatedProfile(

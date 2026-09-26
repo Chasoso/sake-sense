@@ -97,7 +97,7 @@ export type SensoryBridgeResponse = {
   authorization?: Array<{
     termId: string;
     sensoryClass: SensoryClassProposal;
-    level: "strong" | "supported";
+    level: "strong";
     supportCount: number;
   }>;
   authorizationConflicts?: Array<{
@@ -470,7 +470,7 @@ export function validateSensoryBridgeResponse(
           typeof entry.termId !== "string" ||
           !allowedIds.has(entry.termId) ||
           !sensoryClassValues.includes(entry.sensoryClass as SensoryClassProposal) ||
-          !(["strong", "supported"] as const).includes(entry.level as "strong" | "supported") ||
+          entry.level !== "strong" ||
           !Number.isInteger(entry.supportCount) ||
           (entry.supportCount as number) < 1,
       ) ||
@@ -519,12 +519,16 @@ function patternFeatureList(pattern: Record<string, unknown>): string[] {
 }
 
 /**
- * Re-derives term eligibility from reviewed support and expression-link data.
- * A model-provided selectable ID is therefore never sufficient to reach products.
+ * Applies the reviewed authorization result to a validated provider response.
+ *
+ * AI responses use the validated semantic authorization directly. Legacy
+ * support-case grounding is retained only for the local fixture provider and
+ * can be explicitly disabled for production providers.
  */
 export function applyReviewedSemanticGrounding(
   request: SensoryBridgeRequest,
   response: SensoryBridgeResponse,
+  options: { allowLegacyGrounding?: boolean } = {},
 ): SensoryBridgeResponse {
   const support =
     request.modality === "body"
@@ -553,18 +557,32 @@ export function applyReviewedSemanticGrounding(
   const observedFeatures = featureList(request.input, true);
   const accountedFor = new Set([...interpretationEvidence, ...unmappedFeatures]);
   const unusedFeatures = observedFeatures.filter((feature) => !accountedFor.has(feature));
-  const approvedCandidateTermIds =
-    request.modality === "gesture"
-      ? (response.authorization ?? [])
-          .map((entry) => entry.termId)
-          .filter((id) => request.allowedTermIds.includes(id))
-      : getApprovedCandidateTermIdsForSupport(support).filter((id) =>
-          request.allowedTermIds.includes(id),
-        );
-  const legacySensoryExpressions =
-    request.modality === "gesture"
-      ? response.sensoryExpressions
-      : getSensoryExpressionDisplayTextsForSupport(support);
+  const hasSemanticInterpretation = Boolean(response.sensoryInterpretation);
+  const allowLegacyGrounding = options.allowLegacyGrounding ?? true;
+  const approvedCandidateTermIds = hasSemanticInterpretation
+    ? (response.authorization
+        ?.map((entry) => entry.termId)
+        .filter((id) => request.allowedTermIds.includes(id)) ?? [])
+    : allowLegacyGrounding
+      ? request.modality === "gesture"
+        ? (response.authorization ?? [])
+            .map((entry) => entry.termId)
+            .filter((id) => request.allowedTermIds.includes(id))
+        : getApprovedCandidateTermIdsForSupport(support).filter((id) =>
+            request.allowedTermIds.includes(id),
+          )
+      : [];
+  const semanticSensoryExpressions =
+    typeof response.sensoryInterpretation?.sensoryExpression === "string"
+      ? [response.sensoryInterpretation.sensoryExpression]
+      : [];
+  const legacySensoryExpressions = hasSemanticInterpretation
+    ? semanticSensoryExpressions
+    : allowLegacyGrounding
+      ? request.modality === "gesture"
+        ? response.sensoryExpressions
+        : getSensoryExpressionDisplayTextsForSupport(support)
+      : response.sensoryExpressions;
   const legacyReason =
     support.resultKind === "expression"
       ? "既存のレビュー済みルールに基づく既定の感覚表現です。"
@@ -590,11 +608,21 @@ export function applyReviewedSemanticGrounding(
         : unmappedFeatures,
     unusedFeatures:
       support.resultKind === "unmapped" && !unmappedFeatures.length ? [] : unusedFeatures,
-    interpretationStateId: support.interpretationStateId ?? null,
+    interpretationStateId:
+      hasSemanticInterpretation || !allowLegacyGrounding
+        ? null
+        : (support.interpretationStateId ?? null),
     groundingCaseIds: support.matchedCaseIds,
     groundingExpressionIds: support.expressionIds,
-    reason: request.modality === "gesture" ? response.reason : legacyReason,
-    ...(request.modality === "gesture" ? { authorization: approvedAuthorization } : {}),
+    reason:
+      hasSemanticInterpretation || !allowLegacyGrounding
+        ? response.reason
+        : request.modality === "gesture"
+          ? response.reason
+          : legacyReason,
+    ...(hasSemanticInterpretation || (allowLegacyGrounding && request.modality === "gesture")
+      ? { authorization: approvedAuthorization }
+      : {}),
   };
 }
 
