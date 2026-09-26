@@ -301,16 +301,23 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
             className="expression-transform__words expression-transform__words--body"
             aria-label="表現から見えている特徴"
           >
-            {words.slice(0, 2).map((word, index) => (
+            {words.map((word, index) => (
               <li
                 className="expression-transform__body-word"
                 key={word}
                 data-visible={bodyWordsOpacity > 0.01}
-                style={{
-                  opacity: bodyWordsOpacity,
-                  left: `${18 + (index % 2) * 50}%`,
-                  top: `${18 + index * 22}%`,
-                }}
+                style={
+                  {
+                    opacity: bodyWordsOpacity,
+                    left: `${18 + (index % 2) * 50}%`,
+                    top: `${18 + Math.floor(index / 2) * 28}%`,
+                    animationDelay: `${index * 180}ms`,
+                    animationDuration: `${4.8 + index * 0.65}s`,
+                    "--body-word-drift-x": `${index % 2 === 0 ? 3 + index : -3 - index}px`,
+                    "--body-word-drift-y": `${index % 2 === 0 ? -5 - index : 4 + index}px`,
+                    transitionDelay: `${index * 180}ms`,
+                  } as CSSProperties
+                }
               >
                 {word}
               </li>

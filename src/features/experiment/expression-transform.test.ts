@@ -179,9 +179,9 @@ describe("expression transformation", () => {
     expect(words.join(" ")).not.toMatch(/あと味|切れ|淡麗|濃醇|kire|atoaji/);
   });
 
-  it("limits Body screen words to two deterministic local observations", () => {
+  it("exposes up to four deterministic local observations for the Body screen", () => {
     const words = getBodyDisplayWords(bodyFeatures);
-    expect(words).toHaveLength(2);
+    expect(words).toHaveLength(4);
     expect(words).toEqual(getBodyDisplayWords(bodyFeatures));
     expect(words.join(" ")).not.toMatch(/kire|atoaji|濃醇|淡麗/);
   });

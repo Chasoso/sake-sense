@@ -1925,6 +1925,8 @@ input {
   transition:
     opacity 600ms ease,
     transform 600ms ease;
+  animation: expression-transform-body-word-float 5s ease-in-out infinite alternate;
+  animation-play-state: paused;
 }
 
 .expression-transform__words--body .expression-transform__body-word {
@@ -1933,6 +1935,17 @@ input {
 
 .expression-transform__words--body .expression-transform__body-word[data-visible="true"] {
   transform: translateY(0);
+  animation-play-state: running;
+}
+
+@keyframes expression-transform-body-word-float {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(var(--body-word-drift-x, 3px), var(--body-word-drift-y, -5px), 0);
+  }
 }
 
 .experience-screen--body-transform {
@@ -2611,6 +2624,12 @@ input {
 
   .expression-transform--body-screen .expression-transform__body-light {
     stroke: none;
+  }
+
+  .expression-transform__words--body .expression-transform__body-word {
+    animation: none !important;
+    transform: none !important;
+    transition-delay: 0ms !important;
   }
 
   .expression-transform--body-screen .expression-transform__body-dissolve {
