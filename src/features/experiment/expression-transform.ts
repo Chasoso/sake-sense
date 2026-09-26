@@ -285,7 +285,7 @@ export function getBodyDisplayWords(features: BodyMovementFeatures): string[] {
   if (features.endingBehavior === "gradual") append("ゆっくり消える");
   if (features.endingBehavior === "abrupt") append("すっと止まる");
   if (features.endingBehavior === "continued") append("続く");
-  return words.slice(0, 2);
+  return words.slice(0, 4);
 }
 
 export function getVoiceIntermediateWords(features: VoiceFeatures): string[] {
