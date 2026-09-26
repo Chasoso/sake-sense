@@ -225,6 +225,10 @@ export const BODY_REGION_ACTIVITY_THRESHOLD = 0.03;
 export const BODY_MINIMUM_REGION_ACTIVE_SEGMENTS = 2;
 export const BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS = 2;
 export const BODY_MEANINGFUL_SPREAD_THRESHOLD = 0.08;
+export const BODY_MEANINGFUL_EXTENT_THRESHOLD = 0.2;
+export const BODY_MEANINGFUL_PATH_EFFICIENCY_THRESHOLD = 0.25;
+export const BODY_MINIMUM_MEANINGFUL_SEGMENTS = 2;
+export const BODY_MEANINGFUL_SEGMENT_ACTIVITY_THRESHOLD = 0.02;
 export const BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15;
 export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
 export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
@@ -246,6 +250,19 @@ function finite(value: number | undefined): number {
 
 function distance(from: BodyLandmark, to: BodyLandmark): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
+}
+
+function longestActiveDuration(activeIndexes: number[], segmentDurations: number[]): number {
+  let longest = 0;
+  let current = 0;
+  let previousIndex = -2;
+  activeIndexes.forEach((index) => {
+    current =
+      index === previousIndex + 1 ? current + segmentDurations[index] : segmentDurations[index];
+    longest = Math.max(longest, current);
+    previousIndex = index;
+  });
+  return longest;
 }
 
 function dot(left: { x: number; y: number }, right: { x: number; y: number }): number {
@@ -783,8 +800,9 @@ function extractMotionShape(
   for (let index = 1; index < signs.length; index += 1) {
     if (signs[index] !== signs[index - 1]) reversals += 1;
   }
+  const hasMeaningfulExcursion = Math.max(xRange, yRange) >= BODY_MOTION_DIRECTION_THRESHOLD;
   const repetition: BodyMotionShape["repetition"] =
-    representativePath < BODY_MOTION_DIRECTION_THRESHOLD
+    representativePath < BODY_MOTION_DIRECTION_THRESHOLD || !hasMeaningfulExcursion
       ? "unknown"
       : reversals >= 2
         ? "repeated"
@@ -1045,16 +1063,16 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
 
   const validTimes = normalized.map((frame) => frame.t);
   const captureDurationMs = Math.max(validTimes.at(-1)! - validTimes[0], 0);
-  const activeDurationMs = segmentMovements.reduce(
+  const rawActiveDurationMs = segmentMovements.reduce(
     (duration, movement, index) =>
       duration + (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? segmentDurations[index] : 0),
     0,
   );
-  const activeMovement = segmentMovements.reduce(
+  const rawActiveMovement = segmentMovements.reduce(
     (movement, segment) => movement + (segment >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? segment : 0),
     0,
   );
-  const activeIndexes = segmentMovements
+  const rawActiveIndexes = segmentMovements
     .map((movement, index) => (movement >= BODY_MOVEMENT_ACTIVITY_THRESHOLD ? index : -1))
     .filter((index) => index >= 0);
   const regionActiveSegmentCounts = regionSegmentMovements.map(
@@ -1074,18 +1092,46 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
   const meaningfulShoulderCenterTrajectory =
     observableShoulderCenterActiveSegments >= BODY_MINIMUM_MEANINGFUL_ACTIVE_SEGMENTS &&
     observableShoulderCenterExtent >= BODY_MEANINGFUL_SPREAD_THRESHOLD;
+  const meaningfulExtent = Math.max(movementSpread, observableShoulderCenterExtent);
+  const meaningfulJointCount = CORE_MOVEMENT_JOINTS.filter(
+    (index) => (jointMovement[index] ?? 0) >= BODY_ACTIVE_JOINT_THRESHOLD,
+  ).length;
+  const pathEfficiency = meaningfulExtent / Math.max(rawActiveMovement, Number.EPSILON);
+  const meaningfulSpatialExtent =
+    meaningfulExtent >= BODY_MEANINGFUL_EXTENT_THRESHOLD ||
+    (meaningfulExtent >= BODY_MEANINGFUL_SPREAD_THRESHOLD &&
+      pathEfficiency >= BODY_MEANINGFUL_PATH_EFFICIENCY_THRESHOLD);
+  const meaningfulTemporalPersistence =
+    rawActiveIndexes.length >= BODY_MINIMUM_MEANINGFUL_SEGMENTS ||
+    meaningfulExtent >= BODY_MEANINGFUL_EXTENT_THRESHOLD;
+  const meaningfulJointParticipation =
+    meaningfulJointCount >= 2 ||
+    pathEfficiency >= 0.5 ||
+    meaningfulExtent >= BODY_MEANINGFUL_EXTENT_THRESHOLD;
   const hasMeaningfulMovement =
-    activeDurationMs > 0 &&
-    (meaningfulRegionCount > 0 ||
-      meaningfulShoulderCenterTrajectory ||
-      movementSpread >= BODY_MEANINGFUL_SPREAD_THRESHOLD);
+    rawActiveDurationMs > 0 &&
+    meaningfulTemporalPersistence &&
+    meaningfulSpatialExtent &&
+    meaningfulJointParticipation &&
+    (meaningfulRegionCount > 0 || meaningfulShoulderCenterTrajectory || meaningfulSpatialExtent);
+  const meaningfulSegmentIndexes = rawActiveIndexes.filter(
+    (index) => segmentMovements[index] >= BODY_MEANINGFUL_SEGMENT_ACTIVITY_THRESHOLD,
+  );
+  const activeIndexes = hasMeaningfulMovement
+    ? meaningfulSegmentIndexes.length
+      ? meaningfulSegmentIndexes
+      : rawActiveIndexes
+    : [];
+  const activeDurationMs = hasMeaningfulMovement
+    ? longestActiveDuration(activeIndexes, segmentDurations)
+    : 0;
+  const activeMovement = hasMeaningfulMovement
+    ? activeIndexes.reduce((movement, index) => movement + segmentMovements[index], 0)
+    : 0;
   const lastActiveIndex = activeIndexes.at(-1);
   const finalSequence: number[] = [];
-  for (
-    let index = lastActiveIndex;
-    index !== undefined && segmentMovements[index] >= BODY_MOVEMENT_ACTIVITY_THRESHOLD;
-    index -= 1
-  ) {
+  const activeIndexSet = new Set(activeIndexes);
+  for (let index = lastActiveIndex; index !== undefined && activeIndexSet.has(index); index -= 1) {
     finalSequence.unshift(index);
   }
   const activeSpeeds = finalSequence.map((index) => segmentSpeeds[index]);
