@@ -13,6 +13,11 @@ Run `npm run validate` before creating a PR. It runs the same no-network gates a
 
 The individual commands are available for focused iteration. `npm run test` runs unit tests without coverage when a faster feedback loop is useful.
 
+Vitest V8 coverage is enforced at 80% lines, 70% branches, 85% functions, and 78%
+statements. These thresholds are intentionally a small margin below the measured
+baseline (83.61%, 73.91%, 88.70%, and 81.34% respectively), so meaningful coverage
+regressions fail without making ordinary focused changes fragile.
+
 ## CI
 
 Pull requests targeting `main` run `npm ci` and then `npm run validate` on the Node version pinned in `.nvmrc`. CI uses least-privilege read-only repository permissions, does not require AWS credentials, and does not call external product integrations. Coverage is uploaded as an artifact when available.
@@ -25,9 +30,22 @@ Pull requests targeting `main` run `npm ci` and then `npm run validate` on the N
 
 `npm run secret-scan` checks Git-tracked text files for common credential formats and private-key markers. It is a lightweight repository-standard scanner designed for this small project; it is not a substitute for rotating a credential if one is exposed. Extend its documented patterns when a new credential format becomes relevant.
 
-## Deferred gates
+## Browser and production gates
 
-Playwright E2E and browser visual regression are deferred until the first meaningful user-facing interaction exists. The current shell has no interaction whose behavior would justify an E2E gate. External integration tests remain opt-in.
+The deterministic Playwright suites cover user flows with mocked APIs and no AWS,
+Cognito, or production network access. `npm run test:e2e:admin` covers CRUD and
+relation behavior; `npm run test:e2e:visual` covers a small fixed screenshot set.
+Update visual baselines only intentionally with `npm run test:e2e:visual -- --update-snapshots`
+and review the resulting PNGs.
+The visual assertions use a 3.5% pixel-difference ceiling in the fixed Ubuntu Chromium CI environment. The checked-in baselines were created on a different desktop OS, so this is the smallest stable ceiling observed for the known cross-platform font rasterization noise; a modest per-pixel color threshold absorbs only antialiasing differences. The aggregate ceiling remains stricter than the former 5% setting and catches larger layout, wrapping, and missing-control regressions. Baselines are not updated to hide a failed comparison.
+
+Production deployment runs `npm run smoke:production` after successful relevant
+deployments. It performs only read/preflight checks: frontend and public API reachability,
+admin CORS preflight, and unauthenticated admin protection. It never obtains tokens or
+writes production data. Mock E2E failures block a merge; production smoke failures block
+the deployment and require investigation or rollback. The production environment supplies
+`PRODUCTION_APP_URL`, `VITE_SAKE_DATA_API_BASE_URL`, and `DATA_ADMIN_ALLOWED_ORIGIN` to this
+job; these are deployment configuration, not test credentials.
 
 ## Verify vs Experience
 

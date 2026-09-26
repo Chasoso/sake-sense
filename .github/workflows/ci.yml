@@ -38,6 +38,9 @@ jobs:
       - name: Run Admin E2E
         run: npm run test:e2e:admin
 
+      - name: Run admin visual regression E2E
+        run: npm run test:e2e:visual
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v6

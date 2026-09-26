@@ -7,6 +7,7 @@ import {
   startAdminLogin,
   type AdminSession,
 } from "./admin-auth";
+import { displayName, relationLabel, selectOptions, statusLabel } from "./admin-presentation";
 
 type AdminCollection = "products" | "breweries" | "sources" | "evidence";
 type RecordItem = Record<string, unknown> & { id?: string; status?: string; updatedAt?: string };
@@ -68,31 +69,6 @@ function apiBase(): string {
   return ((import.meta.env.VITE_SAKE_DATA_API_BASE_URL as string | undefined) ?? "").replace(
     /\/$/,
     "",
-  );
-}
-
-function displayName(item: RecordItem, fallback = "-"): string {
-  return String(
-    item.displayName ?? item.name ?? item.sourceName ?? item.title ?? item.id ?? fallback,
-  );
-}
-
-function statusLabel(value: string): string {
-  return (
-    (
-      {
-        published: "公開中",
-        draft: "下書き",
-        archived: "アーカイブ",
-        regular: "通常",
-        seasonal: "季節限定",
-        unknown: "不明",
-        direct: "直接",
-        "accepted-variant": "承認済み変形",
-        weak: "弱い根拠",
-        rejected: "却下",
-      } as Record<string, string>
-    )[value] ?? value
   );
 }
 
@@ -258,11 +234,6 @@ function ProductTable({
   selectedId?: string;
   onSelect: (item: RecordItem) => void;
 }) {
-  const breweryLabels = new Map(
-    breweries
-      .filter((brewery) => brewery.id)
-      .map((brewery) => [String(brewery.id), displayName(brewery)]),
-  );
   return (
     <div className="admin-table-wrap">
       <table className="admin-table">
@@ -291,9 +262,7 @@ function ProductTable({
                   {displayName(item)}
                 </button>
               </td>
-              <td>
-                {breweryLabels.get(String(item.breweryId ?? "")) ?? String(item.breweryId ?? "-")}
-              </td>
+              <td>{relationLabel(breweries, item.breweryId)}</td>
               <td>
                 <StatusBadge value={item.availabilityStatus} kind="availability" />
               </td>
@@ -323,24 +292,22 @@ function ProductEditor({
   onChange: (field: string, value: string) => void;
   onSave: () => void;
 }) {
-  const breweryOptions = breweries.map((item) => ({
-    value: String(item.id ?? ""),
-    label: displayName(item),
+  const breweryOptions = selectOptions(breweries);
+  const sourceOptions = selectOptions(sources).map((option) => {
+    const source = sources.find((item) => String(item.id) === option.value);
+    return {
+      ...option,
+      label: `${option.label}${source?.title ? ` - ${String(source.title)}` : ""}`,
+    };
+  });
+  const statusOptions = ["draft", "published", "archived"].map((value) => ({
+    value,
+    label: statusLabel(value),
   }));
-  const sourceOptions = sources.map((item) => ({
-    value: String(item.id ?? ""),
-    label: `${displayName(item)}${item.title ? ` - ${String(item.title)}` : ""}`,
+  const availabilityOptions = ["regular", "seasonal", "unknown"].map((value) => ({
+    value,
+    label: statusLabel(value),
   }));
-  const statusOptions = [
-    { value: "draft", label: "下書き" },
-    { value: "published", label: "公開中" },
-    { value: "archived", label: "アーカイブ" },
-  ];
-  const availabilityOptions = [
-    { value: "regular", label: "通常" },
-    { value: "seasonal", label: "季節限定" },
-    { value: "unknown", label: "不明" },
-  ];
   return (
     <section className="admin-editor">
       <div className="admin-editor__heading">
@@ -420,11 +387,10 @@ function ProductEditor({
   );
 }
 
-const lifecycleOptions = [
-  { value: "draft", label: "下書き" },
-  { value: "published", label: "公開中" },
-  { value: "archived", label: "アーカイブ" },
-];
+const lifecycleOptions = ["draft", "published", "archived"].map((value) => ({
+  value,
+  label: statusLabel(value),
+}));
 
 function CollectionTable({
   collection,
@@ -441,12 +407,6 @@ function CollectionTable({
   selectedId?: string;
   onSelect: (item: RecordItem) => void;
 }) {
-  const productLabels = new Map(
-    products.filter((item) => item.id).map((item) => [String(item.id), displayName(item)]),
-  );
-  const sourceLabels = new Map(
-    sources.filter((item) => item.id).map((item) => [String(item.id), displayName(item)]),
-  );
   const columns =
     collection === "breweries"
       ? ["酒蔵名", "表示名", "地域", "公開状態", "更新日時"]
@@ -487,10 +447,9 @@ function CollectionTable({
                       String(item.updatedAt ?? "-"),
                     ]
                   : [
-                      productLabels.get(String(item.productId ?? "")) ??
-                        String(item.productId ?? "-"),
+                      relationLabel(products, item.productId),
                       String(item.termId ?? "-"),
-                      sourceLabels.get(String(item.sourceId ?? "")) ?? String(item.sourceId ?? "-"),
+                      relationLabel(sources, item.sourceId),
                       <StatusBadge key="evidence" value={item.evidenceStatus} kind="evidence" />,
                       <StatusBadge key="status" value={item.status} kind="status" />,
                       String(item.updatedAt ?? "-"),
@@ -542,14 +501,8 @@ function CollectionEditor({
   const heading = selected.id
     ? `${COLLECTION_LABELS[collection]}を編集`
     : `新しい${COLLECTION_LABELS[collection]}`;
-  const productOptions = products.map((item) => ({
-    value: String(item.id ?? ""),
-    label: displayName(item),
-  }));
-  const sourceOptions = sources.map((item) => ({
-    value: String(item.id ?? ""),
-    label: displayName(item),
-  }));
+  const productOptions = selectOptions(products);
+  const sourceOptions = selectOptions(sources);
   const editor =
     collection === "breweries" ? (
       <>
@@ -664,12 +617,10 @@ function CollectionEditor({
           <SelectField
             field="evidenceStatus"
             value={String(selected.evidenceStatus ?? "")}
-            options={[
-              { value: "direct", label: "直接" },
-              { value: "accepted-variant", label: "承認済み変形" },
-              { value: "weak", label: "弱い根拠" },
-              { value: "rejected", label: "却下" },
-            ]}
+            options={["direct", "accepted-variant", "weak", "rejected"].map((value) => ({
+              value,
+              label: statusLabel(value),
+            }))}
             onChange={(value) => onChange("evidenceStatus", value)}
           />
           <Field
