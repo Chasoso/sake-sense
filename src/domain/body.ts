@@ -229,6 +229,8 @@ export const BODY_MEANINGFUL_EXTENT_THRESHOLD = 0.2;
 export const BODY_MEANINGFUL_PATH_EFFICIENCY_THRESHOLD = 0.25;
 export const BODY_MINIMUM_MEANINGFUL_SEGMENTS = 2;
 export const BODY_MEANINGFUL_SEGMENT_ACTIVITY_THRESHOLD = 0.02;
+export const BODY_MEANINGFUL_ACTIVITY_PEAK_RATIO = 0.6;
+export const BODY_MINIMUM_REPETITION_EXCURSION = 0.25;
 export const BODY_MOTION_SHAPE_CHANGE_THRESHOLD = 0.15;
 export const BODY_MOTION_DIRECTION_THRESHOLD = 0.2;
 export const BODY_MOTION_DIRECTION_DOMINANCE_RATIO = 1.25;
@@ -800,7 +802,7 @@ function extractMotionShape(
   for (let index = 1; index < signs.length; index += 1) {
     if (signs[index] !== signs[index - 1]) reversals += 1;
   }
-  const hasMeaningfulExcursion = Math.max(xRange, yRange) >= BODY_MOTION_DIRECTION_THRESHOLD;
+  const hasMeaningfulExcursion = Math.max(xRange, yRange) >= BODY_MINIMUM_REPETITION_EXCURSION;
   const repetition: BodyMotionShape["repetition"] =
     representativePath < BODY_MOTION_DIRECTION_THRESHOLD || !hasMeaningfulExcursion
       ? "unknown"
@@ -1114,8 +1116,22 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
     meaningfulSpatialExtent &&
     meaningfulJointParticipation &&
     (meaningfulRegionCount > 0 || meaningfulShoulderCenterTrajectory || meaningfulSpatialExtent);
+  const peakMovement = Math.max(...segmentMovements, 0);
+  const meaningfulActivityThreshold = Math.max(
+    BODY_MEANINGFUL_SEGMENT_ACTIVITY_THRESHOLD,
+    peakMovement * BODY_MEANINGFUL_ACTIVITY_PEAK_RATIO,
+  );
+  const rawLastActiveIndex = rawActiveIndexes.at(-1);
+  const rawInactiveTailDuration = segmentDurations
+    .slice(rawLastActiveIndex === undefined ? segmentDurations.length : rawLastActiveIndex + 1)
+    .reduce((duration, segmentDuration) => duration + segmentDuration, 0);
+  const hasReliableInactiveTail = rawInactiveTailDuration >= BODY_MINIMUM_INACTIVE_TAIL_DURATION_MS;
+  const lastStrongActivityIndex = rawActiveIndexes
+    .filter((index) => segmentMovements[index] >= meaningfulActivityThreshold)
+    .at(-1);
+  const meaningfulEndIndex = hasReliableInactiveTail ? rawLastActiveIndex : lastStrongActivityIndex;
   const meaningfulSegmentIndexes = rawActiveIndexes.filter(
-    (index) => segmentMovements[index] >= BODY_MEANINGFUL_SEGMENT_ACTIVITY_THRESHOLD,
+    (index) => meaningfulEndIndex !== undefined && index <= meaningfulEndIndex,
   );
   const activeIndexes = hasMeaningfulMovement
     ? meaningfulSegmentIndexes.length
@@ -1128,6 +1144,17 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
   const activeMovement = hasMeaningfulMovement
     ? activeIndexes.reduce((movement, index) => movement + segmentMovements[index], 0)
     : 0;
+  const meaningfulSegmentSet = new Set(activeIndexes);
+  const cleanedSegmentMovements = segmentMovements.map((movement, index) =>
+    meaningfulSegmentSet.has(index) ? movement : 0,
+  );
+  const cleanedRegionActiveSegmentCounts = regionSegmentMovements.map(
+    (regionMovements) =>
+      regionMovements.filter(
+        (movement, index) =>
+          meaningfulSegmentSet.has(index) && movement >= BODY_REGION_ACTIVITY_THRESHOLD,
+      ).length,
+  );
   const lastActiveIndex = activeIndexes.at(-1);
   const finalSequence: number[] = [];
   const activeIndexSet = new Set(activeIndexes);
@@ -1192,9 +1219,9 @@ export function analyzeBodyMovement(frames: BodyPoseFrame[]): BodyMovementAnalys
   const shapeResult = hasMeaningfulMovement
     ? extractMotionShape(
         normalized,
-        segmentMovements,
+        cleanedSegmentMovements,
         jointMovement,
-        regionActiveSegmentCounts,
+        cleanedRegionActiveSegmentCounts,
         orientation,
       )
     : {

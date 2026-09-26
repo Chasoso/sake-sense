@@ -63,6 +63,10 @@ function stationaryPoseJitterFrame(t: number, phase: number): BodyPoseFrame {
   });
 }
 
+function stationaryWristJitterFrame(t: number, phase: number): BodyPoseFrame {
+  return frame(t, 1.2 + (phase >= 0 ? 0.1 : -0.1));
+}
+
 function nearStillWithOffscreenNoiseFrame(t: number, phase: number): BodyPoseFrame {
   const landmarks: BodyLandmark[] = Array.from({ length: 33 }, (_, index) => ({
     x: (index % 5) * 0.001 * phase,
@@ -278,7 +282,12 @@ describe("body movement features", () => {
       frame(300, 0.2),
       frame(600, 0.8),
       frame(900, 1.2),
-      frame(3000, 1.2),
+      stationaryWristJitterFrame(1200, 1),
+      stationaryWristJitterFrame(1500, -1),
+      stationaryWristJitterFrame(1800, 1),
+      stationaryWristJitterFrame(2100, -1),
+      stationaryWristJitterFrame(2400, 1),
+      stationaryWristJitterFrame(3000, -1),
     ]);
 
     expect(features.hasMeaningfulMovement).toBe(true);
