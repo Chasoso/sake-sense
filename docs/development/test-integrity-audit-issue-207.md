@@ -40,6 +40,13 @@
 - Production behavior: likely correct。handlerのroute/method、allowlist、validationは `backend/data-platform/src/handlers.test.mjs` でも直接検証されている。
 - Action: follow-up recommended。API contract変更時はmockに未定義route検知を追加し、不要な404許容を見逃さないようにする。
 
+### Low — Admin source CRUD の保存競合
+
+- Area: `src/features/admin/AdminApp.tsx`, `tests/e2e/admin.spec.ts`
+- Evidence: CIでsource create直後のeditが、最初のsaveのreload/state更新完了前に進み、PATCH payloadが作成時のtitleへ戻る非決定的な失敗を確認した。
+- Production behavior: race conditionあり。連続操作時に保存中のstateが後続入力を上書きし得た。
+- Action: fixed in this PR。保存中はAdmin editorのSave buttonをdisabledにし、E2Eでも一覧reload完了を待つようにした。API payloadとCRUD semanticsは維持した。
+
 ## No issue found
 
 - Productionで使われるAdmin presentation helperは、`AdminApp.tsx` が `statusLabel`、`relationLabel`、`selectOptions`、`displayName` を直接利用しており、unit testだけのhelperにはなっていない。
@@ -68,4 +75,4 @@
 
 ## Conclusion
 
-今回の監査で確認したvisual false-green riskは、CI同一環境でのbaseline再生成、差分閾値の厳格化、deterministicな再生成手順の文書化で解消した。未定義Admin mock route検知は引き続き低優先度のfollow-upとする。
+今回の監査で確認したvisual false-green riskは、CI同一環境でのbaseline再生成、差分閾値の厳格化、deterministicな再生成手順の文書化で解消した。追加でCI実行中に確認したAdmin save raceもproduction/UIとE2Eの両方で修正した。未定義Admin mock route検知は引き続き低優先度のfollow-upとする。

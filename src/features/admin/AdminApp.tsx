@@ -285,12 +285,14 @@ function ProductEditor({
   sources,
   onChange,
   onSave,
+  saving,
 }: {
   selected: RecordItem;
   breweries: readonly RecordItem[];
   sources: readonly RecordItem[];
   onChange: (field: string, value: string) => void;
   onSave: () => void;
+  saving: boolean;
 }) {
   const breweryOptions = selectOptions(breweries);
   const sourceOptions = selectOptions(sources).map((option) => {
@@ -320,6 +322,7 @@ function ProductEditor({
           type="button"
           aria-label="Save record"
           onClick={onSave}
+          disabled={saving}
         >
           <Save size={16} />
           保存
@@ -490,6 +493,7 @@ function CollectionEditor({
   sources,
   onChange,
   onSave,
+  saving,
 }: {
   collection: "breweries" | "sources" | "evidence";
   selected: RecordItem;
@@ -497,6 +501,7 @@ function CollectionEditor({
   sources: readonly RecordItem[];
   onChange: (field: string, value: string) => void;
   onSave: () => void;
+  saving: boolean;
 }) {
   const heading = selected.id
     ? `${COLLECTION_LABELS[collection]}を編集`
@@ -652,6 +657,7 @@ function CollectionEditor({
           type="button"
           aria-label="Save record"
           onClick={onSave}
+          disabled={saving}
         >
           <Save size={16} />
           保存
@@ -724,6 +730,7 @@ function AdminCollectionPage({
   const [sources, setSources] = useState<RecordItem[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const loadOptions = useCallback(
     async (optionCollection: "products" | "breweries" | "sources") => {
       try {
@@ -776,23 +783,28 @@ function AdminCollectionPage({
     [items, query],
   );
   const save = async () => {
-    if (!selected) return;
+    if (!selected || saving) return;
+    setSaving(true);
     const hasId = Boolean(selected.id);
-    const response = await fetch(
-      `${apiBase()}/admin/${collection}${hasId ? `/${encodeURIComponent(selected.id as string)}` : ""}`,
-      {
-        method: hasId ? "PATCH" : "POST",
-        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify(selected),
-      },
-    );
-    if (!response.ok) {
-      setError(`保存に失敗しました (${response.status})`);
-      return;
+    try {
+      const response = await fetch(
+        `${apiBase()}/admin/${collection}${hasId ? `/${encodeURIComponent(selected.id as string)}` : ""}`,
+        {
+          method: hasId ? "PATCH" : "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify(selected),
+        },
+      );
+      if (!response.ok) {
+        setError(`保存に失敗しました (${response.status})`);
+        return;
+      }
+      const saved = (await response.json()) as RecordItem;
+      await load();
+      setSelected(saved);
+    } finally {
+      setSaving(false);
     }
-    const saved = (await response.json()) as RecordItem;
-    await load();
-    setSelected(saved);
   };
   const updateSelected = (field: string, value: string) =>
     setSelected((current) => (current ? { ...current, [field]: value } : current));
@@ -872,6 +884,7 @@ function AdminCollectionPage({
               sources={sources}
               onChange={updateSelected}
               onSave={() => void save()}
+              saving={saving}
             />
           ) : (
             <CollectionEditor
@@ -881,6 +894,7 @@ function AdminCollectionPage({
               sources={sources}
               onChange={updateSelected}
               onSave={() => void save()}
+              saving={saving}
             />
           ))}
       </div>
