@@ -27,6 +27,9 @@ const required = [
   "AWS::Cognito::UserPoolClient",
   "AWS::Cognito::UserPoolGroup",
   "DataApiAuthorizer:",
+  'RouteKey: "ANY /admin/{proxy+}"',
+  'RouteKey: "OPTIONS /admin/{proxy+}"',
+  "AdminOptionsRoute:",
   "productId-index",
   "BillingMode: PAY_PER_REQUEST",
   "CognitoCallbackUrl:",
@@ -41,6 +44,21 @@ const required = [
 ];
 const missing = required.filter((value) => !template.includes(value));
 if (missing.length) throw new Error(`data-admin infrastructure is missing: ${missing.join(", ")}`);
+const adminOptionsRouteStart = template.indexOf("AdminOptionsRoute:");
+const dataApiStageStart = template.indexOf("DataApiStage:");
+if (adminOptionsRouteStart < 0 || dataApiStageStart < adminOptionsRouteStart) {
+  throw new Error("data-admin infrastructure is missing the unauthenticated admin OPTIONS route");
+}
+const adminOptionsRoute = template.slice(adminOptionsRouteStart, dataApiStageStart);
+if (adminOptionsRoute.includes("AuthorizationType:") || adminOptionsRoute.includes("AuthorizerId:"))
+  throw new Error("admin OPTIONS route must not use the JWT authorizer");
+const adminRouteStart = template.indexOf("AdminRoute:");
+const adminRoute = template.slice(adminRouteStart, adminOptionsRouteStart);
+if (
+  !adminRoute.includes("AuthorizationType: JWT") ||
+  !adminRoute.includes("AuthorizerId: !Ref DataApiAuthorizer")
+)
+  throw new Error("authenticated admin route must retain the JWT authorizer");
 for (const forbidden of [
   "SmsConfiguration:",
   "AWS::SNS",
