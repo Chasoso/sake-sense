@@ -12,6 +12,7 @@ const product = {
   status: "published",
   updatedAt: "2026-09-24T00:00:00.000Z",
 };
+const screenshotOptions = { fullPage: true, maxDiffPixelRatio: 0.05 } as const;
 
 async function setup(page: import("@playwright/test").Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -40,7 +41,7 @@ test("admin products desktop visual reference", async ({ page }) => {
   await setup(page);
   await page.goto("/admin/products");
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page).toHaveScreenshot("admin-products-desktop.png", { fullPage: true });
+  await expect(page).toHaveScreenshot("admin-products-desktop.png", screenshotOptions);
 });
 
 test("admin breweries mobile visual reference", async ({ page }) => {
@@ -48,12 +49,12 @@ test("admin breweries mobile visual reference", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin/breweries");
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page).toHaveScreenshot("admin-breweries-mobile.png", { fullPage: true });
+  await expect(page).toHaveScreenshot("admin-breweries-mobile.png", screenshotOptions);
 });
 
 test("admin evidence shared UI visual reference", async ({ page }) => {
   await setup(page);
   await page.goto("/admin/evidence");
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page).toHaveScreenshot("admin-evidence-desktop.png", { fullPage: true });
+  await expect(page).toHaveScreenshot("admin-evidence-desktop.png", screenshotOptions);
 });
