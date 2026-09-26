@@ -27,6 +27,7 @@ const required = [
   "AWS::Cognito::UserPoolClient",
   "AWS::Cognito::UserPoolGroup",
   "DataApiAuthorizer:",
+  "AdminRoute:",
   'RouteKey: "GET /admin/{proxy+}"',
   'RouteKey: "POST /admin/{proxy+}"',
   'RouteKey: "PATCH /admin/{proxy+}"',
@@ -54,7 +55,7 @@ if (
     "data-admin must rely on HTTP API CORS instead of an explicit admin OPTIONS route",
   );
 const dataApiStageStart = template.indexOf("DataApiStage:");
-const adminRoutes = ["AdminGetRoute:", "AdminPostRoute:", "AdminPatchRoute:"];
+const adminRoutes = ["AdminRoute:", "AdminPostRoute:", "AdminPatchRoute:"];
 for (const routeName of adminRoutes) {
   const routeStart = template.indexOf(routeName);
   const nextRouteStart = adminRoutes

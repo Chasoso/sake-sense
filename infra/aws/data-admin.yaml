@@ -289,7 +289,7 @@ Resources:
       RouteKey: "GET /api/{proxy+}"
       Target: !Sub integrations/${PublicIntegration}
 
-  AdminGetRoute:
+  AdminRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref DataApi
