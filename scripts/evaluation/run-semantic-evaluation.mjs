@@ -17,7 +17,10 @@ import {
 } from "./semantic-evaluator.mjs";
 
 const repositoryRoot = process.cwd();
-const baselinePath = path.join(repositoryRoot, "docs/evaluation/semantic-baseline.json");
+const offlineBaselinePath = path.join(
+  repositoryRoot,
+  "docs/evaluation/semantic-offline-baseline.json",
+);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -95,12 +98,28 @@ function changedCaseReasons(current, previous) {
 }
 
 export function compareEvaluationReports(current, baseline) {
+  const baselineAvailable = Boolean(baseline);
+  const baselineCompatible =
+    !baseline ||
+    !current.baselineKind ||
+    !baseline.baselineKind ||
+    current.baselineKind === baseline.baselineKind;
+  const contractFailures = (current.cases ?? [])
+    .filter((entry) => entry.deterministicContract?.status === "failed")
+    .map((entry) => entry.fixtureId);
+  if (!baselineCompatible) {
+    return {
+      baselineAvailable,
+      baselineCompatible: false,
+      changedCases: [],
+      contractFailures,
+      reason: "baseline-kind-mismatch",
+    };
+  }
   const previousById = new Map((baseline?.cases ?? []).map((entry) => [entry.fixtureId, entry]));
   const changedCases = [];
-  const contractFailures = [];
   for (const entry of current.cases ?? []) {
     if (entry.deterministicContract?.status === "failed") {
-      contractFailures.push(entry.fixtureId);
       continue;
     }
     const previous = previousById.get(entry.fixtureId);
@@ -112,9 +131,35 @@ export function compareEvaluationReports(current, baseline) {
     if (reasons.length) changedCases.push({ fixtureId: entry.fixtureId, reasons });
   }
   return {
-    baselineAvailable: Boolean(baseline),
+    baselineAvailable,
+    baselineCompatible: true,
     changedCases,
     contractFailures,
+  };
+}
+
+export function integrateComparisonReviewQueue(report, comparison) {
+  const changedById = new Map(
+    (comparison.changedCases ?? []).map((change) => [change.fixtureId, change.reasons]),
+  );
+  const cases = report.cases.map((entry) => {
+    const baselineReasons = (changedById.get(entry.fixtureId) ?? []).map(
+      (reason) => `baseline-${reason}-changed`,
+    );
+    return {
+      ...entry,
+      humanReviewReasons: [...new Set([...entry.humanReviewReasons, ...baselineReasons])],
+    };
+  });
+  return {
+    ...report,
+    cases,
+    summary: {
+      ...report.summary,
+      baselineChangedCaseCount: comparison.changedCases?.length ?? 0,
+      humanReviewQueueCount: cases.filter((entry) => entry.humanReviewReasons.length > 0).length,
+    },
+    comparison,
   };
 }
 
@@ -134,6 +179,7 @@ export async function runSemanticEvaluation({
   fixtures = fixtureData.fixtures,
   provider,
   judge,
+  mode = "offline-deterministic-grounding",
 } = {}) {
   const { allowedTermIds } = validateEvaluationFixtures(fixtures);
   const allowedIdSet = new Set(allowedTermIds);
@@ -214,7 +260,11 @@ export async function runSemanticEvaluation({
   };
   return {
     version: "0.1.0",
-    baselineKind: "observation-not-ground-truth",
+    baselineKind: mode,
+    baselineNote:
+      mode === "live-production-equivalent"
+        ? "Observation from the production provider and validation path; not ground truth."
+        : "Offline deterministic reviewed-grounding observation; not production-equivalent and not ground truth.",
     cases,
     summary,
   };
@@ -243,27 +293,37 @@ export async function main() {
   const live = process.argv.includes("--live");
   const outputIndex = process.argv.indexOf("--output");
   const outputPath =
-    outputIndex >= 0 ? path.resolve(process.cwd(), process.argv[outputIndex + 1]) : baselinePath;
-  const baseline = !live
-    ? null
-    : await fs
-        .readFile(baselinePath, "utf8")
-        .then(JSON.parse)
-        .catch(() => null);
+    outputIndex >= 0
+      ? path.resolve(process.cwd(), process.argv[outputIndex + 1])
+      : offlineBaselinePath;
+  const baselineIndex = process.argv.indexOf("--baseline");
+  const baseline =
+    baselineIndex >= 0
+      ? await fs
+          .readFile(path.resolve(process.cwd(), process.argv[baselineIndex + 1]), "utf8")
+          .then(JSON.parse)
+          .catch(() => null)
+      : null;
   const provider = live ? (request) => invokeBedrock(request, process.env) : undefined;
   const judge = live ? await createLiveJudge(process.env) : undefined;
-  const report = await runSemanticEvaluation({ provider, judge });
-  report.comparison = baseline
+  const report = await runSemanticEvaluation({
+    provider,
+    judge,
+    mode: live ? "live-production-equivalent" : "offline-deterministic-grounding",
+  });
+  const comparison = baseline
     ? compareEvaluationReports(report, baseline)
     : {
         baselineAvailable: false,
+        baselineCompatible: false,
         changedCases: [],
         contractFailures: report.cases
           .filter((entry) => entry.deterministicContract.status === "failed")
           .map((entry) => entry.fixtureId),
       };
+  const reportWithQueue = integrateComparisonReviewQueue(report, comparison);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  console.log(JSON.stringify(report.summary, null, 2));
+  await fs.writeFile(outputPath, `${JSON.stringify(reportWithQueue, null, 2)}\n`, "utf8");
+  console.log(JSON.stringify(reportWithQueue.summary, null, 2));
   console.log(`Semantic evaluation report written to ${path.relative(process.cwd(), outputPath)}`);
 }

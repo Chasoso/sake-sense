@@ -40,26 +40,41 @@ npm run eval:semantic
 ```
 
 This command uses the production validation, reviewed grounding, authorization,
-and product-match modules. It does not access AWS or any network. The checked-in
-report is `docs/evaluation/semantic-baseline.json`.
+and product-match modules. It does not access AWS or any network. It deliberately
+does not invoke the production semantic provider, so it is an offline deterministic
+grounding observation, not a production-equivalent semantic baseline. The checked-in
+report is `docs/evaluation/semantic-offline-baseline.json`.
 
 The baseline is an observation of the current implementation, not a set of
 correct answers. A change in the report is a review signal; it is not by itself a
 CI failure.
 
-## Optional live evaluator
+## Production-equivalent live baseline and optional evaluator
 
-Live evaluation is explicitly opt-in:
+The production-equivalent run is explicitly opt-in:
 
 ```bash
 npm run eval:semantic:live
 ```
 
-It requires the existing Bedrock environment configuration, including
-`AWS_REGION` and `BEDROCK_MODEL_ID` (or `BEDROCK_EVALUATOR_MODEL_ID`). Do not run
-this command in default CI and do not commit live output. The live evaluator is
-review-only and cannot influence deterministic term authorization or product
-matching.
+It invokes the existing semantic provider and the optional AI evaluator. It
+requires the existing Bedrock environment configuration, including `AWS_REGION`
+and `BEDROCK_MODEL_ID` (or `BEDROCK_EVALUATOR_MODEL_ID`). It writes an untracked
+`artifacts/semantic-live-baseline.json` report by default. Do not run this command
+in default CI or commit live output. This is the explicit command for obtaining a
+production-equivalent observation before/after a semantic change.
+
+To compare against a previously captured baseline, provide a baseline of the same
+kind explicitly:
+
+```bash
+node scripts/evaluation/eval-semantic.mjs --live \
+  --baseline artifacts/semantic-live-baseline-before.json \
+  --output artifacts/semantic-live-baseline-after.json
+```
+
+Offline and live baselines are never compared as semantic changes. The report
+marks a baseline-kind mismatch instead.
 
 ## Human review queue
 
@@ -72,15 +87,18 @@ The report queues:
 
 When comparing a live or changed report to the baseline, additionally review
 changes to interpretation outcome, semantic profile, authorized terms, and product
-reach. Keep the queue human-reviewed rather than optimizing only for match rate.
+reach. These changes are added to each affected case's `humanReviewReasons` and to
+the queue count; they are not merely emitted as a separate comparison summary.
+Keep the queue human-reviewed rather than optimizing only for match rate.
 
 ## Workflow for semantic changes
 
 Before and after a semantic change such as #89:
 
-1. Run `npm run eval:semantic` on the current baseline.
-2. Run the same fixture set against the candidate implementation or an explicit
-   live evaluation.
+1. Run `npm run eval:semantic` to refresh the offline deterministic observation.
+2. Run `npm run eval:semantic:live` to capture a production-equivalent baseline
+   before the change, and again after the change with `--baseline` pointing to the
+   before report.
 3. Review changed outcomes, profiles, authorized terms, product reach, and all
    queued control/ambiguous/low-signal cases.
 4. Confirm that insufficient and ambiguous inputs still stop safely.

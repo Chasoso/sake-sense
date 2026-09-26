@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fixtureData from "../../backend/semantic-bridge/eval/body-voice-evaluation.v0.1.json" with { type: "json" };
 import {
   compareEvaluationReports,
+  integrateComparisonReviewQueue,
   runSemanticEvaluation,
   validateEvaluationFixtures,
 } from "./run-semantic-evaluation.mjs";
@@ -19,6 +20,8 @@ describe("semantic evaluation harness", () => {
     const second = await runSemanticEvaluation();
     expect(first).toEqual(second);
     expect(first.summary.totalFixtureCount).toBe(20);
+    expect(first.baselineKind).toBe("offline-deterministic-grounding");
+    expect(first.baselineNote).toContain("not production-equivalent");
     expect(first.summary.deterministicContractFailureCount).toBe(0);
     expect(first.summary.insufficientCount + first.summary.ambiguousCount).toBeGreaterThan(0);
     expect(
@@ -88,10 +91,56 @@ describe("semantic evaluation harness", () => {
     };
     expect(compareEvaluationReports(current, baseline)).toEqual({
       baselineAvailable: true,
+      baselineCompatible: true,
       changedCases: [
         { fixtureId: "case-1", reasons: ["semantic-profile", "authorized-terms", "product-reach"] },
       ],
       contractFailures: ["case-2"],
+    });
+  });
+
+  it("integrates compatible baseline changes into the human review queue", () => {
+    const report = {
+      baselineKind: "live-production-equivalent",
+      cases: [
+        {
+          fixtureId: "case-1",
+          humanReviewReasons: [],
+        },
+      ],
+      summary: { humanReviewQueueCount: 0 },
+    };
+    const integrated = integrateComparisonReviewQueue(report, {
+      baselineAvailable: true,
+      baselineCompatible: true,
+      changedCases: [
+        {
+          fixtureId: "case-1",
+          reasons: ["outcome", "semantic-profile", "authorized-terms", "product-reach"],
+        },
+      ],
+      contractFailures: [],
+    });
+    expect(integrated.cases[0].humanReviewReasons).toEqual([
+      "baseline-outcome-changed",
+      "baseline-semantic-profile-changed",
+      "baseline-authorized-terms-changed",
+      "baseline-product-reach-changed",
+    ]);
+    expect(integrated.summary.baselineChangedCaseCount).toBe(1);
+    expect(integrated.summary.humanReviewQueueCount).toBe(1);
+  });
+
+  it("does not compare offline and live baselines as semantic changes", () => {
+    const result = compareEvaluationReports(
+      { baselineKind: "live-production-equivalent", cases: [] },
+      { baselineKind: "offline-deterministic-grounding", cases: [] },
+    );
+    expect(result).toMatchObject({
+      baselineAvailable: true,
+      baselineCompatible: false,
+      changedCases: [],
+      reason: "baseline-kind-mismatch",
     });
   });
 });

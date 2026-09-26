@@ -1,6 +1,7 @@
 {
   "version": "0.1.0",
-  "baselineKind": "observation-not-ground-truth",
+  "baselineKind": "offline-deterministic-grounding",
+  "baselineNote": "Offline deterministic reviewed-grounding observation; not production-equivalent and not ground truth.",
   "cases": [
     {
       "fixtureId": "body-short-abrupt-control",
@@ -442,10 +443,12 @@
       "status": "not-run",
       "dimensions": null
     },
-    "humanReviewQueueCount": 7
+    "humanReviewQueueCount": 7,
+    "baselineChangedCaseCount": 0
   },
   "comparison": {
     "baselineAvailable": false,
+    "baselineCompatible": false,
     "changedCases": [],
     "contractFailures": []
   }
