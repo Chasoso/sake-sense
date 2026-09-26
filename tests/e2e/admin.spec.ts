@@ -275,7 +275,9 @@ test.describe("Admin deterministic browser flows", () => {
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => postBody?.name).toBe("Created Brewery");
     expect(postBody).not.toHaveProperty("id", "new");
-    await page.getByLabel("displayName", { exact: true }).fill("Edited Brewery Display");
+    const displayNameField = page.getByLabel("displayName", { exact: true });
+    await expect(displayNameField).toHaveValue("Created Brewery Display");
+    await displayNameField.fill("Edited Brewery Display");
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => patchBody?.displayName).toBe("Edited Brewery Display");
   });
@@ -375,7 +377,9 @@ test.describe("Admin deterministic browser flows", () => {
     await page.goto("/admin/evidence");
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByText(product.name)).toBeVisible();
-    await expect(page.getByText(source.sourceName)).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: source.sourceName, exact: true }).first(),
+    ).toBeVisible();
     await expect(page.getByText("missing-product", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: product.name }).click();
     await page.getByLabel("productId", { exact: true }).selectOption(product.id);
