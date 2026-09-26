@@ -259,6 +259,8 @@ test.describe("Admin deterministic browser flows", () => {
         items = [{ id: "created-brewery", ...postBody }];
         return fulfillJson(route, 201, items[0]);
       }
+      if (pathname === "/admin/breweries/created-brewery" && request.method() === "GET")
+        return fulfillJson(route, 200, items[0]);
       if (pathname === "/admin/breweries/created-brewery" && request.method() === "PATCH") {
         patchBody = request.postDataJSON() as Record<string, unknown>;
         return fulfillJson(route, 200, { id: "created-brewery", ...patchBody });
@@ -275,6 +277,7 @@ test.describe("Admin deterministic browser flows", () => {
     await page.getByRole("button", { name: "Save record" }).click();
     await expect.poll(() => postBody?.name).toBe("Created Brewery");
     expect(postBody).not.toHaveProperty("id", "new");
+    await page.goto("/admin/breweries/created-brewery");
     const displayNameField = page.getByLabel("displayName", { exact: true });
     await expect(displayNameField).toHaveValue("Created Brewery Display");
     await displayNameField.fill("Edited Brewery Display");
