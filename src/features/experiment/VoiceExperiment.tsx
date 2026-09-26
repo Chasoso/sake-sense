@@ -21,9 +21,9 @@ import {
   createFixtureSensoryBridgeProvider,
   createHttpSensoryBridgeProvider,
 } from "../../domain/sensory-bridge";
-import { ExpressionTransform } from "./ExpressionTransform";
 import { Result } from "./Experiment";
 import { ExperienceBrand } from "./ExperienceBrand";
+import { VoiceProcessingScreen } from "./processing-screens";
 import {
   classifyVoiceAudioInitializationError,
   classifyVoiceCaptureError,
@@ -47,7 +47,7 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [voiceFeatures, setVoiceFeatures] = useState<VoiceFeatures | null>(null);
   const [waveHistory, setWaveHistory] = useState<SyntheticWavePoint[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  useScreenScrollReset(result);
+  useScreenScrollReset(result ?? (isAnalyzing ? "voice-processing" : null));
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceContext = useRef<AudioContext | null>(null);
   const voiceAnalyser = useRef<AnalyserNode | null>(null);
@@ -249,6 +249,16 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
     );
   }
 
+  if (isAnalyzing && voiceFeatures) {
+    return (
+      <VoiceProcessingScreen
+        features={voiceFeatures}
+        waveHistory={waveHistory}
+        onBack={returnToStart}
+      />
+    );
+  }
+
   return (
     <main className="experience-screen" aria-labelledby="experiment-title">
       {onBack && (
@@ -330,9 +340,6 @@ export function VoiceExperiment({ onBack }: { onBack?: () => void } = {}) {
           </div>
         </div>
       </section>
-      {isAnalyzing && (
-        <ExpressionTransform mode="voice" features={voiceFeatures!} waveHistory={waveHistory} />
-      )}
       {!isAnalyzing && (
         <div className="experiment__actions">
           <button

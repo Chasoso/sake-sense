@@ -677,6 +677,18 @@ h4 {
   margin-top: 36px;
 }
 
+.experience-screen--voice-transform,
+.experience-screen--gesture-transform {
+  display: grid;
+  align-content: center;
+}
+
+.experience-screen--voice-transform .expression-transform,
+.experience-screen--gesture-transform .expression-transform {
+  width: 100%;
+  margin: 0 auto;
+}
+
 /* Sources / provenance */
 .sources-page__header {
   margin-bottom: 28px;
@@ -2101,6 +2113,28 @@ input {
 .expression-transform--gesture {
   min-height: 170px;
   align-content: center;
+}
+
+.expression-transform__gesture-paths {
+  transform-box: view-box;
+  transform-origin: center;
+  transition:
+    opacity 700ms ease,
+    transform 900ms ease;
+}
+
+.expression-transform__gesture-path {
+  fill: none;
+  stroke: var(--deep-green);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expression-transform__gesture-paths {
+    transform: none !important;
+  }
 }
 
 .gesture-pad {

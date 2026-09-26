@@ -15,6 +15,7 @@ import {
 } from "../../domain/sensory-bridge";
 import { evaluateGestureSensorySupport } from "../../domain/sensory-support-cases";
 import { ExperienceBrand } from "./ExperienceBrand";
+import { GestureProcessingScreen } from "./processing-screens";
 import { useScreenScrollReset } from "./use-screen-scroll-reset";
 
 function pointFromEvent(event: React.PointerEvent<SVGSVGElement>): GesturePoint {
@@ -46,7 +47,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   const [error, setError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const capturedPointerId = useRef<number | null>(null);
-  useScreenScrollReset(result);
+  useScreenScrollReset(result ?? (isAnalyzing ? "gesture-processing" : null));
 
   const releasePointer = (event: React.PointerEvent<SVGSVGElement>) => {
     if (capturedPointerId.current !== event.pointerId) return;
@@ -165,6 +166,10 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
         )}
       </main>
     );
+  }
+
+  if (isAnalyzing) {
+    return <GestureProcessingScreen strokes={strokes} onBack={returnToStart} />;
   }
 
   return (
