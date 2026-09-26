@@ -50,7 +50,7 @@ jobs:
             if printf '%s\n' "$changed_files" | grep -Eq '^(backend/semantic-bridge/|infra/aws/ai-semantic-bridge\.yaml$|scripts/package-semantic-bridge\.mjs$|package.json|package-lock.json|\.nvmrc$)'; then
               backend=true
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/data-platform/|infra/aws/data-admin\.yaml$|infra/aws/data-admin-bootstrap\.yaml$|scripts/package-data-platform\.mjs$|scripts/check-cloudformation-change-set\.mjs$|scripts/quality/validate-data-admin\.mjs|\.github/workflows/deploy-data-admin\.yml$|package\.json|package-lock\.json|\.nvmrc$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(backend/data-platform/|infra/aws/data-admin\.yaml$|scripts/package-data-platform\.mjs$|scripts/check-cloudformation-change-set\.mjs$|scripts/quality/validate-data-admin\.mjs|\.github/workflows/deploy-data-admin\.yml$|package\.json|package-lock\.json|\.nvmrc$)'; then
               data_admin=true
             fi
           fi
@@ -63,6 +63,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.data_admin == 'true'
     uses: ./.github/workflows/deploy-data-admin.yml
+    permissions:
+      contents: read
+      id-token: write
     secrets: inherit
 
   deploy-frontend:

@@ -284,6 +284,21 @@ for (const requiredProductionWorkflowText of [
       `Deploy production workflow is missing data-admin integration: ${requiredProductionWorkflowText}`,
     );
 }
+const deployDataAdminJobStart = frontendWorkflow.indexOf("  deploy-data-admin:");
+const deployFrontendJobStart = frontendWorkflow.indexOf("  deploy-frontend:");
+const deployDataAdminJob = frontendWorkflow.slice(deployDataAdminJobStart, deployFrontendJobStart);
+if (
+  deployDataAdminJobStart < 0 ||
+  deployFrontendJobStart < deployDataAdminJobStart ||
+  !deployDataAdminJob.includes("permissions:") ||
+  !deployDataAdminJob.includes("contents: read") ||
+  !deployDataAdminJob.includes("id-token: write")
+)
+  throw new Error(
+    "data-admin reusable workflow caller must grant contents: read and id-token: write",
+  );
+if (frontendWorkflow.includes("infra/aws/data-admin\\.yaml$|infra/aws/data-admin-bootstrap"))
+  throw new Error("data-admin bootstrap changes must not trigger automatic stack deployment");
 if (frontendWorkflow.includes("migrate:sake-data -- --apply"))
   throw new Error("Deploy production workflow must not apply migration data");
 console.log("Data-admin infrastructure validation passed.");
