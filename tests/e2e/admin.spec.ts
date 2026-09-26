@@ -11,7 +11,7 @@ const product = {
   breweryId: "brewery-1",
   region: "Ishikawa",
   descriptionSummary: "A deterministic product fixture",
-  availabilityStatus: "available",
+  availabilityStatus: "regular",
   primarySourceId: "source-1",
   status: "published",
   updatedAt: "2026-09-24T00:00:00.000Z",
@@ -56,8 +56,8 @@ test.describe("Admin deterministic browser flows", () => {
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByText(product.name)).toBeVisible();
     await expect(page.getByText("E2E Brewery")).toBeVisible();
-    await expect(page.getByText(product.availabilityStatus)).toBeVisible();
-    await expect(page.getByText(product.status)).toBeVisible();
+    await expect(page.getByText("通常")).toBeVisible();
+    await expect(page.getByText("公開中")).toBeVisible();
     await expect(page.getByText(product.updatedAt)).toBeVisible();
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
     await page.getByRole("button", { name: product.name }).click();
