@@ -40,7 +40,7 @@ export function SourcesPage({ onBack }: { onBack: () => void }) {
           <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
           <span>戻る</span>
         </button>
-        <ExperienceBrand />
+        <ExperienceBrand onHome={onBack} />
       </nav>
 
       <header className="experience-screen__header sources-page__header">

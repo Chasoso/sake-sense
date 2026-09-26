@@ -8,10 +8,12 @@ export function VoiceProcessingScreen({
   features,
   waveHistory,
   onBack,
+  onHome,
 }: {
   features: VoiceFeatures;
   waveHistory: SyntheticWavePoint[];
   onBack: () => void;
+  onHome?: () => void;
 }) {
   return (
     <main
@@ -23,7 +25,7 @@ export function VoiceProcessingScreen({
           <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
           <span>戻る</span>
         </button>
-        <ExperienceBrand />
+        <ExperienceBrand onHome={onHome ?? onBack} />
       </nav>
       <ExpressionTransform mode="voice" features={features} waveHistory={waveHistory} />
     </main>
@@ -33,9 +35,11 @@ export function VoiceProcessingScreen({
 export function GestureProcessingScreen({
   strokes,
   onBack,
+  onHome,
 }: {
   strokes: GestureStroke[];
   onBack: () => void;
+  onHome?: () => void;
 }) {
   return (
     <main
@@ -47,7 +51,7 @@ export function GestureProcessingScreen({
           <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
           <span>戻る</span>
         </button>
-        <ExperienceBrand />
+        <ExperienceBrand onHome={onHome ?? onBack} />
       </nav>
       <ExpressionTransform
         mode="gesture"

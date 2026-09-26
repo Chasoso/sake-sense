@@ -1242,11 +1242,11 @@ export function BodyExperiment({
           {result && (
             <div className="body-result-transition__content">
               <nav className="experience-screen__nav" aria-label="画面の移動">
-                <button className="icon-text-button" type="button" onClick={onBack}>
+                <button className="icon-text-button" type="button" onClick={handleBack}>
                   <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
                   <span>最初に戻る</span>
                 </button>
-                <ExperienceBrand />
+                <ExperienceBrand onHome={handleBack} />
               </nav>
               <Result result={result} onTryAgain={retry} />
             </div>

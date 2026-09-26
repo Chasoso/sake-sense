@@ -655,6 +655,22 @@ h4 {
   flex: 0 0 auto;
 }
 
+.experience-screen__brand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.experience-screen__brand-button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
 .experience-screen__header {
   max-width: 760px;
   margin-bottom: 30px;

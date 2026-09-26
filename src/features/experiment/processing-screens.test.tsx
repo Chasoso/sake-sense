@@ -20,24 +20,37 @@ const strokes = [
 describe("dedicated processing screens", () => {
   it("keeps Voice input out of the full-screen processing composition", () => {
     const markup = renderToStaticMarkup(
-      <VoiceProcessingScreen features={voiceFeatures} waveHistory={[]} onBack={() => undefined} />,
+      <VoiceProcessingScreen
+        features={voiceFeatures}
+        waveHistory={[]}
+        onBack={() => undefined}
+        onHome={() => undefined}
+      />,
     );
 
     expect(markup).toContain("experience-screen--voice-transform");
     expect(markup).toContain("expression-transform--voice");
     expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain('class="experience-screen__brand-button"');
+    expect(markup).toContain('aria-label="トップへ戻る"');
     expect(markup).not.toContain("input-card--voice");
   });
 
   it("keeps Gesture input out while preserving the captured path", () => {
     const markup = renderToStaticMarkup(
-      <GestureProcessingScreen strokes={strokes} onBack={() => undefined} />,
+      <GestureProcessingScreen
+        strokes={strokes}
+        onBack={() => undefined}
+        onHome={() => undefined}
+      />,
     );
 
     expect(markup).toContain("experience-screen--gesture-transform");
     expect(markup).toContain("expression-transform--gesture");
     expect(markup).toContain("expression-transform__gesture-path");
     expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain('class="experience-screen__brand-button"');
+    expect(markup).toContain('aria-label="トップへ戻る"');
     expect(markup).not.toContain("input-card--gesture");
   });
 });

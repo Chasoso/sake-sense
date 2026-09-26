@@ -150,7 +150,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>最初に戻る</span>
           </button>
-          <ExperienceBrand />
+          <ExperienceBrand onHome={returnToStart} />
         </nav>
         <Result result={result} onTryAgain={reset} />
         {gestureCalibrationEnabled && result.sensoryBridge?.modality === "gesture" && (
@@ -169,7 +169,9 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
   }
 
   if (isAnalyzing) {
-    return <GestureProcessingScreen strokes={strokes} onBack={returnToStart} />;
+    return (
+      <GestureProcessingScreen strokes={strokes} onBack={returnToStart} onHome={returnToStart} />
+    );
   }
 
   return (
@@ -180,7 +182,7 @@ export function GestureExperiment({ onBack }: { onBack?: () => void } = {}) {
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             <span>戻る</span>
           </button>
-          <ExperienceBrand />
+          <ExperienceBrand onHome={returnToStart} />
         </nav>
       )}
       <header className="experience-screen__header">
