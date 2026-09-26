@@ -29,11 +29,15 @@ describe("semantic evaluation harness", () => {
     expect(first.baselineKind).toBe("offline-deterministic-grounding");
     expect(first.baselineNote).toContain("not production-equivalent");
     expect(first.summary.deterministicContractFailureCount).toBe(0);
-    expect(first.summary.insufficientCount + first.summary.ambiguousCount).toBeGreaterThan(0);
+    expect(
+      first.summary.groundingInsufficientCount + first.summary.groundingAmbiguousCount,
+    ).toBeGreaterThan(0);
     expect(
       first.cases.find((entry) => entry.fixtureId === "body-short-abrupt-control"),
     ).toMatchObject({
-      interpretationOutcome: "interpreted",
+      semanticInterpretationOutcome: null,
+      groundingOutcome: "interpreted",
+      interpretationOutcome: null,
       authorizedTermIds: ["kire"],
     });
   });
@@ -56,6 +60,70 @@ describe("semantic evaluation harness", () => {
     expect(
       report.cases.every((entry) => entry.authorizedTermIds.every((id) => id !== "injected")),
     ).toBe(true);
+  });
+
+  it("keeps semantic and reviewed-grounding outcomes separate", async () => {
+    const interpretedProfile = {
+      timeQuality: "sudden",
+      weightQuality: "light",
+      flowQuality: "free",
+      directness: "direct",
+      persistence: "brief",
+      resolution: "abrupt",
+      continuity: "continuous",
+      rhythmicity: "singular",
+      expansion: "neutral",
+      spread: "neutral",
+      smoothness: "smooth",
+      roundness: "rounded",
+    };
+    const evaluatorInputs = [];
+    const report = await runSemanticEvaluation({
+      provider: async (_request, fixture) =>
+        fixture.id === "body-sustained-fast"
+          ? {
+              sensoryInterpretation: {
+                outcome: "interpreted",
+                sensoryExpression: "短く切れる印象",
+                semanticProfile: interpretedProfile,
+              },
+              sensoryClassProposals: ["clean-fade"],
+              sensoryExpressions: ["短く切れる印象"],
+              candidateTermIds: [],
+              reason: "意味を解釈しました",
+            }
+          : {
+              sensoryExpressions: ["確認できる印象"],
+              candidateTermIds: [],
+              reason: "確認できる情報が限られています",
+            },
+      judge: async (record) => {
+        evaluatorInputs.push(record.interpretationOutcome);
+        return {
+          dimensions: Object.fromEntries(
+            [
+              "semanticConsistency",
+              "unsupportedInference",
+              "ambiguityHandling",
+              "profileTextConsistency",
+              "wordingQuality",
+            ].map((dimension) => [dimension, { status: "pass", rationale: "reviewed" }]),
+          ),
+        };
+      },
+    });
+    const divergent = report.cases.find((entry) => entry.fixtureId === "body-sustained-fast");
+    expect(divergent).toMatchObject({
+      semanticInterpretationOutcome: "interpreted",
+      groundingOutcome: "ambiguous",
+      interpretationOutcome: "interpreted",
+      semanticAuthorizedTermIds: ["kire", "nameraka", "marui", "tanrei"],
+      nonInterpretedTermReach: false,
+    });
+    expect(report.summary.ambiguousWithAuthorizedTermsCount).toBe(0);
+    expect(report.summary.interpretedAuthorizedTermReachCount).toBe(1);
+    expect(evaluatorInputs).toContain("interpreted");
+    expect(report.humanReviewSummary).toEqual([]);
   });
 
   it("attributes semantic and reviewed-grounding term reach separately", () => {
@@ -173,14 +241,26 @@ describe("semantic evaluation harness", () => {
   it("separates global and outcome-specific reach metrics", () => {
     expect(
       summarizeReachMetrics([
-        { interpretationOutcome: "interpreted", authorizedTermIds: ["kire"], productMatchCount: 1 },
-        { interpretationOutcome: "ambiguous", authorizedTermIds: ["kire"], productMatchCount: 1 },
         {
-          interpretationOutcome: "insufficient",
+          semanticInterpretationOutcome: "interpreted",
+          authorizedTermIds: ["kire"],
+          productMatchCount: 1,
+        },
+        {
+          semanticInterpretationOutcome: "ambiguous",
+          authorizedTermIds: ["kire"],
+          productMatchCount: 1,
+        },
+        {
+          semanticInterpretationOutcome: "insufficient",
           authorizedTermIds: ["atoaji"],
           productMatchCount: 1,
         },
-        { interpretationOutcome: "interpreted", authorizedTermIds: [], productMatchCount: 0 },
+        {
+          semanticInterpretationOutcome: "interpreted",
+          authorizedTermIds: [],
+          productMatchCount: 0,
+        },
       ]),
     ).toEqual({
       authorizedTermReachCount: 3,
@@ -197,7 +277,8 @@ describe("semantic evaluation harness", () => {
       cases: [
         {
           fixtureId: "case-1",
-          interpretationOutcome: "interpreted",
+          semanticInterpretationOutcome: "interpreted",
+          groundingOutcome: "interpreted",
           semanticProfile: { continuity: "continuous" },
           authorizedTermIds: ["nameraka"],
           productMatchCount: 1,
@@ -205,6 +286,8 @@ describe("semantic evaluation harness", () => {
         },
         {
           fixtureId: "case-2",
+          semanticInterpretationOutcome: "insufficient",
+          groundingOutcome: "insufficient",
           deterministicContract: { status: "failed" },
         },
       ],
@@ -213,7 +296,8 @@ describe("semantic evaluation harness", () => {
       cases: [
         {
           fixtureId: "case-1",
-          interpretationOutcome: "interpreted",
+          semanticInterpretationOutcome: "interpreted",
+          groundingOutcome: "interpreted",
           semanticProfile: { continuity: "interrupted" },
           authorizedTermIds: [],
           productMatchCount: 0,
@@ -227,6 +311,57 @@ describe("semantic evaluation harness", () => {
         { fixtureId: "case-1", reasons: ["semantic-profile", "authorized-terms", "product-reach"] },
       ],
       contractFailures: ["case-2"],
+    });
+  });
+
+  it("reports grounding changes separately from semantic outcome changes", () => {
+    const result = compareEvaluationReports(
+      {
+        baselineKind: "live-production-equivalent",
+        cases: [
+          {
+            fixtureId: "case-1",
+            semanticInterpretationOutcome: "interpreted",
+            groundingOutcome: "ambiguous",
+            deterministicContract: { status: "passed" },
+          },
+        ],
+      },
+      {
+        baselineKind: "live-production-equivalent",
+        cases: [
+          {
+            fixtureId: "case-1",
+            semanticInterpretationOutcome: "interpreted",
+            groundingOutcome: "interpreted",
+          },
+        ],
+      },
+    );
+    expect(result.changedCases).toEqual([{ fixtureId: "case-1", reasons: ["grounding-outcome"] }]);
+  });
+
+  it("rejects pre-separation baselines instead of comparing grounding as semantic output", () => {
+    expect(
+      compareEvaluationReports(
+        {
+          baselineKind: "live-production-equivalent",
+          cases: [
+            {
+              fixtureId: "case-1",
+              semanticInterpretationOutcome: "interpreted",
+              groundingOutcome: "interpreted",
+            },
+          ],
+        },
+        {
+          baselineKind: "live-production-equivalent",
+          cases: [{ fixtureId: "case-1", interpretationOutcome: "ambiguous" }],
+        },
+      ),
+    ).toMatchObject({
+      baselineCompatible: false,
+      reason: "baseline-schema-mismatch",
     });
   });
 
@@ -247,13 +382,13 @@ describe("semantic evaluation harness", () => {
       changedCases: [
         {
           fixtureId: "case-1",
-          reasons: ["outcome", "semantic-profile", "authorized-terms", "product-reach"],
+          reasons: ["semantic-outcome", "semantic-profile", "authorized-terms", "product-reach"],
         },
       ],
       contractFailures: [],
     });
     expect(integrated.cases[0].humanReviewReasons).toEqual([
-      "baseline-outcome-changed",
+      "baseline-semantic-outcome-changed",
       "baseline-semantic-profile-changed",
       "baseline-authorized-terms-changed",
       "baseline-product-reach-changed",

@@ -49,6 +49,20 @@ The baseline is an observation of the current implementation, not a set of
 correct answers. A change in the report is a review signal; it is not by itself a
 CI failure.
 
+Each case separates the layers that produce an outcome:
+
+- `semanticInterpretationOutcome` is the provider's `sensoryInterpretation.outcome`.
+- `groundingOutcome` is the reviewed support-case result derived from
+  `interpretationStateId` and `groundingExpressionIds`.
+- `interpretationOutcome` is retained only as a compatibility alias for the
+  semantic outcome; it is never the grounding outcome.
+
+Offline runs have no provider semantic outcome, so their semantic outcome fields
+are `null` while grounding metrics remain observable. Live semantic counts,
+evaluator input, interpreted reach metrics, and baseline outcome comparison use
+`semanticInterpretationOutcome`. Grounding counts and grounding-outcome changes
+are reported separately.
+
 ## Production-equivalent live baseline and optional evaluator
 
 The production-equivalent run is explicitly opt-in:
@@ -76,6 +90,11 @@ node scripts/evaluation/eval-semantic.mjs --live \
 Offline and live baselines are never compared as semantic changes. The report
 marks a baseline-kind mismatch instead.
 
+The separated outcome fields are part of the current report schema. Older live
+artifacts that contain only the former grounding-derived `interpretationOutcome`
+are rejected as a baseline-schema mismatch; regenerate them with the current
+runner before comparison rather than treating grounding as semantic output.
+
 ## Human review queue
 
 The report queues:
@@ -86,19 +105,27 @@ The report queues:
 - evaluator `review` or `fail` dimensions.
 
 When comparing a live or changed report to the baseline, additionally review
-changes to interpretation outcome, semantic profile, authorized terms, and product
-reach. These changes are added to each affected case's `humanReviewReasons` and to
-the queue count; they are not merely emitted as a separate comparison summary.
+changes to semantic interpretation outcome, grounding outcome, semantic profile,
+authorized terms, and product reach. Semantic outcome changes use the
+`baseline-semantic-outcome-changed` reason; grounding changes use
+`baseline-grounding-outcome-changed`. These changes are added to each affected
+case's `humanReviewReasons` and to the queue count; they are not merely emitted
+as a separate comparison summary.
 Keep the queue human-reviewed rather than optimizing only for match rate.
 
 The report keeps global reach counts for compatibility, but they include any
 outcome that produced authorized terms or product matches. They must not be read
 as interpreted success rates. Outcome-specific metrics are provided separately:
 
-- `interpretedAuthorizedTermReachCount`
-- `interpretedProductReachCount`
-- `ambiguousWithAuthorizedTermsCount`
-- `insufficientWithAuthorizedTermsCount`
+- `interpretedAuthorizedTermReachCount` (semantic outcome)
+- `interpretedProductReachCount` (semantic outcome)
+- `ambiguousWithAuthorizedTermsCount` (semantic outcome)
+- `insufficientWithAuthorizedTermsCount` (semantic outcome)
+
+The separate outcome counts are `semanticInterpretedCount`,
+`semanticAmbiguousCount`, `semanticInsufficientCount`, and
+`groundingInterpretedCount`, `groundingAmbiguousCount`,
+`groundingInsufficientCount`.
 
 Provider contract failures retain a sanitized validation `code` and `path` for
 diagnosis. Provider responses themselves are never written to the report. A

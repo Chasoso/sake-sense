@@ -114,7 +114,7 @@ export function buildEvaluatorPrompt(record) {
     JSON.stringify({
       modality: record.modality,
       observableInput: record.input,
-      interpretationOutcome: record.interpretationOutcome,
+      interpretationOutcome: record.semanticInterpretationOutcome,
       wording: record.wording,
       semanticProfile: record.semanticProfile,
     }),

@@ -85,9 +85,24 @@ function fallbackReason(result, termIds) {
   return null;
 }
 
+function semanticOutcomeFor(entry) {
+  return entry.semanticInterpretationOutcome ?? null;
+}
+
+function hasSeparatedOutcomeSchema(report) {
+  return (report?.cases ?? []).every(
+    (entry) =>
+      Object.prototype.hasOwnProperty.call(entry, "semanticInterpretationOutcome") &&
+      Object.prototype.hasOwnProperty.call(entry, "groundingOutcome"),
+  );
+}
+
 function changedCaseReasons(current, previous) {
   const reasons = [];
-  if (current.interpretationOutcome !== previous.interpretationOutcome) reasons.push("outcome");
+  if (semanticOutcomeFor(current) !== semanticOutcomeFor(previous)) {
+    reasons.push("semantic-outcome");
+  }
+  if (current.groundingOutcome !== previous.groundingOutcome) reasons.push("grounding-outcome");
   if (JSON.stringify(current.semanticProfile) !== JSON.stringify(previous.semanticProfile)) {
     reasons.push("semantic-profile");
   }
@@ -102,9 +117,11 @@ export function compareEvaluationReports(current, baseline) {
   const baselineAvailable = Boolean(baseline);
   const baselineCompatible =
     !baseline ||
-    !current.baselineKind ||
-    !baseline.baselineKind ||
-    current.baselineKind === baseline.baselineKind;
+    ((!current.baselineKind ||
+      !baseline.baselineKind ||
+      current.baselineKind === baseline.baselineKind) &&
+      hasSeparatedOutcomeSchema(current) &&
+      hasSeparatedOutcomeSchema(baseline));
   const contractFailures = (current.cases ?? [])
     .filter((entry) => entry.deterministicContract?.status === "failed")
     .map((entry) => entry.fixtureId);
@@ -114,7 +131,10 @@ export function compareEvaluationReports(current, baseline) {
       baselineCompatible: false,
       changedCases: [],
       contractFailures,
-      reason: "baseline-kind-mismatch",
+      reason:
+        current.baselineKind !== baseline?.baselineKind
+          ? "baseline-kind-mismatch"
+          : "baseline-schema-mismatch",
     };
   }
   const previousById = new Map((baseline?.cases ?? []).map((entry) => [entry.fixtureId, entry]));
@@ -220,17 +240,20 @@ export function summarizeReachMetrics(cases) {
     productReachCount: cases.filter((entry) => entry.productMatchCount > 0).length,
     interpretedAuthorizedTermReachCount: cases.filter(
       (entry) =>
-        entry.interpretationOutcome === "interpreted" && entry.authorizedTermIds.length > 0,
+        entry.semanticInterpretationOutcome === "interpreted" && entry.authorizedTermIds.length > 0,
     ).length,
     interpretedProductReachCount: cases.filter(
-      (entry) => entry.interpretationOutcome === "interpreted" && entry.productMatchCount > 0,
+      (entry) =>
+        entry.semanticInterpretationOutcome === "interpreted" && entry.productMatchCount > 0,
     ).length,
     ambiguousWithAuthorizedTermsCount: cases.filter(
-      (entry) => entry.interpretationOutcome === "ambiguous" && entry.authorizedTermIds.length > 0,
+      (entry) =>
+        entry.semanticInterpretationOutcome === "ambiguous" && entry.authorizedTermIds.length > 0,
     ).length,
     insufficientWithAuthorizedTermsCount: cases.filter(
       (entry) =>
-        entry.interpretationOutcome === "insufficient" && entry.authorizedTermIds.length > 0,
+        entry.semanticInterpretationOutcome === "insufficient" &&
+        entry.authorizedTermIds.length > 0,
     ).length,
   };
 }
@@ -282,12 +305,17 @@ export async function runSemanticEvaluation({
     const { semanticAuthorizedTermIds, legacyGroundingTermIds, termAuthorizationSource } =
       classifyTermAuthorization(result, authorizedTermIds, allowedIdSet);
     const productMatchCount = countRenderableProductMatches(authorizedTermIds);
-    const interpretationOutcome = outcomeFor(result);
+    const semanticInterpretationOutcome = result.sensoryInterpretation?.outcome ?? null;
+    const groundingOutcome = outcomeFor(result);
+    const interpretationOutcome = semanticInterpretationOutcome;
     const entry = {
       fixtureId: fixture.id,
       modality: fixture.modality,
       intent: fixture.intent,
       observableInput: fixture.input,
+      semanticInterpretationOutcome,
+      groundingOutcome,
+      // Deprecated compatibility alias: this is now the semantic outcome only.
       interpretationOutcome,
       wording: Array.isArray(result.sensoryExpressions) ? result.sensoryExpressions : [],
       semanticProfile: result.sensoryInterpretation?.semanticProfile ?? null,
@@ -296,9 +324,15 @@ export async function runSemanticEvaluation({
       legacyGroundingTermIds,
       termAuthorizationSource,
       nonInterpretedTermReach:
-        interpretationOutcome !== "interpreted" && authorizedTermIds.length > 0,
+        semanticInterpretationOutcome !== null &&
+        semanticInterpretationOutcome !== "interpreted" &&
+        authorizedTermIds.length > 0,
       productMatchCount,
-      resultCategory: resultCategory(interpretationOutcome, authorizedTermIds, productMatchCount),
+      resultCategory: resultCategory(
+        semanticInterpretationOutcome ?? groundingOutcome,
+        authorizedTermIds,
+        productMatchCount,
+      ),
       fallbackReason: fallbackReason(result, authorizedTermIds),
       deterministicContract: {
         status: contractFailure ? "failed" : "passed",
@@ -316,10 +350,20 @@ export async function runSemanticEvaluation({
   const evaluatorResults = cases.filter((entry) => entry.evaluator.status !== "not-run");
   const summary = {
     totalFixtureCount: cases.length,
-    interpretedCount: cases.filter((entry) => entry.interpretationOutcome === "interpreted").length,
-    insufficientCount: cases.filter((entry) => entry.interpretationOutcome === "insufficient")
+    semanticInterpretedCount: cases.filter(
+      (entry) => entry.semanticInterpretationOutcome === "interpreted",
+    ).length,
+    semanticInsufficientCount: cases.filter(
+      (entry) => entry.semanticInterpretationOutcome === "insufficient",
+    ).length,
+    semanticAmbiguousCount: cases.filter(
+      (entry) => entry.semanticInterpretationOutcome === "ambiguous",
+    ).length,
+    groundingInterpretedCount: cases.filter((entry) => entry.groundingOutcome === "interpreted")
       .length,
-    ambiguousCount: cases.filter((entry) => entry.interpretationOutcome === "ambiguous").length,
+    groundingInsufficientCount: cases.filter((entry) => entry.groundingOutcome === "insufficient")
+      .length,
+    groundingAmbiguousCount: cases.filter((entry) => entry.groundingOutcome === "ambiguous").length,
     ...summarizeReachMetrics(cases),
     deterministicContractFailureCount: cases.filter(
       (entry) => entry.deterministicContract.status === "failed",
@@ -351,6 +395,8 @@ export async function runSemanticEvaluation({
     .map((entry) => ({
       fixtureId: entry.fixtureId,
       observableInput: entry.observableInput,
+      semanticInterpretationOutcome: entry.semanticInterpretationOutcome,
+      groundingOutcome: entry.groundingOutcome,
       interpretationOutcome: entry.interpretationOutcome,
       wording: entry.wording,
       semanticProfile: entry.semanticProfile,
