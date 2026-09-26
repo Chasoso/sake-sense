@@ -41,6 +41,17 @@ jobs:
       - name: Run admin visual regression E2E
         run: npm run test:e2e:visual
 
+      - name: Generate visual baseline for review
+        if: always()
+        run: npm run test:e2e:visual -- --update-snapshots
+
+      - name: Upload visual baseline for review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: visual-baselines-review
+          path: tests/e2e/admin-visual-snapshots/
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v6
