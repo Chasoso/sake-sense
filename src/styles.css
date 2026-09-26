@@ -1785,12 +1785,15 @@ input {
 }
 
 .expression-transform__body-light {
-  fill: rgb(255 253 249 / 92%);
-  stroke: rgb(201 169 106 / 72%);
-  stroke-width: 1.5;
-  filter: blur(7px);
+  stroke: none;
   transform-box: fill-box;
   transform-origin: center;
+}
+
+.expression-transform__processing-dots {
+  display: inline-block;
+  min-width: 1.5em;
+  text-align: left;
 }
 
 .expression-transform__body-dissolve {
@@ -2557,7 +2560,7 @@ input {
   }
 
   .expression-transform--body-screen .expression-transform__body-light {
-    filter: none;
+    stroke: none;
   }
 
   .expression-transform--body-screen .expression-transform__body-dissolve {

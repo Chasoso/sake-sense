@@ -164,6 +164,11 @@ export function getBodyLightProgress(progress: number): number {
   return windowProgress(progress, 0.05, 0.72);
 }
 
+export function getBodyProcessingDots(elapsedMs: number): string {
+  const safeElapsed = Number.isFinite(elapsedMs) ? Math.max(elapsedMs, 0) : 0;
+  return ".".repeat((Math.floor(safeElapsed / 500) % 3) + 1);
+}
+
 export function getBodyDissolveOpacity(progress: number): number {
   return 1 - getBodyDissolveProgress(progress);
 }

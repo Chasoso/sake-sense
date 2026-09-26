@@ -17,6 +17,7 @@ import {
   getBodyDissolveOpacity,
   getBodyAbsorbedPoint,
   getBodyLightProgress,
+  getBodyProcessingDots,
   getBodyTransformProgress,
   getTransformProgress,
   getTransformStage,
@@ -76,6 +77,7 @@ function projectBodyPoint(
 export function ExpressionTransform(props: ExpressionTransformProps) {
   const [elapsed, setElapsed] = useState(0);
   const bodyHybridMaskId = useId().replace(/:/g, "");
+  const bodyLightGradientId = `${bodyHybridMaskId}-light`;
   useEffect(() => {
     const startedAt = performance.now();
     let frame = 0;
@@ -132,6 +134,7 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
   } as CSSProperties;
   const voicePath = props.mode === "voice" ? createSyntheticWavePath(props.waveHistory) : "";
   const bodyLightProgress = getBodyLightProgress(progress);
+  const bodyProcessingDots = getBodyProcessingDots(elapsed);
   const bodyOpacity = getBodyDissolveOpacity(progress);
   const bodyWordsOpacity = windowProgress(progress, 0.48, 0.82);
   const voiceOpacity = Math.min(1, 0.45 + progress * 0.4);
@@ -149,6 +152,9 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         {bodyScreen && (
           <p className="expression-transform__body-screen-copy" aria-live="polite">
             動きが、ことばへ変わっています
+            <span aria-hidden="true" className="expression-transform__processing-dots">
+              {bodyProcessingDots}
+            </span>
           </p>
         )}
         <span className="eyebrow">Sake Sense</span>
@@ -159,8 +165,13 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
         <div className="expression-transform__visual" aria-hidden="true">
           {props.mode === "body" ? (
             <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="presentation">
-              {bodyHybridOuterPath && (
-                <defs>
+              <defs>
+                <radialGradient id={bodyLightGradientId} cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="rgb(255 253 249)" stopOpacity="0.96" />
+                  <stop offset="58%" stopColor="rgb(235 204 129)" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="rgb(201 169 106)" stopOpacity="0" />
+                </radialGradient>
+                {bodyHybridOuterPath && (
                   <mask
                     id={bodyHybridMaskId}
                     maskUnits="userSpaceOnUse"
@@ -172,13 +183,15 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                     <rect width="320" height="160" fill="white" />
                     <path d={bodyHybridOuterPath} fill="black" />
                   </mask>
-                </defs>
-              )}
+                )}
+              </defs>
               <circle
                 className="expression-transform__body-light"
                 cx="160"
                 cy="80"
                 r="25"
+                fill={`url(#${bodyLightGradientId})`}
+                stroke="none"
                 style={{
                   opacity: 0.12 + bodyLightProgress * 0.58,
                   transform: `scale(${0.82 + bodyLightProgress * 0.24})`,
