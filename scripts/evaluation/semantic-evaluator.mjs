@@ -8,6 +8,18 @@ export const evaluatorDimensions = [
 
 const evaluatorStatuses = ["pass", "review", "fail"];
 
+export function parseEvaluatorResponse(text) {
+  if (typeof text !== "string" || text.trim().length === 0) return null;
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonText = fenced ? fenced[1].trim() : trimmed;
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    return null;
+  }
+}
+
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

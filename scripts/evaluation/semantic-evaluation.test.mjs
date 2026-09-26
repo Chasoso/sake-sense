@@ -6,7 +6,11 @@ import {
   runSemanticEvaluation,
   validateEvaluationFixtures,
 } from "./run-semantic-evaluation.mjs";
-import { normalizeEvaluatorResult, validateEvaluatorResult } from "./semantic-evaluator.mjs";
+import {
+  normalizeEvaluatorResult,
+  parseEvaluatorResponse,
+  validateEvaluatorResult,
+} from "./semantic-evaluator.mjs";
 
 describe("semantic evaluation harness", () => {
   it("validates the representative Body and Voice fixture set", () => {
@@ -59,6 +63,43 @@ describe("semantic evaluation harness", () => {
     expect(Object.values(result.dimensions).every((dimension) => dimension.status === "fail")).toBe(
       true,
     );
+  });
+
+  it("accepts plain and fenced JSON evaluator responses", () => {
+    const response = { dimensions: { semanticConsistency: { status: "pass", rationale: "ok" } } };
+    const fullResponse = {
+      dimensions: Object.fromEntries(
+        [
+          "semanticConsistency",
+          "unsupportedInference",
+          "ambiguityHandling",
+          "profileTextConsistency",
+          "wordingQuality",
+        ].map((dimension) => [dimension, { status: "pass", rationale: "ok" }]),
+      ),
+    };
+    expect(parseEvaluatorResponse(JSON.stringify(fullResponse))).toEqual(fullResponse);
+    expect(
+      parseEvaluatorResponse(["```json", JSON.stringify(fullResponse), "```"].join("\n")),
+    ).toEqual(fullResponse);
+    expect(parseEvaluatorResponse(JSON.stringify(response))).not.toBeNull();
+  });
+
+  it("routes malformed, empty, and invalid evaluator responses through fail-safe normalization", () => {
+    for (const response of [
+      "not json",
+      "",
+      "   ",
+      ["```json", '{"broken":', "```"].join("\n"),
+      "null",
+    ]) {
+      const parsed = parseEvaluatorResponse(response);
+      const normalized = normalizeEvaluatorResult(parsed);
+      expect(normalized.status).toBe("malformed");
+      expect(
+        Object.values(normalized.dimensions).every((dimension) => dimension.status === "fail"),
+      ).toBe(true);
+    }
   });
 
   it("distinguishes semantic changes from deterministic contract failures", () => {

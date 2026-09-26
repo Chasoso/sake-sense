@@ -13,6 +13,7 @@ import {
   buildEvaluatorPrompt,
   evaluatorDimensions,
   normalizeEvaluatorResult,
+  parseEvaluatorResponse,
   summarizeEvaluatorResults,
 } from "./semantic-evaluator.mjs";
 
@@ -285,7 +286,7 @@ async function createLiveJudge(env) {
       (item) => typeof item.text === "string",
     )?.text;
     if (!text) throw new Error("live evaluator returned no text");
-    return JSON.parse(text);
+    return parseEvaluatorResponse(text);
   };
 }
 
