@@ -5,6 +5,14 @@ const ALLOWED_ACTIONS = new Set(["Add", "Modify"]);
 const SAFE_REPLACEMENTS = new Set([false, "False", "Never"]);
 const BLOCKED_REPLACEMENTS = new Set([true, "True", "Conditional"]);
 
+function isExplicitlyAllowedRemoval(change) {
+  return (
+    change.Action === "Remove" &&
+    change.LogicalResourceId === "AdminOptionsRoute" &&
+    change.ResourceType === "AWS::ApiGatewayV2::Route"
+  );
+}
+
 function safeChangeSummary(resourceChange = {}) {
   return {
     LogicalResourceId: resourceChange.LogicalResourceId ?? "unknown",
@@ -47,6 +55,15 @@ export function evaluateChangeSet(changeSet) {
 
   const changes = changeSet.Changes.map((entry) => safeChangeSummary(entry?.ResourceChange));
   for (const change of changes) {
+    if (change.Action === "Remove") {
+      if (isExplicitlyAllowedRemoval(change)) continue;
+      return {
+        status: "blocked",
+        reason: "unsupported_action:Remove",
+        changes,
+      };
+    }
+
     if (!ALLOWED_ACTIONS.has(change.Action)) {
       return {
         status: "blocked",
