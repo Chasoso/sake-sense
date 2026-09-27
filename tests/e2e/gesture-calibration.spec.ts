@@ -66,10 +66,10 @@ const smoothCurve: SyntheticSample[] = [0, 1, 2, 3, 4, 5].map((index) => ({
   family: "smooth-curve",
   variantId: `smooth-curve-${index + 1}`,
   points: Array.from({ length: 7 }, (_, pointIndex) => ({
-    // Keep the path comfortably inside the smooth-flow speed boundary and
-    // below the broad-spreading spread boundary under CI pointer timing.
-    x: 55 + pointIndex * 20,
-    y: 82 + Math.round(Math.sin((pointIndex / 6) * Math.PI) * (20 + index * 2)),
+    // Keep the path comfortably inside the smooth-flow speed boundary under
+    // CI pointer timing while remaining distinct from broad spreading.
+    x: 55 + pointIndex * 18,
+    y: 82 + Math.round(Math.sin((pointIndex / 6) * Math.PI) * (14 + index * 2)),
   })),
   intervalsMs: [120, 120, 120, 120, 120, 450],
 }));
