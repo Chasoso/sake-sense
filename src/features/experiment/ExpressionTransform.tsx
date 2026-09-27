@@ -31,7 +31,6 @@ import {
   projectNormalizedPointToViewport,
 } from "../body/body-camera-cover";
 
-const BODY_WORD_DRIFT_X = [10, -11, 12, -10] as const;
 const BODY_WORD_DRIFT_Y = [-15, 17, -18, 14] as const;
 const BODY_WORD_FLOAT_DURATION_MS = [3600, 4200, 3800, 4400] as const;
 const BODY_WORD_FLOAT_DELAY_MS = [0, 220, 440, 660] as const;
@@ -318,7 +317,6 @@ export function ExpressionTransform(props: ExpressionTransformProps) {
                     top: `${18 + Math.floor(index / 2) * 28}%`,
                     animationDelay: `${BODY_WORD_FLOAT_DELAY_MS[index] ?? index * 220}ms`,
                     animationDuration: `${(BODY_WORD_FLOAT_DURATION_MS[index] ?? 4000) / 1000}s`,
-                    "--body-word-drift-x": `${BODY_WORD_DRIFT_X[index] ?? 10}px`,
                     "--body-word-drift-y": `${BODY_WORD_DRIFT_Y[index] ?? -15}px`,
                     transitionDelay: `${BODY_WORD_FLOAT_DELAY_MS[index] ?? index * 220}ms`,
                   } as CSSProperties
