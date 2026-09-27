@@ -1100,9 +1100,8 @@ export function BodyExperiment({
         });
       }
     }
-    if (bodyLandmarks && !bodyHybridSegmentationEnabled) {
-      const canvas = canvasRef.current;
-      if (canvas) drawPose(canvas, bodyLandmarks);
+    if (bodyLandmarks && !BODY_HYBRID_SEGMENTATION_ENABLED) {
+      drawPose(canvasRef.current!, bodyLandmarks);
     }
     if (isRecording && bodyLandmarks) {
       framesRef.current.push({ t: elapsed, landmarks: bodyLandmarks });
