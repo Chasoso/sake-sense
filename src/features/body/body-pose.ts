@@ -9,6 +9,10 @@ export function isCameraSupported(): boolean {
   return typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
 }
 
+export function isBodySegmentationEnabled(search: string): boolean {
+  return new URLSearchParams(search).get("bodySegmentation") !== "off";
+}
+
 export async function createBodyPoseLandmarker(): Promise<PoseLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(VISION_WASM_URL);
   return PoseLandmarker.createFromOptions(vision, {
@@ -19,13 +23,15 @@ export async function createBodyPoseLandmarker(): Promise<PoseLandmarker> {
 }
 
 /** Creates the presentation landmarker; segmentation remains display-only. */
-export async function createBodySegmentationLandmarker(): Promise<PoseLandmarker> {
+export async function createBodySegmentationLandmarker(
+  outputSegmentationMasks = true,
+): Promise<PoseLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(VISION_WASM_URL);
   return PoseLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: POSE_MODEL_URL },
     runningMode: "VIDEO",
     numPoses: 1,
-    outputSegmentationMasks: true,
+    outputSegmentationMasks,
   });
 }
 
