@@ -9,7 +9,12 @@ import {
   type BodyPoseFrame,
 } from "../../domain/body";
 import { getReplayDurationMs } from "../../domain/body-replay";
-import { createBodySegmentationLandmarker, isCameraSupported, toBodyLandmarks } from "./body-pose";
+import {
+  createBodySegmentationLandmarker,
+  isBodySegmentationEnabled,
+  isCameraSupported,
+  toBodyLandmarks,
+} from "./body-pose";
 import { Result } from "../experiment/Experiment";
 import { ExperienceBrand } from "../experiment/ExperienceBrand";
 import { useScreenScrollReset } from "../experiment/use-screen-scroll-reset";
@@ -468,6 +473,9 @@ export function BodyExperiment({
     null,
   );
   const segmentationSpike = isSegmentationSpikeEnabled();
+  const bodySegmentationEnabled =
+    typeof window === "undefined" || isBodySegmentationEnabled(window.location.search);
+  const bodyHybridSegmentationEnabled = BODY_HYBRID_SEGMENTATION_ENABLED && bodySegmentationEnabled;
 
   const resetDisplayedContour = () => {
     contourStabilizerRef.current.reset();
@@ -685,7 +693,7 @@ export function BodyExperiment({
         actualFacingMode === "user" || actualFacingMode === "environment"
           ? actualFacingMode
           : undefined;
-      const landmarker = await createBodySegmentationLandmarker();
+      const landmarker = await createBodySegmentationLandmarker(bodySegmentationEnabled);
       if (requestId !== cameraRequestIdRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         landmarker.close();
@@ -726,7 +734,7 @@ export function BodyExperiment({
     const detection = landmarker.detectForVideo(video, timestamp);
     const poseMaskMs = readSegmentationSpikeClock() - poseStartedAt;
     const bodyLandmarks = detection.landmarks[0] ? toBodyLandmarks(detection.landmarks[0]) : null;
-    if (BODY_HYBRID_SEGMENTATION_ENABLED) {
+    if (bodyHybridSegmentationEnabled) {
       const cameraCanvas = segmentationCameraRef.current;
       if (cameraCanvas) {
         cameraCanvas

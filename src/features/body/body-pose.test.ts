@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCameraSupported, toBodyLandmarks } from "./body-pose";
+import { isBodySegmentationEnabled, isCameraSupported, toBodyLandmarks } from "./body-pose";
 
 describe("body pose capture boundary", () => {
   it("converts pose landmarks to the local observable shape", () => {
@@ -10,5 +10,18 @@ describe("body pose capture boundary", () => {
 
   it("reports camera capability without starting a capture", () => {
     expect(typeof isCameraSupported()).toBe("boolean");
+  });
+});
+
+describe("body segmentation URL option", () => {
+  it("keeps segmentation enabled by default", () => {
+    expect(isBodySegmentationEnabled("")).toBe(true);
+    expect(isBodySegmentationEnabled("?bodySegmentation=on")).toBe(true);
+  });
+
+  it("disables segmentation only for the explicit off value", () => {
+    expect(isBodySegmentationEnabled("?bodySegmentation=off")).toBe(false);
+    expect(isBodySegmentationEnabled("?bodySegmentation=off&mode=body")).toBe(false);
+    expect(isBodySegmentationEnabled("?bodySegmentation=OFF")).toBe(true);
   });
 });
